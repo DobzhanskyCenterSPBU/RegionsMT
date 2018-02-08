@@ -40,14 +40,14 @@ struct message_info_time_diff {
     char *descr;
 };
 
-size_t message_info_time_diff(char *, size_t, struct message_info_time_diff *);
+size_t message_info_time_diff(char *, size_t, void *);
 
 struct message_error_crt {
     struct message base;
     Errno_t code;
 };
 
-size_t message_error_crt(char *, size_t, struct message_error_crt *);
+size_t message_error_crt(char *, size_t, void *);
 size_t message_var_generic(char *, size_t, void *, char *, va_list);
 
 #define DECLARE_PATH \
@@ -58,7 +58,7 @@ size_t message_var_generic(char *, size_t, void *, char *, va_list);
         .path = Path, \
         .func = __func__, \
         .line = __LINE__, \
-        .handler = (message_callback) (Handler), \
+        .handler = (Handler), \
         .type = (Type) \
     }
 
@@ -67,7 +67,7 @@ size_t message_var_generic(char *, size_t, void *, char *, va_list);
         .path = Path, \
         .func = __func__, \
         .line = __LINE__, \
-        .handler_var = (message_callback_var) (Handler_var), \
+        .handler_var = (Handler_var), \
         .type = (Type) \
     }
 

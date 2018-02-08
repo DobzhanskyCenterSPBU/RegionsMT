@@ -5,8 +5,9 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-size_t message_info_time_diff(char *buff, size_t buff_cap, struct message_info_time_diff *context)
+size_t message_info_time_diff(char *buff, size_t buff_cap, void *Context)
 {
+    struct message_info_time_diff *context = Context;
     int res = 0;
     if (context->stop >= context->start)
     {
@@ -23,8 +24,9 @@ size_t message_info_time_diff(char *buff, size_t buff_cap, struct message_info_t
     return (size_t) MAX(res, 0);
 }
 
-size_t message_error_crt(char *buff, size_t buff_cap, struct message_error_crt *context)
+size_t message_error_crt(char *buff, size_t buff_cap, void *Context)
 {
+    struct message_error_crt *context = Context;
     if (!Strerror_s(buff, buff_cap, context->code))
     {
         size_t len = Strnlen(buff, buff_cap);
@@ -48,7 +50,7 @@ size_t message_var_generic(char *buff, size_t buff_cap, void *context, char *for
 
 bool log_init(struct log *restrict log, char *restrict path, size_t buff_cap)
 {
-    if (array_init((void **) &log->buff, &buff_cap, sizeof(*log->buff), 0, 0))
+    if (array_init(&log->buff, &buff_cap, sizeof(*log->buff), 0, 0))
     {
         log->buff_cap = buff_cap;
         if (path)

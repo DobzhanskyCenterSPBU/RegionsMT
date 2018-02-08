@@ -66,18 +66,21 @@ void *realloc3(void *src, size_t *restrict p_cap, size_t sz, size_t diff)
     return NULL;
 }
 
-bool array_init_strict(void **restrict p_arr, size_t cap, size_t sz, size_t diff, bool clr)
+bool array_init_strict(void *p_Arr, size_t cap, size_t sz, size_t diff, bool clr)
 {
+    void **restrict p_arr = p_Arr;
     return (*p_arr = malloc2(cap, sz, diff, clr)) != NULL || !((cap && sz) || diff);
 }
 
-bool array_init(void **restrict p_arr, size_t *restrict p_cap, size_t sz, size_t diff, bool clr)
+bool array_init(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, bool clr)
 {
+    void **restrict p_arr = p_Arr;
     return (*p_arr = malloc3(p_cap, sz, diff, clr)) != NULL || !((*p_cap && sz) || diff);
 }
 
-bool array_resize_strict(void **restrict p_arr, size_t cap, size_t sz, size_t diff, enum array_resize_mode mode, size_t *restrict args, size_t args_cnt)
+bool array_resize_strict(void *p_Arr, size_t cap, size_t sz, size_t diff, enum array_resize_mode mode, size_t *restrict args, size_t args_cnt)
 {
+    void **restrict p_arr = p_Arr;
     size_t car, cnt = size_sum(&car, args, args_cnt);
     if (!car)
     {
@@ -94,8 +97,9 @@ bool array_resize_strict(void **restrict p_arr, size_t cap, size_t sz, size_t di
     return 0;
 }
 
-bool array_resize(void **restrict p_arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_resize_mode mode, size_t *restrict args, size_t args_cnt)
+bool array_resize(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_resize_mode mode, size_t *restrict args, size_t args_cnt)
 {
+    void **restrict p_arr = p_Arr;
     size_t car, cnt = size_sum(&car, args, args_cnt);
     if (!car)
     {

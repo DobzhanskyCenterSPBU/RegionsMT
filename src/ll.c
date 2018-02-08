@@ -62,15 +62,13 @@ void bit_set2_interlocked(volatile uint8_t *arr, size_t bit)
     else __atomic_or_fetch((volatile uint16_t *) (arr + (bit >> 3)), 0x180, __ATOMIC_ACQ_REL);
 }
 
-void size_inc_interlocked(volatile size_t *mem, const void *arg)
+void size_inc_interlocked(volatile size_t *mem)
 {
-    (void) arg;
     __atomic_add_fetch(mem, 1, __ATOMIC_ACQ_REL);
 }
 
-void size_dec_interlocked(volatile size_t *mem, const void *arg)
+void size_dec_interlocked(volatile size_t *mem)
 {
-    (void) arg;
     __atomic_sub_fetch(mem, 1, __ATOMIC_ACQ_REL);
 }
 
@@ -213,15 +211,13 @@ uint32_t uint32_bit_scan_forward(uint32_t x)
 
 #   ifdef _M_X64
 
-void size_inc_interlocked(volatile size_t *mem, const void *arg)
+void size_inc_interlocked(volatile size_t *mem)
 {
-    (void) arg;
     _InterlockedIncrement64((volatile __int64 *) mem);
 }
 
-void size_dec_interlocked(volatile size_t *mem, const void *arg)
+void size_dec_interlocked(volatile size_t *mem)
 {
-    (void) arg;
     _InterlockedDecrement64((volatile __int64 *) mem);
 }
 
@@ -269,16 +265,14 @@ size_t size_bit_scan_forward(size_t x)
 
 #   elif defined _M_IX86
 
-void size_inc_interlocked(volatile size_t *mem, const void *arg)
+void size_inc_interlocked(volatile size_t *mem)
 {
-    (void) arg;
-    _InterlockedIncrement((long *) mem);
+    _InterlockedIncrement((volatile long *) mem);
 }
 
-void size_dec_interlocked(volatile size_t *mem, const void *arg)
+void size_dec_interlocked(volatile size_t *mem)
 {
-    (void) arg;
-    _InterlockedDecrement((long *) mem);
+    _InterlockedDecrement((volatile long *) mem);
 }
 
 #   endif
@@ -333,19 +327,31 @@ DECLARE_LOAD_ACQUIRE(uint32_t, uint32)
 DECLARE_LOAD_ACQUIRE(uint64_t, uint64)
 DECLARE_LOAD_ACQUIRE(size_t, size)
 
-void bit_set_interlocked_p(volatile uint8_t *arr, const size_t *p_bit)
+void bit_set_interlocked_p(volatile void *arr, const void *p_bit)
 {
-    bit_set_interlocked(arr, *p_bit);
+    bit_set_interlocked(arr, *(const size_t *) p_bit);
 }
 
-void bit_reset_interlocked_p(volatile uint8_t *arr, const size_t *p_bit)
+void bit_reset_interlocked_p(volatile void *arr, const void *p_bit)
 {
-    bit_reset_interlocked(arr, *p_bit);
+    bit_reset_interlocked(arr, *(const size_t *) p_bit);
 }
 
-void bit_set2_interlocked_p(volatile uint8_t *arr, const size_t *p_bit)
+void bit_set2_interlocked_p(volatile void *arr, const void *p_bit)
 {
-    bit_set2_interlocked(arr, *p_bit);
+    bit_set2_interlocked(arr, *(const size_t *) p_bit);
+}
+
+void size_inc_interlocked_p(volatile void *mem, const void *arg)
+{
+    (void) arg;
+    size_inc_interlocked(mem);
+}
+
+void size_dec_interlocked_p(volatile void *mem, const void *arg)
+{
+    (void) arg;
+    size_dec_interlocked(mem);
 }
 
 uint8_t bit_get2_acquire(volatile uint8_t *arr, size_t bit)
@@ -360,9 +366,9 @@ bool bit_test2_acquire(volatile uint8_t *arr, size_t bit)
     return bit_get2_acquire(arr, bit) == 3;
 }
 
-bool bit_test2_acquire_p(volatile uint8_t *arr, const size_t *p_bit)
+bool bit_test2_acquire_p(volatile void *arr, const void *p_bit)
 {
-    return bit_test2_acquire(arr, *p_bit);
+    return bit_test2_acquire(arr, *(const size_t *) p_bit);
 }
 
 bool bit_test_range_acquire(volatile uint8_t *arr, size_t cnt)
@@ -378,9 +384,9 @@ bool bit_test_range_acquire(volatile uint8_t *arr, size_t cnt)
     return 1;
 }
 
-bool bit_test_range_acquire_p(volatile uint8_t *arr, const size_t *p_cnt)
+bool bit_test_range_acquire_p(volatile void *arr, const void *p_cnt)
 {
-    return bit_test_range_acquire(arr, *p_cnt);
+    return bit_test_range_acquire(arr, *(const size_t *) p_cnt);
 }
 
 bool bit_test2_range_acquire(volatile uint8_t *arr, size_t cnt)
@@ -396,15 +402,20 @@ bool bit_test2_range_acquire(volatile uint8_t *arr, size_t cnt)
     return 1;
 }
 
-bool bit_test2_range_acquire_p(volatile uint8_t *arr, const size_t *p_cnt)
+bool bit_test2_range_acquire_p(volatile void *arr, const void *p_cnt)
 {
-    return bit_test2_range_acquire(arr, *p_cnt);
+    return bit_test2_range_acquire(arr, *(const size_t *) p_cnt);
 }
 
-bool size_test_acquire(volatile size_t *mem, const void *arg)
+bool size_test_acquire(volatile size_t *mem)
+{
+    return !!size_load_acquire(mem);
+}
+
+bool size_test_acquire_p(volatile void *mem, const void *arg)
 {
     (void) arg;
-    return !!size_load_acquire(mem);
+    return size_test_acquire(mem);
 }
 
 uint8_t uint8_bit_scan_reverse(uint8_t x)

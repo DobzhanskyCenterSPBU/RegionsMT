@@ -12,20 +12,21 @@ struct thunk {
     void *context;
 };
 
-static bool generic_cmp(const uintptr_t *a, const uintptr_t *b, struct thunk *thunk)
+static bool generic_cmp(const void *a, const void *b, void *Thunk)
 {
-    int res = thunk->cmp((const void *) *a, (const void *) *b, thunk->context);
-    if (res > 0 || (!res && *a > *b)) return 1;
+    struct thunk *restrict thunk = Thunk;
+    int res = thunk->cmp(*(const void **) a, *(const void **) b, thunk->context);
+    if (res > 0 || (!res && *(const uintptr_t *) a > *(const uintptr_t *) b)) return 1;
     return 0;
 }
 
 uintptr_t *orders_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
-    uintptr_t *restrict res = NULL;
-    if (!array_init_strict((void **) &res, cnt, sizeof(*res), 0, 0)) return NULL;
+    uintptr_t *res = NULL;
+    if (!array_init_strict(&res, cnt, sizeof(*res), 0, 0)) return NULL;
 
     for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
-    quick_sort(res, cnt, sizeof(*res), (cmp_callback) generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
+    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
     for (size_t i = 0; i < cnt; res[i] = (res[i] - (uintptr_t) arr) / sz, i++);
 
     return res;
@@ -34,11 +35,11 @@ uintptr_t *orders_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback c
 uintptr_t *orders_stable_unique(void *arr, size_t *p_cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     size_t cnt = *p_cnt;
-    uintptr_t *restrict res = NULL;
-    if (!array_init_strict((void **) &res, cnt, sizeof(*res), 0, 0)) return NULL;
+    uintptr_t *res = NULL;
+    if (!array_init_strict(&res, cnt, sizeof(*res), 0, 0)) return NULL;
     
     for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
-    quick_sort(res, cnt, sizeof(*res), (cmp_callback) generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
+    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
 
     uintptr_t tmp = 0;
     size_t ucnt = 0;
@@ -48,7 +49,7 @@ uintptr_t *orders_stable_unique(void *arr, size_t *p_cnt, size_t sz, stable_cmp_
     for (size_t i = 1; i < cnt; i++)
         if (cmp((const void *) tmp, (const void *) res[i], context)) tmp = res[i], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
     
-    if (array_resize_strict((void **) &res, cnt, sizeof(*res), 0, ARRAY_RESIZE_REDUCE_ONLY, ARG_S(ucnt)))
+    if (array_resize_strict(&res, cnt, sizeof(*res), 0, ARRAY_RESIZE_REDUCE_ONLY, ARG_S(ucnt)))
     {
         *p_cnt = ucnt;
         return res;
@@ -61,8 +62,8 @@ uintptr_t *orders_stable_unique(void *arr, size_t *p_cnt, size_t sz, stable_cmp_
 
 uintptr_t *ranks_from_orders(const uintptr_t *restrict arr, size_t cnt)
 {
-    uintptr_t *restrict res = NULL;
-    if (!array_init_strict((void **) &res, cnt, sizeof(*res), 0, 0)) return NULL;
+    uintptr_t *res = NULL;
+    if (!array_init_strict(&res, cnt, sizeof(*res), 0, 0)) return NULL;
     
     for (size_t i = 0; i < cnt; res[arr[i]] = i, i++);
     return res;
@@ -70,8 +71,8 @@ uintptr_t *ranks_from_orders(const uintptr_t *restrict arr, size_t cnt)
 
 bool ranks_from_orders_inplace(uintptr_t *restrict arr, uintptr_t base, size_t cnt, size_t sz)
 {
-    uint8_t *restrict bits = NULL;
-    if (!array_init_strict((void **) &bits, BYTE_CNT(cnt), sizeof(*bits), 0, 1)) return 0;
+    uint8_t *bits = NULL;
+    if (!array_init_strict(&bits, BYTE_CNT(cnt), sizeof(*bits), 0, 1)) return 0;
 
     for (size_t i = 0; i < cnt; i++)
     {
@@ -93,11 +94,11 @@ bool ranks_from_orders_inplace(uintptr_t *restrict arr, uintptr_t base, size_t c
 
 uintptr_t *ranks_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
-    uintptr_t *restrict res = NULL;
-    if (!array_init_strict((void **) &res, cnt, sizeof(*res), 0, 0)) return NULL;
+    uintptr_t *res = NULL;
+    if (!array_init_strict(&res, cnt, sizeof(*res), 0, 0)) return NULL;
     
     for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
-    quick_sort(res, cnt, sizeof(*res), (cmp_callback) generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
+    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
     if (ranks_from_orders_inplace(res, (uintptr_t) arr, cnt, sz)) return res;
     
     free(res);

@@ -13,10 +13,10 @@ DECLARE_PATH
 
 struct utf8_test { uint32_t val; uint8_t *utf8; uint8_t utf8_len; uint16_t *utf16; uint8_t utf16_len; };
 
-bool utf8_test_len(struct utf8_test *in, union message_test *p_error)
+bool utf8_test_len(struct utf8_test *in, union message_test *p_message)
 {
     uint8_t len = utf8_len(in->val);
-    if (len != in->utf8_len) p_error-> = MESSAGE_ERROR_TEST(i);
+    if (len != in->utf8_len) p_message-> = MESSAGE_ERROR_TEST(i);
     else return 1;
     return 0;
 }

@@ -337,11 +337,11 @@ size_t thread_pool_dispose(struct thread_pool *pool, size_t *p_pend)
 
     for (size_t i = 0; i < pool->cnt; i++)
     {
-        uintptr_t temp = 0;
-        thread_wait(&pool->threads[i], (thread_return *) &temp);
+        thread_return temp = (thread_return) 0;
+        thread_wait(&pool->threads[i], &temp);
         thread_close(&pool->threads[i]);
 
-        if ((thread_return) temp) res++;
+        if (temp) res++;
     }
 
     tls_close(&pool->tls);

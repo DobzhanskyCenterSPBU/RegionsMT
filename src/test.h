@@ -12,7 +12,7 @@ size_t message_info_test(char *, size_t, struct message *);
 
 #define MESSAGE_ERROR_TEST(Ind) \
     ((struct message_error_test) { \
-        .base = MESSAGE(message_error_test, MESSAGE_TYPE_ERROR), \
+        .base = MESSAGE(message_error_test, MESSAGE_TYPE_INFO), \
         .ind = (Ind) \
     })
 

@@ -234,7 +234,7 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
             }
             else
             {
-                if (!array_resize((void **) p_input, p_input_cap,  sizeof (**p_input), 0, ARRAY_RESIZE_EXTEND_ONLY, ARG_S(input_cnt, 1)))
+                if (!array_resize(p_input, p_input_cap,  sizeof (**p_input), 0, ARRAY_RESIZE_EXTEND_ONLY, ARG_S(input_cnt, 1)))
                     log_message(log, &MESSAGE_ERROR_CRT(errno).base);
                 else
                 {
@@ -246,7 +246,7 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
         }
     }
 
-    if (!array_resize((void **) p_input, p_input_cap, sizeof(**p_input), 0, ARRAY_RESIZE_REDUCE_ONLY, ARG_S(input_cnt))) 
+    if (!array_resize(p_input, p_input_cap, sizeof(**p_input), 0, ARRAY_RESIZE_REDUCE_ONLY, ARG_S(input_cnt))) 
         log_message(log, &MESSAGE_ERROR_CRT(errno).base);
     else return 1;
     return 0;

@@ -27,32 +27,37 @@ uint64_t uint64_load_acquire(volatile uint64_t *);
 size_t size_load_acquire(volatile size_t *);
 
 void bit_set_interlocked(volatile uint8_t *, size_t);
-void bit_set_interlocked_p(volatile uint8_t *, const size_t *);
+void bit_set_interlocked_p(volatile void *, const void *);
 void bit_reset_interlocked(volatile uint8_t *, size_t);
-void bit_reset_interlocked_p(volatile uint8_t *, const size_t *);
+void bit_reset_interlocked_p(volatile void *, const void *);
 
 // Sets two bits starting from the selected position specified by 2nd argument
 void bit_set2_interlocked(volatile uint8_t *, size_t);
-void bit_set2_interlocked_p(volatile uint8_t *, const size_t *);
+void bit_set2_interlocked_p(volatile void *, const void *);
 
-void size_inc_interlocked(volatile size_t *, const void *);
-void size_dec_interlocked(volatile size_t *, const void *);
-bool size_test_acquire(volatile size_t *, const void *);
+void size_inc_interlocked(volatile size_t *);
+void size_inc_interlocked_p(volatile void *, const void *);
+
+void size_dec_interlocked(volatile size_t *);
+void size_dec_interlocked_p(volatile void *, const void *);
+
+bool size_test_acquire(volatile size_t *);
+bool size_test_acquire_p(volatile void *, const void *);
 
 // Gets two bits starting from the position specified by 2nd argument 
 uint8_t bit_get2_acquire(volatile uint8_t *, size_t);
 
 // Tests if two bits starting from the position specified by 2nd argument are set 
 bool bit_test2_acquire(volatile uint8_t *, size_t);
-bool bit_test2_acquire_p(volatile uint8_t *, const size_t *);
+bool bit_test2_acquire_p(volatile void *, const void *);
 
 // Tests if first N bits are set where N specified by 2nd argument 
 bool bit_test_range_acquire(volatile uint8_t *, size_t);
-bool bit_test_range_acquire_p(volatile uint8_t *, const size_t *);
+bool bit_test_range_acquire_p(volatile void *, const void *);
 
 // Tests if first N pairs of bits are '01' or '11' where N specified by 2nd argument 
 bool bit_test2_range_acquire(volatile uint8_t *, size_t);
-bool bit_test2_range_acquire_p(volatile uint8_t *, const size_t *);
+bool bit_test2_range_acquire_p(volatile void *, const void *);
 
 size_t size_add(size_t *, size_t, size_t);
 size_t size_sub(size_t *, size_t, size_t);

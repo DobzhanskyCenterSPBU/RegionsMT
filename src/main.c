@@ -340,7 +340,7 @@ int wmain(int argc, wchar_t **wargv)
 
     // Translating UTF-16 command-line parameters into UTF-8
     char **argv;
-    if (array_init_strict((void **) &argv, argc, sizeof(*argv), 0, 0))
+    if (array_init_strict(&argv, argc, sizeof(*argv), 0, 0))
     {
         size_t base_cnt = 0, i;
         for (i = 0; i < (size_t) argc; i++) // Determining total length and performing error checking
@@ -362,7 +362,7 @@ int wmain(int argc, wchar_t **wargv)
         if (i == (size_t) argc)
         {
             char *base;
-            if (array_init_strict((void **) &base, base_cnt, sizeof(*base), 0, 0))
+            if (array_init_strict(&base, base_cnt, sizeof(*base), 0, 0))
             {
                 char *byte = base;
                 for (i = 0; i < (size_t) argc; i++) // Performing translation
