@@ -50,15 +50,19 @@ static void merge_sorted_arrays(void *restrict arr, void *restrict temp, size_t 
     memcpy(arr, temp, tot);
 }
 
-static bool merge_thread_proc(struct merge_args *args, struct sort_context *context)
+static bool merge_thread_proc(void *Args, void *Context)
 {
+    struct merge_args *restrict args = Args;
+    struct sort_context *restrict context = Context;
     const size_t off = args->off * context->sz;
     merge_sorted_arrays((char *) context->arr + off, (char *) context->temp + off, args->pvt, args->len, context->sz, context->cmp, context->context);
     return 1;
 }
 
-static bool sort_thread_proc(struct sort_args *args, struct sort_context *context)
+static bool sort_thread_proc(void *Args, void *Context)
 {
+    struct sort_args *restrict args = Args;
+    struct sort_context *restrict context = Context;
     const size_t off = args->off * context->sz;
     quick_sort((char *) context->arr + off, args->len, context->sz, context->cmp, context->context);
     return 1;
@@ -85,9 +89,9 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
     struct sort_mt *res;
     if ((res = calloc(1, sizeof(*res))) != NULL &&
         (res->sync = calloc((s_cnt + 3) >> 2, 1)) != NULL && // No overflow happens (cf. previous comment), s_cnt > 0
-        array_init_strict((void **) &res->s_args, s_cnt, sizeof(*res->s_args), 0, 0) &&
-        array_init_strict((void **) &res->m_args, m_cnt, sizeof(*res->m_args), 0, 0) &&
-        array_init_strict((void **) &res->context.temp, cnt, sz, 0, 0))
+        array_init_strict(&res->s_args, s_cnt, sizeof(*res->s_args), 0, 0) &&
+        array_init_strict(&res->m_args, m_cnt, sizeof(*res->m_args), 0, 0) &&
+        array_init_strict(&res->context.temp, cnt, sz, 0, 0))
     {
         res->context = (struct sort_context) { .arr = arr, .cnt = cnt, .sz = sz, .cmp = cmp, .context = context };
         res->s_args[0] = (struct sort_args) { .off = 0, .len = cnt };
@@ -106,17 +110,17 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
 
         if (m_cnt)
         {
-            if (array_init_strict((void **) &res->tasks, s_cnt + m_cnt, sizeof(*res->tasks), 0, 0) &&
-                array_init_strict((void **) &res->args, s_cnt + m_cnt - 1, sizeof(*res->args), 0, 0))
+            if (array_init_strict(&res->tasks, s_cnt + m_cnt, sizeof(*res->tasks), 0, 0) &&
+                array_init_strict(&res->args, s_cnt + m_cnt - 1, sizeof(*res->args), 0, 0))
             {
                 // Assigning sorting tasks
                 for (size_t i = 0; i < s_cnt; i++)
                 {
                     res->args[i] = i;
                     res->tasks[i] = (struct task) {
-                        .callback = (task_callback) sort_thread_proc,
+                        .callback = sort_thread_proc,
                         .cond = snc->cond,
-                        .a_succ = (aggregator_callback) bit_set_interlocked_p,
+                        .a_succ = bit_set_interlocked_p,
                         .arg = &res->s_args[i],
                         .context = &res->context,
                         .cond_mem = snc->cond_mem,
@@ -131,9 +135,9 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
                 {
                     res->args[j] = j;
                     res->tasks[j] = (struct task) {
-                        .callback = (task_callback) merge_thread_proc,
-                        .cond = (condition_callback) bit_test2_acquire_p,
-                        .a_succ = (aggregator_callback) bit_set_interlocked_p,
+                        .callback = merge_thread_proc,
+                        .cond = bit_test2_acquire_p,
+                        .a_succ = bit_set_interlocked_p,
                         .arg = &res->m_args[i],
                         .context = &res->context,
                         .cond_mem = res->sync,
@@ -145,8 +149,8 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
 
                 // Last merging task requires special handling
                 res->tasks[s_cnt + m_cnt - 1] = (struct task) {
-                    .callback = (task_callback) merge_thread_proc,
-                    .cond = (condition_callback) bit_test2_acquire_p,
+                    .callback = merge_thread_proc,
+                    .cond = bit_test2_acquire_p,
                     .a_succ = snc->a_succ,
                     .arg = &res->m_args[m_cnt - 1],
                     .context = &res->context,
@@ -165,7 +169,7 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
             {
                 *res->tasks = (struct task)
                 {
-                    .callback = (task_callback) sort_thread_proc,
+                    .callback = sort_thread_proc,
                     .cond = snc->cond,
                     .a_succ = snc->a_succ,
                     .arg = &res->s_args[0],

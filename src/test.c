@@ -227,6 +227,18 @@ bool perf()
     return 1;
 }
 
+typedef bool (*test_generator_callback)(void *, size_t *);
+typedef bool (*test_callback)(void *, struct message *);
+
+
+struct test {
+    test_generator_callback test_generator;
+    struct {
+        test_callback *test;
+        size_t test_cnt;
+    };
+};
+
 bool test(struct log *log)
 {
     char *fs[] = { "Failed", "Succeeded" };
