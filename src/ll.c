@@ -458,26 +458,26 @@ void bit_reset(uint8_t *arr, size_t bit)
     arr[bit >> 3] &= ~(1 << (bit & 7));
 }
 
-int flt64_stable_cmp_dsc(const double *p_a, const double *p_b, void *context)
+int flt64_stable_cmp_dsc(const void *a, const void *b, void *thunk)
 {
-    (void) context;
-    __m128d ab = _mm_loadh_pd(_mm_load_sd(p_a), p_b);
+    (void) thunk;
+    __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b);
     __m128i res = _mm_castpd_si128(_mm_cmplt_pd(ab, _mm_permute_pd(ab, 1)));
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
 
-int flt64_stable_cmp_dsc_abs(const double *p_a, const double *p_b, void *context)
+int flt64_stable_cmp_dsc_abs(const void *a, const void *b, void *thunk)
 {
-    (void) context;
-    __m128d ab = _mm_and_pd(_mm_loadh_pd(_mm_load_sd(p_a), p_b), _mm_castsi128_pd(_mm_set1_epi64x(0x7fffffffffffffff)));
+    (void) thunk;
+    __m128d ab = _mm_and_pd(_mm_loadh_pd(_mm_load_sd(a), b), _mm_castsi128_pd(_mm_set1_epi64x(0x7fffffffffffffff)));
     __m128i res = _mm_castpd_si128(_mm_cmplt_pd(ab, _mm_permute_pd(ab, 1)));
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
 
-int flt64_stable_cmp_dsc_nan(const double *p_a, const double *p_b, void *context)
+int flt64_stable_cmp_dsc_nan(const void *a, const void *b, void *thunk)
 {
-    (void) context;
-    __m128d ab = _mm_loadh_pd(_mm_load_sd(p_a), p_b);
+    (void) thunk;
+    __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b);
     __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), _CMP_NLE_UQ)));
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }

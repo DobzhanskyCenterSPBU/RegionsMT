@@ -37,6 +37,7 @@ struct queue {
     size_t cap, begin, cnt, sz;
 };
 
+void queue_close(struct queue *restrict);
 bool queue_init(struct queue *restrict, size_t, size_t);
 bool queue_test(struct queue *restrict, size_t);
 void *queue_peek(struct queue *restrict, size_t);

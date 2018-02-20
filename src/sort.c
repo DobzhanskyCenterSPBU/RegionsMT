@@ -12,11 +12,12 @@ struct thunk {
     void *context;
 };
 
-static bool generic_cmp(const void *a, const void *b, void *Thunk)
+static bool generic_cmp(const void *A, const void *B, void *Thunk)
 {
     struct thunk *restrict thunk = Thunk;
-    int res = thunk->cmp(*(const void **) a, *(const void **) b, thunk->context);
-    if (res > 0 || (!res && *(const uintptr_t *) a > *(const uintptr_t *) b)) return 1;
+    const void **restrict a = A, **restrict b = B;
+    int res = thunk->cmp(*a, *b, thunk->context);
+    if (res > 0 || (!res && *a > *b)) return 1;
     return 0;
 }
 

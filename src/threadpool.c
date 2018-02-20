@@ -1,3 +1,4 @@
+#include "np.h"
 #include "memory.h"
 #include "threadpool.h"
 #include "threadsupp.h"
@@ -25,7 +26,7 @@ struct thread_pool {
     volatile size_t active, terminate;
     size_t cnt;
     uint8_t *thread_bits;
-    thread_handle threads[];
+    thread_handle thread_arr[];
 };
 
 static struct task_queue *task_queue_create(size_t cap)
@@ -277,7 +278,7 @@ struct thread_pool *thread_pool_create(size_t cnt, size_t tasks_cnt, size_t stor
 {
     size_t ind;
     struct thread_pool *pool;
-    if (array_init_strict(&pool, cnt, sizeof(*pool->threads), sizeof(*pool), 1))
+    if (array_init_strict(&pool, cnt, sizeof(*pool->thread_arr), sizeof(*pool), 1))
     {
         pool->cnt = pool->active = cnt;
         if (array_init_strict(&pool->storage, pool->cnt, sizeof(*pool->storage), 0, 1))
@@ -299,12 +300,12 @@ struct thread_pool *thread_pool_create(size_t cnt, size_t tasks_cnt, size_t stor
                         {
                             if (tls_init(&pool->tls))
                             {
-                                for (ind = 0; ind < pool->cnt && thread_init(&pool->threads[ind], thread_proc, pool); ind++);
+                                for (ind = 0; ind < pool->cnt && thread_init(&pool->thread_arr[ind], thread_proc, pool); ind++);
                                 if (ind == pool->cnt) return pool;                                
                                 while (ind--)
                                 {
-                                    thread_terminate(pool->threads + ind);
-                                    thread_close(pool->threads + ind);
+                                    thread_terminate(pool->thread_arr + ind);
+                                    thread_close(pool->thread_arr + ind);
                                 }
                                 ind = pool->cnt;
                                 tls_close(&pool->tls);
@@ -338,8 +339,8 @@ size_t thread_pool_dispose(struct thread_pool *pool, size_t *p_pend)
     for (size_t i = 0; i < pool->cnt; i++)
     {
         thread_return temp = (thread_return) 0;
-        thread_wait(&pool->threads[i], &temp);
-        thread_close(&pool->threads[i]);
+        thread_wait(&pool->thread_arr[i], &temp);
+        thread_close(&pool->thread_arr[i]);
 
         if (temp) res++;
     }

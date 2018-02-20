@@ -127,6 +127,11 @@ bool queue_init(struct queue *restrict queue, size_t cap, size_t sz)
     return 1;
 }
 
+void queue_close(struct queue *restrict queue)
+{
+    free(queue->arr);
+}
+
 bool queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;

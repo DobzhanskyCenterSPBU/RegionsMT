@@ -31,7 +31,7 @@ size_t message_info_test(char *buff, size_t buff_cap, struct message *context)
     if (tmp > 0 && (size_t) tmp < buff_cap) return tmp;
     return 0;
 }
-
+/*
 bool test_ll_1()
 {
     struct { double a, b; int res; } in[] = {
@@ -227,12 +227,14 @@ bool perf()
     return 1;
 }
 
-typedef bool (*test_generator_callback)(void *, size_t *);
+*/
+
+typedef bool (*test_generator_callback)(void *, size_t *, struct message *);
 typedef bool (*test_callback)(void *, struct message *);
 
-
-struct test {
-    test_generator_callback test_generator;
+struct test_group {
+    test_generator_callback test_data_generator;
+    size_t test_data_sz, message_sz;
     struct {
         test_callback *test;
         size_t test_cnt;
@@ -241,25 +243,53 @@ struct test {
 
 bool test(struct log *log)
 {
-    char *fs[] = { "Failed", "Succeeded" };
-    bool (*test[])() = { test_ll_1 , test_ll_2, test_ll_3, test_ll_4, test_utf8 };
-    uint64_t start = get_time();
+    struct test_group group_arr[] = {
+        { 
+            utf8_test, 
+            sizeof(struct utf8_test),
+            sizeof(struct message_error_utf8_test),
+            CLII((test_callback[]) { 
+                utf8_test_len,  
+                utf8_test_encode,
+                utf8_test_decode,
+                utf16_test_encode,
+                utf16_test_decode
+            })
+        }
+    };
     
+    uint64_t start = get_time();
     size_t succ = 0;
     struct queue message_queue;
     
     if (!queue_init(&message_queue, 1, sizeof(union message_test))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
     else
     {
-        for (size_t i = 0; i < countof(test); i++)
-        {
-            if (test[i]()
+        size_t test_data_sz = 0, message_sz = 0;
+        for (size_t i = 0; i < countof(group_arr); test_data_sz += group_arr[i++].test_data_sz);
 
-            printf("Test %zu %s!\n", i, fs[(size_t) test[i]()]);
+        void *test_data = NULL, *message = NULL;
+        if (!array_init_strict(&test_data, test_data_sz, 1, 0, 0)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+        {
+            for (size_t i = 0; i < countof(group_arr); i++)
+            {
+                size_t context = 0;
+                
+                do {
+                    if (!group_arr[i].test_data_generator(test_data, &context, message)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+
+                    for (size_t j = 0; j < group_arr[i].test_cnt; j++)
+                    {
+
+                    }
+                } while (context);
+            }
+            free(test_data);
         }
+        queue_close(&message_queue);
     }
 
-    log_message(&log, &MESSAGE_INFO_TIME_DIFF(start, get_time(), "Tests execution").base);
-    log_close(&log);
+    log_message(log, &MESSAGE_INFO_TIME_DIFF(start, get_time(), "Tests execution").base);
+    log_close(log);
     return 1;
 }

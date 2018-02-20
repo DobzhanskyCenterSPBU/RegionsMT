@@ -81,6 +81,6 @@ void bit_set(uint8_t *, size_t);
 void bit_reset(uint8_t *, size_t);
 
 #define NaN (((union { double val; uint64_t bin; }) { .bin = UINT64_MAX }).val)
-int flt64_stable_cmp_dsc(const double *, const double *, void *);
-int flt64_stable_cmp_dsc_abs(const double *, const double *, void *);
-int flt64_stable_cmp_dsc_nan(const double *, const double *, void *);
+int flt64_stable_cmp_dsc(const void *, const void *, void *);
+int flt64_stable_cmp_dsc_abs(const void *, const void *, void *);
+int flt64_stable_cmp_dsc_nan(const void *, const void *, void *);
