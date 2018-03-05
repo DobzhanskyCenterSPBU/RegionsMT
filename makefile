@@ -1,14 +1,14 @@
 CC = gcc
 CC_INC_Release = /usr/include
 CC_INC_Debug = $(CC_INC_Release)
-CC_OPT_Release = -std=c11 -mavx -flto -O3 -Wall
-CC_OPT_Debug = -D_DEBUG -mavx -std=c11 -O0 -ggdb -Wall
+CC_OPT_Release = -std=c11 -O3 -Wall -mtune=native
+CC_OPT_Debug = -D_DEBUG -std=c11 -O0 -ggdb -Wall -mtune=native
 
 CXX = g++
 CXX_INC_Release = 
 CXX_INC_Debug = $(CXX_INC_Release)
-CXX_OPT_Release = -std=c++0x -mavx -flto -O3 -Wall
-CXX_OPT_Debug = -D_DEBUG -mavx -std=c++0x -O0 -ggdb -Wall
+CXX_OPT_Release = -std=c++0x -O3 -Wall -mtune=native
+CXX_OPT_Debug = -D_DEBUG -std=c++0x -O0 -ggdb -Wall -mtune=native
 
 ASM = yasm
 ASM_OPT_Release =
@@ -19,8 +19,8 @@ LD_INC_Release = /usr/lib
 LD_INC_Debug = $(LD_INC_Release)
 LD_LIB_Release = m pthread mysqlclient gsl gslcblas
 LD_LIB_Debug = $(LD_LIB_Release)
-LD_OPT_Release = -flto
-LD_OPT_Debug =
+LD_OPT_Release =
+LD_OPT_Debug = $(LD_OPT_Release)
 
 OS = $(shell uname)
 
@@ -42,9 +42,9 @@ endif
 TARGET_Release = RegionsMT-Release
 TARGET_Debug = RegionsMT-Debug
 
-OBJ_DIR_Release = ./obj-release
-OBJ_DIR_Debug = ./obj-debug
-SRC_DIR = ./src
+OBJ_DIR_Release = ./Object-Release
+OBJ_DIR_Debug = ./Object-Debug
+SRC_DIR = ./Source
 
 CONFIG = Release Debug
 

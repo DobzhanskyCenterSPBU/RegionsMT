@@ -1,0 +1,110 @@
+#pragma once
+
+#include "LoadData.h"
+#include "DataLayout.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+enum {
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_INIT_COMP = 0,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_INIT_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_CHR_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_CHR_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_CHRSUPP_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_CHRSUPP_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_TEST_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_TEST_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_IND_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_IND_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_POS_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_POS_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_ALIAS_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_ALIAS_SUCC,
+    //MYSQLDISPATCHSUPP_STAT_BIT_POS_ALLELE_COMP,
+    //MYSQLDISPATCHSUPP_STAT_BIT_POS_ALLELE_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_VIND_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_VIND_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_LPV_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_LPV_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_QAS_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_QAS_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_MAF_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_MAF_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_RLPV_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_RLPV_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_RQAS_COMP,
+    MYSQLDISPATCHSUPP_STAT_BIT_POS_RQAS_SUCC,
+    MYSQLDISPATCHSUPP_STAT_BIT_CNT
+};
+
+enum {
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADCHR = 0,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADCHRSUPP,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADTEST,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADIND,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADPOS,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADALIAS,
+    //MYSQLDISPATCHSUPP_TASKSUPP_LOADALLELE,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADVIND,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADLPV,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADQAS,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADMAF,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADRLPV,
+    MYSQLDISPATCHSUPP_TASKSUPP_LOADRQAS,
+    MYSQLDISPATCHSUPP_TASKSUPP_CNT,
+};
+
+enum {
+    MYSQLDISPATCHSUPP_TRANSSUPP_TRANSITION,
+    MYSQLDISPATCHSUPP_TRANSSUPP_CNT
+};
+
+typedef struct mysqlDispatchOut mysqlDispatchOut;
+typedef struct mysqlDispatchContext mysqlDispatchContext;
+
+typedef struct {
+    mysqlDispatchOut *out;
+    mysqlDispatchContext *context;
+} mysqlDispatchThreadContext;
+
+typedef bool (*writeCallback)(FILE *, loadDataRes *, size_t, size_t);
+
+typedef struct {
+    char *table, *primkey, *key;
+    writeCallback writeProc;
+} mysqlDispatchThreadInfo;
+
+typedef struct {
+    uint8_t stat[BYTE_CNT(MYSQLDISPATCHSUPP_STAT_BIT_CNT)];
+    mysqlDispatchThreadContext context;
+    mysqlDispatchThreadInfo inf[MYSQLDISPATCHSUPP_TASKSUPP_CNT];
+    taskSupp tasksupp[MYSQLDISPATCHSUPP_TASKSUPP_CNT];
+    transitionTaskSupp transsupp[MYSQLDISPATCHSUPP_TRANSSUPP_CNT];
+} mysqlDispatchSupp;
+
+struct mysqlDispatchContext
+{
+    char *schema, *host, *login, *password, *temppr;
+    uint32_t port;
+};
+
+typedef loadDataMetadata mysqlDispatchIn;
+
+typedef struct {
+    loadDataMetadata meta;
+    volatile uint8_t *stat;
+} mysqlDispatchMetadata;
+
+#define MYSQLDISPATCH_META(IN) ((mysqlDispatchMetadata *) (IN))
+#define MYSQLDISPATCH_META_INIT(IN, OUT, CONTEXT) { .meta = *LOADDATA_META(IN), .stat = (OUT)->supp.stat }
+
+struct mysqlDispatchOut
+{
+    mysqlDispatchMetadata meta;
+    mysqlDispatchSupp supp;
+};
+
+void mysqlDispatchContextDispose(mysqlDispatchContext *);
+bool mysqlDispatchPrologue(mysqlDispatchIn *, mysqlDispatchOut **, mysqlDispatchContext *);
+bool mysqlDispatchEpilogue(mysqlDispatchIn *, mysqlDispatchOut*, void *);
