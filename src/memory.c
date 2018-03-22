@@ -8,119 +8,84 @@
 #include <limits.h>
 #include <errno.h>
 
-void *malloc2(size_t cap, size_t sz, size_t diff, bool clr)
+// 'p_cap' -- pointer to initial capacity, cannot be NULL simultaneously with '*p_src'
+// 'cnt' -- desired capacity
+bool alloc(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum alloc_flags flags)
 {
-    size_t hi, pr = size_mul(&hi, cap, sz);
-    if (!hi)
+    void **restrict p_src = p_Src, *src = *p_src;
+    if (src)
     {
-        size_t car, cap2 = size_add(&car, pr, diff);
-        if (!car) return clr ? calloc(cap2, 1) : malloc(cap2);
-    }
-    errno = ERANGE;
-    return NULL;
-}
-
-void *malloc3(size_t *restrict p_cap, size_t sz, size_t diff, bool clr)
-{
-    size_t cap = *p_cap, log2 = size_bit_scan_reverse(cap);
-    if ((size_t) ~log2)
-    {
-        size_t cap2 = (size_t) 1 << log2;
-        if ((cap == cap2) || (cap2 <<= 1))
+        size_t cap = *p_cap, bor, tmp = size_sub(&bor, cnt, cap);
+        if (bor) // cnt < cap
         {
-            void *tmp = malloc2(cap2, sz, diff, clr);
-            *p_cap = tmp ? cap2 : 0;
-            return tmp;
-        }
-        errno = ERANGE;
-    }
-    return NULL;
-}
-
-void *realloc2(void *src, size_t cap, size_t sz, size_t diff)
-{
-    size_t hi, pr = size_mul(&hi, cap, sz);
-    if (!hi)
-    {
-        size_t car, cap2 = size_add(&car, pr, diff);
-        if (!car) return realloc(src, cap2);
-    }
-    errno = ERANGE;
-    return NULL;
-}
-
-void *realloc3(void *src, size_t *restrict p_cap, size_t sz, size_t diff)
-{
-    size_t cap = *p_cap, log2 = size_bit_scan_reverse(cap);
-    if ((size_t) ~log2)
-    {
-        size_t cap2 = (size_t) 1 << log2;
-        if ((cap == cap2) || (cap2 <<= 1))
-        {
-            void *tmp = realloc2(src, cap2, sz, diff);
-            *p_cap = tmp ? cap2 : 0;
-            return tmp;
-        }
-        errno = ERANGE;
-    }
-    return NULL;
-}
-
-bool array_init_strict(void *p_Arr, size_t cap, size_t sz, size_t diff, bool clr)
-{
-    void **restrict p_arr = p_Arr;
-    return (*p_arr = malloc2(cap, sz, diff, clr)) != NULL || !((cap && sz) || diff);
-}
-
-bool array_init(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, bool clr)
-{
-    void **restrict p_arr = p_Arr;
-    return (*p_arr = malloc3(p_cap, sz, diff, clr)) != NULL || !((*p_cap && sz) || diff);
-}
-
-bool array_resize_strict(void *p_Arr, size_t cap, size_t sz, size_t diff, enum array_resize_mode mode, size_t *restrict args, size_t args_cnt)
-{
-    void **restrict p_arr = p_Arr;
-    size_t car, cnt = size_sum(&car, args, args_cnt);
-    if (!car)
-    {
-        if (((mode & ARRAY_RESIZE_EXTEND_ONLY) && (cnt <= cap)) || ((mode & ARRAY_RESIZE_REDUCE_ONLY) && (cnt >= cap))) return 1;
-        void *tmp = realloc2(*p_arr, cnt, sz, diff);
-        if (tmp || !((cnt && sz) || diff))
-        {
-            *p_arr = tmp;
-            return 1;
-        }
-        return 0;
-    }
-    errno = ERANGE;
-    return 0;
-}
-
-bool array_resize(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_resize_mode mode, size_t *restrict args, size_t args_cnt)
-{
-    void **restrict p_arr = p_Arr;
-    size_t car, cnt = size_sum(&car, args, args_cnt);
-    if (!car)
-    {
-        if (((mode & ARRAY_RESIZE_EXTEND_ONLY) && (cnt <= *p_cap)) || ((mode & ARRAY_RESIZE_REDUCE_ONLY) && (cnt >= *p_cap))) return 1;
-        void *tmp = realloc3(*p_arr, &cnt, sz, diff);
-        if (tmp || !((cnt && sz) || diff))
-        {
-            *p_arr = tmp;
+            if (!(flags & ALLOC_REDUCE)) return 1;
+            size_t tot = cnt * sz + diff; // No checks for overflows
+            void *res = realloc(src, tot);
+            *p_src = res;
             *p_cap = cnt;
-            return 1;
+            return !(tot && !res);
         }
-        return 0;
+        else if (!tmp) return 1;
+    }
+    if (!(flags & ALLOC_STRICT))
+    {
+        size_t log2 = size_bit_scan_reverse(cnt);
+        if ((size_t) ~log2)
+        {
+            size_t cap2 = (size_t) 1 << log2;
+            if (cnt != cap2)
+            {
+                cnt = cap2 << 1;
+                if (!cnt)
+                {
+                    errno = ERANGE;
+                    return 0;
+                }
+            }
+        }
+    }        
+    size_t hi, pr = size_mul(&hi, cnt, sz);
+    if (!hi)
+    {
+        size_t car, tot = size_add(&car, pr, diff);
+        if (!car)
+        {
+            void *res;
+            if (src)
+            {
+                res = realloc(src, tot);
+                if (res && (flags & ALLOC_CLEAR))
+                {
+                    size_t off = *p_cap * sz + diff;
+                    memset((char *) res + off, 0, tot - off);
+                }                
+                *p_cap = cnt;
+            }
+            else
+            {
+                res = flags & ALLOC_CLEAR ? calloc(tot, 1) : malloc(tot);
+                if (p_cap) *p_cap = cnt;
+            }
+            *p_src = res;
+            return !(tot && !res);
+        }
     }
     errno = ERANGE;
     return 0;
 }
 
-bool queue_init(struct queue *restrict queue, size_t cap, size_t sz)
+bool array_init(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum alloc_flags flags, size_t *restrict args, size_t args_cnt)
 {
-    if (!array_init(&queue->arr, &cap, sz, 0, 0)) return 0;
+    size_t car, cnt = size_sum(&car, args, args_cnt);
+    if (!car) return alloc(p_Arr, p_cap, cnt, sz, diff, flags);
+    errno = ERANGE;
+    return 0;
+}
 
+bool queue_init(struct queue *restrict queue, size_t cnt, size_t sz)
+{
+    size_t cap;
+    if (!alloc(&queue->arr, &cap, cnt, sz, 0, 0)) return 0;
     queue->cap = cap;
     queue->begin = queue->cnt = 0;
     queue->sz = sz;
@@ -135,7 +100,7 @@ void queue_close(struct queue *restrict queue)
 bool queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;
-    if (!array_resize(&queue->arr, &cap, queue->sz, 0, ARRAY_RESIZE_EXTEND_ONLY, ARG_S(queue->cnt, diff))) return 0;
+    if (!array_init(&queue->arr, &cap, queue->sz, 0, 0, ARG_S(queue->cnt, diff))) return 0;
     if (cap == queue->cap) return 1; // Queue has already enough space
 
     size_t bor, left = size_sub(&bor, queue->begin, queue->cap - queue->cnt);

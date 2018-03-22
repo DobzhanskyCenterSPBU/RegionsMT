@@ -44,8 +44,9 @@ struct message_warning_argv_parse {
         .len = (Len), \
     })
 
-size_t message_warning_argv_parse(char *buff, size_t buff_cnt, struct message_warning_argv_parse *context)
+size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
 {
+    struct message_warning_argv_parse *context = Context;
     char *str;
     
     switch (context->status)
@@ -94,7 +95,7 @@ size_t message_warning_argv_parse(char *buff, size_t buff_cnt, struct message_wa
     case ARGV_PARSE_WARNING_MISSING_VALUE_SHRT:
     case ARGV_PARSE_WARNING_UNHANDLED_PAR_SHRT:
     case ARGV_PARSE_WARNING_UNEXPECTED_VALUE_SHRT:
-        tmp = snprintf(buff, buff_cnt, "%s %c%.*s%c (arg. no. %zu)!\n", str, (int) context->name->len, context->name->str, context->ind);
+        tmp = snprintf(buff, buff_cnt, "%s %c%.*s%c (arg. no. %zu)!\n", str, (int) context->len, context->name->str, context->ind);
 
 
     case ARGV_PARSE_WARNING_MISSING_VALUE_LONG:
@@ -118,7 +119,6 @@ size_t message_warning_argv_parse(char *buff, size_t buff_cnt, struct message_wa
 
 bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cap, struct log *log)
 {
-    
     size_t input_cnt = 0, prev_id = 0;
     bool stop = 0;
     enum { 

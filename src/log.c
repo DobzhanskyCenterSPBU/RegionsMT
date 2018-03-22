@@ -48,11 +48,10 @@ size_t message_var_generic(char *buff, size_t buff_cap, void *context, char *for
     return 0;
 }
 
-bool log_init(struct log *restrict log, char *restrict path, size_t buff_cap)
+bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
 {
-    if (array_init(&log->buff, &buff_cap, sizeof(*log->buff), 0, 0))
+    if (alloc(&log->buff, &log->buff_cap, cnt, sizeof(*log->buff), 0, 0))
     {
-        log->buff_cap = buff_cap;
         if (path)
         {
             log->file = fopen(path, "w");

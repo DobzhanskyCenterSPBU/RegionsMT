@@ -269,7 +269,7 @@ bool test(struct log *log)
         for (size_t i = 0; i < countof(group_arr); test_data_sz += group_arr[i++].test_data_sz);
 
         void *test_data = NULL, *message = NULL;
-        if (!array_init_strict(&test_data, test_data_sz, 1, 0, 0)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+        if (!alloc(&test_data, NULL, test_data_sz, 1, 0, ALLOC_STRICT)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
         {
             for (size_t i = 0; i < countof(group_arr); i++)
             {

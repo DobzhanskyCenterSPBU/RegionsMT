@@ -262,7 +262,7 @@ int Main(int argc, char **argv)
     //for (size_t i = 0; i < (size_t) argc; i++) fprintf(stderr, "%s\n", argv[i]);
     //fclose(f);
 
-    struct log log;
+    struct log log = { 0 };
     if (log_init(&log, NULL, TEMP_BUFF_LARGE))
     {
         size_t input_cnt = 0;
@@ -279,7 +279,7 @@ int Main(int argc, char **argv)
             {
                 log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Unit test mode triggered!\n");
                 */
-                test();
+                //test();
                 /*
             }
             else
@@ -340,7 +340,7 @@ int wmain(int argc, wchar_t **wargv)
 
     // Translating UTF-16 command-line parameters into UTF-8
     char **argv;
-    if (array_init_strict(&argv, argc, sizeof(*argv), 0, 0))
+    if (alloc(&argv, NULL, argc, sizeof(*argv), 0, ALLOC_STRICT))
     {
         size_t base_cnt = 0, i;
         for (i = 0; i < (size_t) argc; i++) // Determining total length and performing error checking
@@ -362,7 +362,7 @@ int wmain(int argc, wchar_t **wargv)
         if (i == (size_t) argc)
         {
             char *base;
-            if (array_init_strict(&base, base_cnt, sizeof(*base), 0, 0))
+            if (alloc(&base, NULL, base_cnt, sizeof(*base), 0, ALLOC_STRICT))
             {
                 char *byte = base;
                 for (i = 0; i < (size_t) argc; i++) // Performing translation
