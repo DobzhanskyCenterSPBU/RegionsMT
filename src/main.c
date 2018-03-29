@@ -76,10 +76,10 @@ int Main(int argc, char **argv)
         CLII((struct tag[]) { { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 }, { STRI("\xd0\x9b"), 4 } }),
         CLII((struct par[])
         {
-            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP } , (read_callback) empty_handler, 0 },
-            { offsetof(struct main_args, log_path), NULL, (read_callback) p_str_handler, 1 },
-            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST } , (read_callback) empty_handler, 0 },
-            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, (read_callback) size_handler, 1 }
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, 0 },
+            { offsetof(struct main_args, log_path), NULL, p_str_handler, 1 },
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, 0 },
+            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, 1 }
         })
     };
 
@@ -262,13 +262,13 @@ int Main(int argc, char **argv)
     //for (size_t i = 0; i < (size_t) argc; i++) fprintf(stderr, "%s\n", argv[i]);
     //fclose(f);
 
-    struct log log = { 0 };
-    if (log_init(&log, NULL, TEMP_BUFF_LARGE))
+    struct log log;
+    if (log_init(&log, NULL, 1))
     {
         size_t input_cnt = 0;
         char **input = NULL;
         struct main_args main_args = { 0 };
-        if (argv_parse(&argv_sch, &main_args, argv, argc, &input, &input_cnt, &log))
+        //if (argv_parse(&argv_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
             /*if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
@@ -288,6 +288,7 @@ int Main(int argc, char **argv)
             }*/
             free(input);
         }
+        log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "Hello!\n");
         log_close(&log);
     }
     
@@ -340,7 +341,7 @@ int wmain(int argc, wchar_t **wargv)
 
     // Translating UTF-16 command-line parameters into UTF-8
     char **argv;
-    if (alloc(&argv, NULL, argc, sizeof(*argv), 0, ALLOC_STRICT))
+    if (array_init(&argv, NULL, argc, sizeof(*argv), 0, ARRAY_STRICT))
     {
         size_t base_cnt = 0, i;
         for (i = 0; i < (size_t) argc; i++) // Determining total length and performing error checking
@@ -362,7 +363,7 @@ int wmain(int argc, wchar_t **wargv)
         if (i == (size_t) argc)
         {
             char *base;
-            if (alloc(&base, NULL, base_cnt, sizeof(*base), 0, ALLOC_STRICT))
+            if (array_init(&base, NULL, base_cnt, sizeof(*base), 0, ARRAY_STRICT))
             {
                 char *byte = base;
                 for (i = 0; i < (size_t) argc; i++) // Performing translation

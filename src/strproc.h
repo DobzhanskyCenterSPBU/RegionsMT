@@ -13,9 +13,9 @@ struct strl {
 };
 
 // Functions to be used as 'stable_cmp_callback' (see sort.h)
-int char_cmp(const char *, const char *, void *);
-int str_strl_cmp_len(const char *, const struct strl *, size_t *);
-int str_strl_cmp(const char *, const struct strl *, void *);
+int char_cmp(const void *, const void *, void *);
+int str_strl_cmp_len(const void *, const void *, void *);
+int str_strl_cmp(const void *, const void *, void *);
 
 typedef bool (*read_callback)(const char *, size_t, void *, void *); // Functional type for read callbacks
 typedef bool (*write_callback)(char **, size_t *, size_t, void *, void *); // Functional type for write callbacks
@@ -27,12 +27,12 @@ struct handler_context {
 };
 
 // Functions to be used as 'read_callback'
-bool p_str_handler(const char *, size_t, const char **, void *);
-bool str_handler(const char *, size_t, char **, void *);
-bool bool_handler(const char *, size_t, void *, struct handler_context *);
-bool uint64_handler(const char *, size_t, uint64_t *, struct handler_context *);
-bool uint32_handler(const char *, size_t, uint32_t *, struct handler_context *);
-bool uint16_handler(const char *, size_t, uint16_t *, struct handler_context *);
-bool size_handler(const char *, size_t, size_t *, struct handler_context *);
-bool flt64_handler(const char *, size_t, double *, struct handler_context *);
-bool empty_handler(const char *, size_t, void *, struct handler_context *);
+bool p_str_handler(const char *, size_t, void *, void *);
+bool str_handler(const char *, size_t, void *, void *);
+bool bool_handler(const char *, size_t, void *, void *);
+bool uint64_handler(const char *, size_t, void *, void *);
+bool uint32_handler(const char *, size_t, void *, void *);
+bool uint16_handler(const char *, size_t, void *, void *);
+bool size_handler(const char *, size_t, void *, void *);
+bool flt64_handler(const char *, size_t, void *, void *);
+bool empty_handler(const char *, size_t, void *, void *);

@@ -10,24 +10,26 @@
 
 // 'p_cap' -- pointer to initial capacity, cannot be NULL simultaneously with '*p_src'
 // 'cnt' -- desired capacity
-bool alloc(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum alloc_flags flags)
+enum array_status array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum array_flags flags)
 {
     void **restrict p_src = p_Src, *src = *p_src;
-    if (src)
+    if (src && (flags & ARRAY_REALLOC))
     {
-        size_t cap = *p_cap, bor, tmp = size_sub(&bor, cnt, cap);
+        size_t bor, tmp = size_sub(&bor, cnt, *p_cap);
         if (bor) // cnt < cap
         {
-            if (!(flags & ALLOC_REDUCE)) return 1;
+            if (!(flags & ARRAY_REDUCE)) 
+                return ARRAY_NO_CHANGE;
             size_t tot = cnt * sz + diff; // No checks for overflows
             void *res = realloc(src, tot);
             *p_src = res;
             *p_cap = cnt;
             return !(tot && !res);
         }
-        else if (!tmp) return 1;
+        else if (!tmp) // cnt == cap
+            return ARRAY_NO_CHANGE;
     }
-    if (!(flags & ALLOC_STRICT))
+    if (!(flags & ARRAY_STRICT))
     {
         size_t log2 = size_bit_scan_reverse(cnt);
         if ((size_t) ~log2)
@@ -51,10 +53,10 @@ bool alloc(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t di
         if (!car)
         {
             void *res;
-            if (src)
+            if (src && (flags & ARRAY_REALLOC))
             {
                 res = realloc(src, tot);
-                if (res && (flags & ALLOC_CLEAR))
+                if (res && (flags & ARRAY_CLEAR))
                 {
                     size_t off = *p_cap * sz + diff;
                     memset((char *) res + off, 0, tot - off);
@@ -63,7 +65,7 @@ bool alloc(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t di
             }
             else
             {
-                res = flags & ALLOC_CLEAR ? calloc(tot, 1) : malloc(tot);
+                res = flags & ARRAY_CLEAR ? calloc(tot, 1) : malloc(tot);
                 if (p_cap) *p_cap = cnt;
             }
             *p_src = res;
@@ -74,10 +76,10 @@ bool alloc(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t di
     return 0;
 }
 
-bool array_init(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum alloc_flags flags, size_t *restrict args, size_t args_cnt)
+enum array_status array_test(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum alloc_flags flags, size_t *restrict args, size_t args_cnt)
 {
     size_t car, cnt = size_sum(&car, args, args_cnt);
-    if (!car) return alloc(p_Arr, p_cap, cnt, sz, diff, flags);
+    if (!car) return array_init(p_Arr, p_cap, cnt, sz, diff, flags | ARRAY_REALLOC);
     errno = ERANGE;
     return 0;
 }
@@ -85,7 +87,7 @@ bool array_init(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enu
 bool queue_init(struct queue *restrict queue, size_t cnt, size_t sz)
 {
     size_t cap;
-    if (!alloc(&queue->arr, &cap, cnt, sz, 0, 0)) return 0;
+    if (!array_init(&queue->arr, &cap, cnt, sz, 0, 0)) return 0;
     queue->cap = cap;
     queue->begin = queue->cnt = 0;
     queue->sz = sz;
@@ -100,7 +102,7 @@ void queue_close(struct queue *restrict queue)
 bool queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;
-    if (!array_init(&queue->arr, &cap, queue->sz, 0, 0, ARG_S(queue->cnt, diff))) return 0;
+    if (!array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff))) return 0;
     if (cap == queue->cap) return 1; // Queue has already enough space
 
     size_t bor, left = size_sub(&bor, queue->begin, queue->cap - queue->cnt);

@@ -24,6 +24,8 @@
 #   include <stdalign.h>
 #endif
 
+
+
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -49,6 +51,12 @@
 // Length of string literal (without null-terminator)
 #define strlenof(STR) \
     (countof((STR)) - 1)
+
+// Helper macros evaluating and inserting the count of arguments
+#define ARG(T, ...) \
+    ((T []) { __VA_ARGS__ }), countof(((T []) { __VA_ARGS__ }))
+#define ARG_SIZE(...) \
+    ARG(size_t, __VA_ARGS__)
 
 // Convert value (which is often represented by a macro) to string literal
 #define TOSTRING_EXPAND(Z) #Z

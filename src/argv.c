@@ -43,7 +43,7 @@ struct message_warning_argv_parse {
         .off = (Off), \
         .len = (Len), \
     })
-
+/*
 size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
 {
     struct message_warning_argv_parse *context = Context;
@@ -251,3 +251,4 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
     else return 1;
     return 0;
 }
+*/

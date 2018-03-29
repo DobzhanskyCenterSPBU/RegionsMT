@@ -89,9 +89,9 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
     struct sort_mt *res;
     if ((res = calloc(1, sizeof(*res))) != NULL &&
         (res->sync = calloc((s_cnt + 3) >> 2, 1)) != NULL && // No overflow happens (cf. previous comment), s_cnt > 0
-        array_init_strict(&res->s_args, s_cnt, sizeof(*res->s_args), 0, 0) &&
-        array_init_strict(&res->m_args, m_cnt, sizeof(*res->m_args), 0, 0) &&
-        array_init_strict(&res->context.temp, cnt, sz, 0, 0))
+        array_init(&res->s_args, NULL, s_cnt, sizeof(*res->s_args), 0, ARRAY_STRICT) &&
+        array_init(&res->m_args, NULL, m_cnt, sizeof(*res->m_args), 0, ARRAY_STRICT) &&
+        array_init(&res->context.temp, NULL, cnt, sz, 0, ARRAY_STRICT))
     {
         res->context = (struct sort_context) { .arr = arr, .cnt = cnt, .sz = sz, .cmp = cmp, .context = context };
         res->s_args[0] = (struct sort_args) { .off = 0, .len = cnt };
@@ -110,8 +110,8 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
 
         if (m_cnt)
         {
-            if (array_init_strict(&res->tasks, s_cnt + m_cnt, sizeof(*res->tasks), 0, 0) &&
-                array_init_strict(&res->args, s_cnt + m_cnt - 1, sizeof(*res->args), 0, 0))
+            if (array_init(&res->tasks, NULL, s_cnt + m_cnt, sizeof(*res->tasks), 0, ARRAY_STRICT) &&
+                array_init(&res->args, NULL, s_cnt + m_cnt - 1, sizeof(*res->args), 0, ARRAY_STRICT))
             {
                 // Assigning sorting tasks
                 for (size_t i = 0; i < s_cnt; i++)

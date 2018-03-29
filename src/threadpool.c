@@ -32,7 +32,7 @@ struct thread_pool {
 static struct task_queue *task_queue_create(size_t cap)
 {
     struct task_queue *res;
-    if (!array_init(&res, &cap, sizeof(*res->tasks), sizeof(*res), 0)) return NULL;
+    if (!array_init(&res, &cap, cap, sizeof(*res->tasks), sizeof(*res), 0)) return NULL;
     
     res->cap = cap;
     res->begin = res->cnt = 0;
@@ -43,7 +43,7 @@ static bool task_queue_test(struct task_queue **p_queue, size_t diff)
 {
     struct task_queue *res = *p_queue;
     size_t cap = res->cap;
-    if (!array_resize(&res, &cap, sizeof(*res->tasks), sizeof(*res), ARRAY_RESIZE_EXTEND_ONLY, ARG_S(res->cnt, diff))) return 0;
+    if (!array_test(&res, &cap, sizeof(*res->tasks), sizeof(*res), 0, ARG_SIZE(res->cnt, diff))) return 0;
     if (cap == res->cap) return 1; // Queue has already enough space
     
     size_t left = res->begin + res->cnt;
@@ -278,20 +278,20 @@ struct thread_pool *thread_pool_create(size_t cnt, size_t tasks_cnt, size_t stor
 {
     size_t ind;
     struct thread_pool *pool;
-    if (array_init_strict(&pool, cnt, sizeof(*pool->thread_arr), sizeof(*pool), 1))
+    if (array_init(&pool, NULL, cnt, sizeof(*pool->thread_arr), sizeof(*pool), ARRAY_STRICT | ARRAY_CLEAR))
     {
         pool->cnt = pool->active = cnt;
-        if (array_init_strict(&pool->storage, pool->cnt, sizeof(*pool->storage), 0, 1))
+        if (array_init(&pool->storage, NULL, pool->cnt, sizeof(*pool->storage), 0, ARRAY_STRICT | ARRAY_CLEAR))
         {
             for (ind = 0; ind < pool->cnt; ind++)
             {
-                if (array_init_strict(&pool->storage[ind], 1, sizeof(*pool->storage[ind]), storage_sz, 1))
+                if (array_init(&pool->storage[ind], NULL, 1, sizeof(*pool->storage[ind]), storage_sz, ARRAY_STRICT | ARRAY_CLEAR))
                     *pool->storage[ind] = (struct thread_storage) { .id = ind, .data_sz = storage_sz };
                 else break;
             }
             if (ind == pool->cnt)
             {
-                if (array_init_strict(&pool->thread_bits, BYTE_CNT(pool->cnt), 1, 0, 1) && (pool->queue = task_queue_create(tasks_cnt)) != NULL)
+                if (array_init(&pool->thread_bits, NULL, BYTE_CNT(pool->cnt), 1, 0, ARRAY_STRICT | ARRAY_CLEAR) && (pool->queue = task_queue_create(tasks_cnt)) != NULL)
                 {
                     pool->spinlock = pool->startuplock = SPINLOCK_INIT;
                     if (mutex_init(&pool->mutex))

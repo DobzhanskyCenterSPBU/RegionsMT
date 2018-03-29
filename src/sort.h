@@ -1,8 +1,6 @@
 #pragma once
 
-#include <stddef.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include "common.h"
 
 typedef bool (*cmp_callback)(const void *, const void *, void *); // Functional type for compare callbacks
 typedef int (*stable_cmp_callback)(const void *, const void *, void *); // Functional type for stable compare callbacks

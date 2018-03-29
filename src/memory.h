@@ -7,20 +7,21 @@
 
 #include "common.h"
 
-enum alloc_flags {
-    ALLOC_CLEAR = 1,
-    ALLOC_STRICT = 2,
-    ALLOC_REDUCE = 4,
+enum array_flags {
+    ARRAY_CLEAR = 1,
+    ARRAY_STRICT = 2,
+    ARRAY_REDUCE = 4,
+    ARRAY_REALLOC = 8 // Default in 'array_test'
 };
 
-bool alloc(void *, size_t *restrict, size_t, size_t, size_t, enum alloc_flags);
-bool array_init(void *, size_t *restrict, size_t, size_t, enum alloc_flags, size_t *restrict, size_t);
+enum array_status {
+    ARRAY_FAILURE = 0,
+    ARRAY_SUCCESS,
+    ARRAY_NO_CHANGE
+};
 
-// Helper macros evaluating and inserting the count of arguments
-#define ARG(T, ...) \
-    ((T []) { __VA_ARGS__ }), countof(((T []) { __VA_ARGS__ }))
-#define ARG_S(...) \
-    ARG(size_t, __VA_ARGS__)
+enum array_status array_init(void *, size_t *restrict, size_t, size_t, size_t, enum array_flags);
+enum array_status array_test(void *, size_t *restrict, size_t, size_t, enum array_flags, size_t *restrict, size_t);
 
 struct queue {
     void *arr;

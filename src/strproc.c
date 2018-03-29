@@ -5,49 +5,53 @@
 #include <string.h>
 #include <stdlib.h>
 
-int char_cmp(const char *a, const char *b, void *context)
+int char_cmp(const void *a, const void *b, void *context)
 {
     (void) context;
-    return *a - *b;
+    return *(const char *) a - *(const char *) b;
 }
 
-int str_strl_cmp_len(const char *str, const struct strl *entry, size_t *p_len)
+int str_strl_cmp_len(const void *Str, const void *Entry, void *p_Len)
 {
-    int res = strncmp(str, entry->str, *p_len);
-    return res > 0 ? 1 : res < 0 ? -1 : *p_len < entry->len ? -1 : 0;
+    const struct strl *entry = Entry;
+    size_t len = *(size_t *) p_Len;
+    int res = strncmp((const char *) Str, entry->str, len);
+    return res ? res : len < entry->len ? INT_MIN : 0;
 }
 
-int str_strl_cmp(const char *str, const struct strl *entry, void *context)
+int str_strl_cmp(const void *Str, const void *Entry, void *context)
 {
     (void) context;
-    int res = strcmp(str, entry->str);
-    return res > 0 ? 1 : res < 0 ? -1 : 0;
+    const struct strl *entry = Entry;
+    return strcmp((const char *) Str, entry->str);
 }
 
-bool p_str_handler(const char *str, size_t len, const char **ptr, void *context)
+bool p_str_handler(const char *str, size_t len, void *Ptr, void *context)
 {
     (void) context;
     (void) len;
+    const char **ptr = Ptr;
     *ptr = str;
     return 1;
 }
 
-bool str_handler(const char *str, size_t len, char **ptr, void *context)
+bool str_handler(const char *str, size_t len, void *Ptr, void *context)
 {
     (void) context;
-    *ptr = malloc(len + 1);
-    if (!*ptr) return 0;
-    memcpy(*ptr, str, len + 1);
+    char **ptr = Ptr;
+    char *tmp = malloc(len + 1);
+    if (!tmp) return 0;
+    memcpy(tmp, str, len + 1);
+    *ptr = tmp;
     return 1;
 }
 
-bool bool_handler(const char *str, size_t len, void *ptr, struct handler_context *context)
+bool bool_handler(const char *str, size_t len, void *Ptr, void *Context)
 {
     (void) len;
-
+    struct handler_context *context = Context;
     char *test;
     uint32_t res = (uint32_t) strtoul(str, &test, 10);
-
     if (*test)
     {
         if (!Stricmp(str, "false")) res = 0;
@@ -56,40 +60,56 @@ bool bool_handler(const char *str, size_t len, void *ptr, struct handler_context
     }
 
     if (res > 1) return 0;
-    if (context && res) bit_set((uint8_t *) ptr + context->offset, context->bit_pos);
+    if (context && res) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos);
     return 1;
 }
 
-#define DECLARE_INTEGER_HANDLER(TYPE, PREFIX) \
-    bool PREFIX ## _handler(const char *str, size_t len, TYPE *ptr, struct handler_context *context) \
+uint64_t str_to_uint64(const char *str, char **ptr)
+{
+    return (uint64_t) strtoull(str, ptr, 10);
+}
+
+uint32_t str_to_uint32(const char *str, char **ptr)
+{
+    unsigned long res = strtoul(str, ptr, 10);
+    return (uint32_t) MIN(res, UINT32_MAX); // In the case of 'unsigned long' is 64 bit integer
+}
+
+uint16_t str_to_uint16(const char *str, char **ptr)
+{
+    unsigned long res = strtoul(str, ptr, 10);
+    return (uint16_t) MIN(res, UINT16_MAX);
+}
+
+#define DECLARE_INTEGER_HANDLER(TYPE, PREFIX, CONV) \
+    bool PREFIX ## _handler(const char *str, size_t len, void *Ptr, void *Context) \
     { \
         (void) len; \
+        TYPE *ptr = Ptr; \
+        struct handler_context *context = Context; \
         char *test; \
-        *ptr = (TYPE) strtoull(str, &test, 10); \
+        *ptr = CONV(str, &test); \
         if (*test) return 0; \
-        if (context) bit_set((uint8_t *) ptr + context->offset, context->bit_pos); \
+        if (context) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos); \
         return 1; \
     }
 
-DECLARE_INTEGER_HANDLER(uint64_t, uint64)
-DECLARE_INTEGER_HANDLER(uint32_t, uint32)
-DECLARE_INTEGER_HANDLER(uint16_t, uint16)
-DECLARE_INTEGER_HANDLER(size_t, size)
+DECLARE_INTEGER_HANDLER(uint64_t, uint64, str_to_uint64)
+DECLARE_INTEGER_HANDLER(uint32_t, uint32, str_to_uint32)
+DECLARE_INTEGER_HANDLER(uint16_t, uint16, str_to_uint16)
+DECLARE_INTEGER_HANDLER(double, flt64, strtod)
 
-bool flt64_handler(const char *str, size_t len, double *ptr, struct handler_context *context)
-{
-    (void) len;
-    char *test;
-    *ptr = strtod(str, &test);
-    if (*test) return 0;
-    if (context) bit_set((uint8_t *) ptr + context->offset, context->bit_pos);
-    return 1;
-}
+#if defined _M_X64 || defined __x86_64__
+DECLARE_INTEGER_HANDLER(size_t, size, str_to_uint64)
+#elif defined defined _M_IX86 || defined __i386__
+DECLARE_INTEGER_HANDLER(size_t, size, str_to_uint32)
+#endif
 
-bool empty_handler(const char *str, size_t len, void *ptr, struct handler_context *context)
+bool empty_handler(const char *str, size_t len, void *Ptr, void *Context)
 {
     (void) str;
     (void) len;
-    if (context) bit_set((uint8_t *) ptr + context->offset, context->bit_pos);
+    struct handler_context *context = Context;
+    if (context) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos);
     return 1;
 }
