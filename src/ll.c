@@ -443,6 +443,18 @@ size_t size_bit_reset(size_t val, uint8_t bit)
     return val & ~((size_t) 1 << (bit & (SIZE_BIT - 1)));
 }
 
+size_t size_add_sat(size_t a, size_t b)
+{
+	size_t car, res = size_add(&car, a, b);
+	return car ? SIZE_MAX : res;
+}
+
+size_t size_sub_sat(size_t a, size_t b)
+{
+	size_t bor, res = size_sub(&bor, a, b);
+	return bor ? 0 : res;
+}
+
 bool bit_test(uint8_t *arr, size_t bit)
 {
     return !!(arr[bit >> 3] & (1 << (bit & 7)));

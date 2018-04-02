@@ -72,7 +72,7 @@ uint64_t str_to_uint64(const char *str, char **ptr)
 uint32_t str_to_uint32(const char *str, char **ptr)
 {
     unsigned long res = strtoul(str, ptr, 10);
-    return (uint32_t) MIN(res, UINT32_MAX); // In the case of 'unsigned long' is 64 bit integer
+    return (uint32_t) MIN(res, UINT32_MAX); // In the case of 'unsigned long' is the 64 bit integer
 }
 
 uint16_t str_to_uint16(const char *str, char **ptr)
@@ -101,7 +101,7 @@ DECLARE_INTEGER_HANDLER(double, flt64, strtod)
 
 #if defined _M_X64 || defined __x86_64__
 DECLARE_INTEGER_HANDLER(size_t, size, str_to_uint64)
-#elif defined defined _M_IX86 || defined __i386__
+#elif defined _M_IX86 || defined __i386__
 DECLARE_INTEGER_HANDLER(size_t, size, str_to_uint32)
 #endif
 

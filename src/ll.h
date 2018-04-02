@@ -75,6 +75,9 @@ bool size_bit_test(size_t, uint8_t);
 size_t size_bit_set(size_t, uint8_t);
 size_t size_bit_reset(size_t, uint8_t);
 
+size_t size_add_sat(size_t, size_t);
+size_t size_sub_sat(size_t, size_t);
+
 #define BYTE_CNT(BIT) (((BIT) + 7) >> 3)
 bool bit_test(uint8_t *, size_t);
 void bit_set(uint8_t *, size_t);
