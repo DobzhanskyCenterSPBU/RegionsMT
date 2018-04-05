@@ -8,40 +8,26 @@ DECLARE_PATH
 
 enum argv_parse_status {
     ARGV_PARSE_SUCCESS = 0,
-    ARGV_PARSE_WARNING_MISSING_VALUE_SHRT,
-    ARGV_PARSE_WARNING_MISSING_VALUE_LONG,
-    ARGV_PARSE_WARNING_UNHANDLED_PAR_SHRT,
-    ARGV_PARSE_WARNING_UNHANDLED_PAR_LONG,
-    ARGV_PARSE_WARNING_UNEXPECTED_VALUE_SHRT,
-    ARGV_PARSE_WARNING_UNEXPECTED_VALUE_LONG,
-    ARGV_PARSE_WARNING_INVALID_PAR_SHRT,
-    ARGV_PARSE_WARNING_INVALID_PAR_LONG,    
-
-    ARGV_PARSE_WARNING_INVPAR_LONG,
-    ARGV_PARSE_WARNING_INVPAR_SHRT,
-    ARGV_PARSE_WARNING_EXPVAL_LONG,
-    ARGV_PARSE_WARNING_EXPVAL_SHRT,
-    
-    ARGV_PARSE_WARNING_INVVAL,
-    ARGV_PARSE_WARNING_INVSYM,
-    ARGV_PARSE_WARNING_INVSTCK
+    ARGV_PARSE_WARNING_MISSING_VALUE,
+    ARGV_PARSE_WARNING_UNHANDLED_PAR,
+    ARGV_PARSE_WARNING_UNEXPECTED_VALUE,
+    ARGV_PARSE_WARNING_INVALID_PAR,
 };
 
 struct message_warning_argv_parse {
     struct message base;
     enum argv_parse_status status;
     char *name;
-    size_t len, ind;    
+    size_t len, id;    
 };
 
-#define MESSAGE_WARNING_ARGV_PARSE(Argv, Ind, Off, Len, Status) \
+#define MESSAGE_WARNING_ARGV_PARSE(Name, Len, Id, Status) \
     ((struct message_warning_argv_parse) { \
         .base = MESSAGE(message_warning_argv_parse, MESSAGE_TYPE_WARNING), \
         .status = (Status), \
-        .argv = (Argv), \
-        .ind = (Ind), \
-        .off = (Off), \
+        .name = (Name), \
         .len = (Len), \
+        .id = (Id), \
     })
 
 size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
@@ -52,7 +38,6 @@ size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
     switch (context->status)
     {
     case ARGV_PARSE_WARNING_MISSING_VALUE_SHRT:
-    case ARGV_PARSE_WARNING_MISSING_VALUE_LONG:
         str = "Expected a value for the command-line parameter";
         break;
     case ARGV_PARSE_WARNING_UNHANDLED_PAR_SHRT:
@@ -117,37 +102,21 @@ size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
     return MAX(0, tmp);
 }
 
-static bool argv_parse_message_queue_enqueue(struct message_warning_argv_parse *message, struct log *log, struct queue *message_queue)
+bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cnt, struct log *log, struct queue *message_queue)
 {
-    if (message_queue && !queue_enqueue(message_queue, 1, message, 1)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
-    else return 1;
-    return 0;
-}
-
-static bool argv_parse_message_queue_init(struct log *log, struct queue *message_queue)
-{
-    if (message_queue && !queue_init(message_queue, 1, sizeof(struct message_warning_argv_parse))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
-    else return 1;
-    return 0;
-}
-
-bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cap, struct log *log, struct queue *message_queue)
-{
-    if (!argv_parse_message_queue_init(log, message_queue)) return 0;
-    size_t input_cnt = 0, prev_id = 0;
-    bool halt = 0;
+    char *str = NULL;
+    size_t input_cnt = 0, id = 0, len = 0;
+    bool halt = 0, capture = 0;
     enum { 
         CAPTURE_NONE = 0, 
-        CAPTURE_STRICT_SHRT,
-        CAPTURE_STRICT_LONG,
-        CAPTURE_OPTIONAL_SHRT,
-        CAPTURE_OPTIONAL_LONG,
-    } capture = 0;
+        CAPTURE_SHRT,
+        CAPTURE_LONG,
+    } capture10 = 0;
     for (size_t i = 1; i < argv_cnt; i++)
     {
         if (!halt)
         {
-            switch (capture)
+            /*switch (capture)
             {
             case CAPTURE_STRICT_SHRT:
                 if (!argv_parse_message_queue_enqueue(&MESSAGE_WARNING_ARGV_PARSE(argv, i - 1, 2, 0, ARGV_PARSE_WARNING_MISSING_VALUE_SHRT), log, message_queue)) return 0;
@@ -164,19 +133,19 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
                 break;
             default:
                 break;
-            }
+            }*/
             if (capture)
             {
-                if (!sch->par[prev_id].handler(argv[i], 0, (char *) res + sch->par[prev_id].offset, sch->par[prev_id].context))
-                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 0, 0, ARGV_PARSE_WARNING_INVVAL).base);
+                if (!sch->par[id].handler(argv[i], 0, (char *) res + sch->par[id].offset, sch->par[id].context))
+                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, id, ARGV_PARSE_WARNING_INVVAL).base);
                 capture = CAPTURE_NONE;
             }
             else if (argv[i][0] == '-')
             {
                 if (argv[i][1] == '-') // Long mode
                 {
-                    char *str = argv[i] + 2, *tmp = strchr(str, '=');
-                    size_t len = (size_t)(tmp - str);
+                    char *tmp = strchr(str = argv[i] + 2, '=');
+                    len = tmp ? (size_t) (tmp - str) : SIZE_MAX;
                     if (!len) // halt on '--'
                     {
                         halt = 1;
@@ -185,87 +154,72 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
                     size_t j = binary_search(str, sch->ltag, sizeof(*sch->ltag), sch->ltag_cnt, tmp ? str_strl_cmp_len : str_strl_cmp, &len);
                     if (j + 1)
                     {
-                        size_t id = sch->ltag[j].id;
-                        if (sch->par[id].mode & PAR_MODE_OPTION_ONLY)
+                        id = sch->ltag[j].id;
+                        if (sch->par[id].mode & PAR_MODE_OPTION)
                         {
-                            if (tmp) log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 2, len - 2, ARGV_PARSE_WARNING_UNEXPECTED_VALUE_LONG).base);
+                            if (tmp) log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, id, ARGV_PARSE_WARNING_UNEXPECTED_VALUE).base);
                             else
                             {
-                                if (!sch->par[id].handler(NULL, 0, (char *)res + sch->par[id].offset, sch->par[id].context))
-                                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 2, 0, ARGV_PARSE_WARNING_UNHANDLED_PAR_LONG).base);
+                                if (!sch->par[id].handler(NULL, 0, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, id, ARGV_PARSE_WARNING_UNHANDLED_PAR).base);
                             }
                         }
                         else
                         {
                             if (tmp)
                             {
-                                if (!sch->par[id].handler(argv[i] + len + 1, 0, (char *)res + sch->par[id].offset, sch->par[id].context))
-                                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 2, len - 2, ARGV_PARSE_WARNING_UNHANDLED_PAR_LONG).base);
+                                if (!sch->par[id].handler(argv[i] + len + 1, 0, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, id, ARGV_PARSE_WARNING_UNHANDLED_PAR).base);
                             }
-                            else
-                            {
-                                capture = sch->par[id].mode & PAR_MODE_VALUE_ONLY ? CAPTURE_STRICT_LONG : CAPTURE_OPTIONAL_LONG;
-                                prev_id = id;
-                            }
+                            else capture = 1;
                         }
                     }
-                    else log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 2, len - 2, ARGV_PARSE_WARNING_INVALID_PAR_LONG).base);
+                    else log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, id, ARGV_PARSE_WARNING_INVALID_PAR).base);
                 }
                 else // Short mode
                 {
-                    size_t len = strlen(argv[i]);
+                    size_t tot = strlen(argv[i]);
                     for (size_t k = 1; argv[i][k];) // Inner loop for handling multiple option-like parameters
                     {
-                        size_t j = binary_search(&argv[i][k], sch->stag, sizeof *sch->stag, sch->stag_cnt, (stable_cmp_callback)str_strl_cmp, NULL);
+                        str = &argv[i][k];
+                        size_t j = binary_search(str, sch->stag, sizeof *sch->stag, sch->stag_cnt, str_strl_cmp, NULL);
                         if (j + 1)
                         {
-                            size_t id = sch->stag[j].id;
-                            if (sch->par[id].mode == PAR_MODE_VALUE_ONLY) // Parameter expects value
+                            id = sch->stag[j].id;
+                            len = sch->stag[j].name.len;
+                            if (sch->par[id].mode == PAR_MODE_VALUE) // Parameter expects value
                             {
-                                if (k == 1) // Valued parameter can't be stacked
+                                if (str + len) // Executing valued parameter handler
                                 {
-                                    if (argv[i][2]) // Executing valued parameter handler
-                                    {
-                                        if (!sch->par[id].handler(argv[i] + 2, 0, (char *)res + sch->par[id].offset, sch->par[id].context))
-                                            log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 2, 0, ARGV_PARSE_WARNING_INVVAL).base);
-                                    }
-                                    else if (i + 1 < argv_cnt) capture = -1, prev_id = id; // Parameter value is separated by whitespace
-                                    else log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, k, 0, ARGV_PARSE_WARNING_EXPVAL_SHRT).base);
-                                    break; // We need to exit from the inner loop
+                                    if (!sch->par[id].handler(argv[i] + k + len, 0, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                        log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, id, ARGV_PARSE_WARNING_UNEXPECTED_VALUE).base);
                                 }
-                                else log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, k, 0, ARGV_PARSE_WARNING_INVSTCK).base);
+                                else capture = 1;
+                                break; // We need to exit from the inner loop
                             }
                             else sch->par[id].handler(NULL, 0, (char *)res + sch->par[id].offset, sch->par[id].context);
                         }
                         else log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, k, 0, ARGV_PARSE_WARNING_INVPAR_SHRT).base);
-                        k += sch->stag[j].name.len;
-                        if (k >= len) break;
+                        k += len;
+                        if (k >= tot) break;
                     }
                 }
             
                 continue;
             }
         }
-        
+        if (!array_test(p_input, p_input_cnt, sizeof(**p_input), 0, ARRAY_REDUCE, ARG_SIZE(input_cnt, 1))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+        else
         {
-            if (capture) // Capturing parameters separated by whitespace with corresponding title
-            {
-                
-            }
-            else
-            {
-                if (!array_test(p_input, p_input_cap, sizeof(**p_input), 0, ARRAY_REDUCE, ARG_SIZE(input_cnt, 1))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
-                else
-                {
-                    (*p_input)[input_cnt++] = argv[i]; // Storing input file path
-                    continue;
-                }
-                return 0;
-            }
+            (*p_input)[input_cnt++] = argv[i]; // Storing input file path
+            continue;
         }
+        return 0;
     }
 
-    if (!array_test(p_input, p_input_cap, sizeof(**p_input), 0, ARRAY_REDUCE, ARG_SIZE(input_cnt))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+
+
+    if (!array_test(p_input, p_input_cnt, sizeof(**p_input), 0, ARRAY_REDUCE, ARG_SIZE(input_cnt))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
     else return 1;
     return 0;    
 }

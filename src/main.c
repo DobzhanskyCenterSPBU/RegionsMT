@@ -263,7 +263,7 @@ int Main(int argc, char **argv)
     //fclose(f);
 
     struct log log;
-    if (log_init(&log, NULL, 1))
+    if (log_init(&log, NULL, BLOCK_WRITE))
     {
         size_t input_cnt = 0;
         char **input = NULL;
@@ -289,6 +289,8 @@ int Main(int argc, char **argv)
             free(input);
         }
         log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "Hello!\n");
+        for (size_t i = 0; i < 10000; i++) log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "%zu!\n", i);
+        log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "AAAAA!\n");
         log_close(&log);
     }
     

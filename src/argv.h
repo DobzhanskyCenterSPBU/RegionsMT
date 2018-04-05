@@ -10,9 +10,8 @@
 #include "strproc.h"
 
 enum par_mode {
-    PAR_MODE_ANY = 0,
-    PAR_MODE_VALUE_ONLY = 1,
-    PAR_MODE_OPTION_ONLY = 2,
+    PAR_MODE_VALUE = 0,
+    PAR_MODE_OPTION,
 };
 
 struct tag {

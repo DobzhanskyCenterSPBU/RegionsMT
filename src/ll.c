@@ -493,3 +493,12 @@ int flt64_stable_cmp_dsc_nan(const void *a, const void *b, void *thunk)
     __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), _CMP_NLE_UQ)));
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
+
+uint32_t uint32_fused_mul_add(uint32_t *p_res, uint32_t m, uint32_t a)
+{
+    union { unsigned long long val; struct { uint32_t lo, hi; }; } res = { 
+        .val = (unsigned long long) *p_res * (unsigned long long) m + (unsigned long long) a 
+    };
+    *p_res = res.lo;
+    return res.hi;
+}

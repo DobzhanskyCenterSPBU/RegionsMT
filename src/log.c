@@ -71,15 +71,22 @@ bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
 
 bool log_flush(struct log *restrict log)
 {
-    size_t cnt = log->buff_cnt, wr = fwrite(log->buff, 1, cnt, log->file);
-    log->file_sz += wr;
-    log->buff_cnt = 0;
-    return wr == cnt;
+    size_t cnt = log->buff_cnt;
+    if (cnt)
+    {
+        size_t wr = fwrite(log->buff, 1, cnt, log->file);
+        log->file_sz += wr;
+        log->buff_cnt = 0;
+        fflush(log->file);
+        return wr == cnt;
+    }
+    fflush(log->file);
+    return 1;
 }
 
 void log_close(struct log *restrict log)
 {
-    if (log->buff_cnt) log_flush(log);
+    log_flush(log);
     if (log->file && log->file != stderr) fclose(log->file);
     free(log->buff);
 }
@@ -141,7 +148,7 @@ bool log_message_var(struct log *restrict log, struct message *restrict message,
         }
         break;
     }
-    if ((log->buff_cnt += len2 + len + 1) >= log->buff_lim) return log_flush(log);
+    if ((log->buff_cnt += len2 + len) >= log->buff_lim) return log_flush(log);
     return 1;
 }
 

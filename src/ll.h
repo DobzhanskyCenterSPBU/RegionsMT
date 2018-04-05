@@ -87,3 +87,5 @@ void bit_reset(uint8_t *, size_t);
 int flt64_stable_cmp_dsc(const void *, const void *, void *);
 int flt64_stable_cmp_dsc_abs(const void *, const void *, void *);
 int flt64_stable_cmp_dsc_nan(const void *, const void *, void *);
+
+uint32_t uint32_fused_mul_add(uint32_t *, uint32_t, uint32_t);
