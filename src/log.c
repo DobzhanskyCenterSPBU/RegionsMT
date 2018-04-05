@@ -52,6 +52,8 @@ bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
 {
     if (array_init(&log->buff, &log->buff_cap, cnt, sizeof(*log->buff), 0, 0))
     {
+        log->buff_cnt = 0;
+        log->buff_lim = cnt;
         if (path)
         {
             log->file = fopen(path, "w");
@@ -67,10 +69,19 @@ bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
     return 0;
 }
 
-void log_close(struct log *restrict p_log)
+bool log_flush(struct log *restrict log)
 {
-    if (p_log->file && p_log->file != stderr) fclose(p_log->file);
-    free(p_log->buff);
+    size_t cnt = log->buff_cnt, wr = fwrite(log->buff, 1, cnt, log->file);
+    log->file_sz += wr;
+    log->buff_cnt = 0;
+    return wr == cnt;
+}
+
+void log_close(struct log *restrict log)
+{
+    if (log->buff_cnt) log_flush(log);
+    if (log->file && log->file != stderr) fclose(log->file);
+    free(log->buff);
 }
 
 static size_t log_prefix(char *buff, size_t buff_cap, enum message_type type, const char *func, const char *path, size_t line)
@@ -95,11 +106,11 @@ bool log_message_var(struct log *restrict log, struct message *restrict message,
     size_t len;
 	for (;;) 
 	{
-        len = log_prefix(log->buff, log->buff_cap, message->type, message->func, message->path, message->line);
-		switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(len, 1)))
+        len = log_prefix(log->buff + log->buff_cnt, log->buff_cap - log->buff_cnt, message->type, message->func, message->path, message->line);
+		switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(log->buff_cnt, len, 1)))
 		{
-		case ARRAY_SUCCESS:
-			continue;
+		case ARRAY_SUCCESS: 
+            continue;
 		case ARRAY_FAILURE:
 			return 0;
 		default: // len < log->buff_cap
@@ -107,33 +118,31 @@ bool log_message_var(struct log *restrict log, struct message *restrict message,
 		}
 		break;
 	}
-	size_t tmp;
+	size_t len2;
 	for (;;)
 	{
 		if (format)
 		{
 			va_list arg;
 			va_start(arg, format);
-			tmp = message->handler_var(log->buff + len, log->buff_cap - len, message, format, arg);
+            len2 = message->handler_var(log->buff + log->buff_cnt + len, log->buff_cap - log->buff_cnt - len, message, format, arg);
 			va_end(arg);
 		}
 		else
-			tmp = message->handler(log->buff + len, log->buff_cap - len, message);
-		switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(tmp, len + 1)))
+            len2 = message->handler(log->buff + log->buff_cnt + len, log->buff_cap - log->buff_cnt - len, message);
+		switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(log->buff_cnt, len2, len, 1)))
 		{
 		case ARRAY_SUCCESS:
 			continue;
 		case ARRAY_FAILURE:
 			return 0;
-		default: // tmp < log->buff_cap - len
+		default: // len2 < log->buff_cap - len
 			break;
 		}
 		break;
 	}
-	len += tmp;
-	size_t wr = fwrite(log->buff, 1, len, log->file);
-	log->file_sz += wr;
-	return wr == len;
+    if ((log->buff_cnt += len2 + len + 1) >= log->buff_lim) return log_flush(log);
+	return 1;
 }
 
 bool log_message(struct log *restrict log, struct message *restrict message)

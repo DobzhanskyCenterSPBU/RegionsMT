@@ -26,6 +26,15 @@ int str_strl_cmp(const void *Str, const void *Entry, void *context)
     return strcmp((const char *) Str, entry->str);
 }
 
+bool empty_handler(const char *str, size_t len, void *Ptr, void *Context)
+{
+    (void) str;
+    (void) len;
+    struct handler_context *context = Context;
+    if (context) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos);
+    return 1;
+}
+
 bool p_str_handler(const char *str, size_t len, void *Ptr, void *context)
 {
     (void) context;
@@ -46,10 +55,14 @@ bool str_handler(const char *str, size_t len, void *Ptr, void *context)
     return 1;
 }
 
+struct bool_handler_context {
+    size_t bit_pos;
+    struct handler_context *context;
+};
+
 bool bool_handler(const char *str, size_t len, void *Ptr, void *Context)
 {
     (void) len;
-    struct handler_context *context = Context;
     char *test;
     uint32_t res = (uint32_t) strtoul(str, &test, 10);
     if (*test)
@@ -60,7 +73,12 @@ bool bool_handler(const char *str, size_t len, void *Ptr, void *Context)
     }
 
     if (res > 1) return 0;
-    if (context && res) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos);
+    struct bool_handler_context *context = Context;
+    if (context) 
+    {
+        (res ? bit_set : bit_reset)((uint8_t *) Ptr, context->bit_pos);
+        return empty_handler(str, len, Ptr, context->context);
+    }
     return 1;
 }
 
@@ -86,12 +104,10 @@ uint16_t str_to_uint16(const char *str, char **ptr)
     { \
         (void) len; \
         TYPE *ptr = Ptr; \
-        struct handler_context *context = Context; \
         char *test; \
         *ptr = CONV(str, &test); \
         if (*test) return 0; \
-        if (context) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos); \
-        return 1; \
+        return empty_handler(str, len, Ptr, Context); \
     }
 
 DECLARE_INTEGER_HANDLER(uint64_t, uint64, str_to_uint64)
@@ -104,12 +120,3 @@ DECLARE_INTEGER_HANDLER(size_t, size, str_to_uint64)
 #elif defined _M_IX86 || defined __i386__
 DECLARE_INTEGER_HANDLER(size_t, size, str_to_uint32)
 #endif
-
-bool empty_handler(const char *str, size_t len, void *Ptr, void *Context)
-{
-    (void) str;
-    (void) len;
-    struct handler_context *context = Context;
-    if (context) bit_set((uint8_t *) Ptr + context->offset, context->bit_pos);
-    return 1;
-}

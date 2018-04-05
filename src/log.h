@@ -8,7 +8,7 @@
 struct log {
     FILE *file;
     char *buff;
-    size_t buff_cap;
+    size_t buff_cnt, buff_cap, buff_lim;
     uint64_t file_sz; // File size is 64-bit always!
 };
 
@@ -90,5 +90,6 @@ size_t message_var_generic(char *, size_t, void *, char *, va_list);
 
 bool log_init(struct log *restrict, char *restrict, size_t);
 void log_close(struct log *restrict);
+bool log_flush(struct log *restrict);
 bool log_message(struct log *restrict, struct message *restrict);
 bool log_message_var(struct log *restrict, struct message *restrict, char *, ...);

@@ -27,6 +27,7 @@ struct handler_context {
 };
 
 // Functions to be used as 'read_callback'
+bool empty_handler(const char *, size_t, void *, void *);
 bool p_str_handler(const char *, size_t, void *, void *);
 bool str_handler(const char *, size_t, void *, void *);
 bool bool_handler(const char *, size_t, void *, void *);
@@ -35,4 +36,3 @@ bool uint32_handler(const char *, size_t, void *, void *);
 bool uint16_handler(const char *, size_t, void *, void *);
 bool size_handler(const char *, size_t, void *, void *);
 bool flt64_handler(const char *, size_t, void *, void *);
-bool empty_handler(const char *, size_t, void *, void *);

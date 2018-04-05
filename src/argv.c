@@ -165,9 +165,13 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
 			default:
 				break;
 			}
-			if (capture) capture = CAPTURE_NONE;
-			
-			if (argv[i][0] == '-')
+            if (capture)
+            {
+                if (!sch->par[prev_id].handler(argv[i], 0, (char *) res + sch->par[prev_id].offset, sch->par[prev_id].context))
+                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 0, 0, ARGV_PARSE_WARNING_INVVAL).base);
+                capture = CAPTURE_NONE;
+            }
+			else if (argv[i][0] == '-')
 			{
 				if (argv[i][1] == '-') // Long mode
 				{
@@ -238,19 +242,15 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
 						if (k >= len) break;
 					}
 				}
-			}
-			else
-			{
-
-			}
+			
+                continue;
+            }
         }
-        else
+        
         {
             if (capture) // Capturing parameters separated by whitespace with corresponding title
             {
-                if (!sch->par[prev_id].handler(argv[i], 0, (char *) res + sch->par[prev_id].offset, sch->par[prev_id].context))
-                    log_message(log, &MESSAGE_WARNING_ARGV_PARSE(argv, i, 0, 0, ARGV_PARSE_WARNING_INVVAL).base);
-                capture = 0;
+                
             }
             else
             {
