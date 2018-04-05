@@ -104,45 +104,45 @@ bool log_message_var(struct log *restrict log, struct message *restrict message,
 {
     if (!log) return 1;
     size_t len;
-	for (;;) 
-	{
+    for (;;) 
+    {
         len = log_prefix(log->buff + log->buff_cnt, log->buff_cap - log->buff_cnt, message->type, message->func, message->path, message->line);
-		switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(log->buff_cnt, len, 1)))
-		{
-		case ARRAY_SUCCESS: 
+        switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(log->buff_cnt, len, 1)))
+        {
+        case ARRAY_SUCCESS: 
             continue;
-		case ARRAY_FAILURE:
-			return 0;
-		default: // len < log->buff_cap
-			break;
-		}
-		break;
-	}
-	size_t len2;
-	for (;;)
-	{
-		if (format)
-		{
-			va_list arg;
-			va_start(arg, format);
+        case ARRAY_FAILURE:
+            return 0;
+        default: // len < log->buff_cap
+            break;
+        }
+        break;
+    }
+    size_t len2;
+    for (;;)
+    {
+        if (format)
+        {
+            va_list arg;
+            va_start(arg, format);
             len2 = message->handler_var(log->buff + log->buff_cnt + len, log->buff_cap - log->buff_cnt - len, message, format, arg);
-			va_end(arg);
-		}
-		else
+            va_end(arg);
+        }
+        else
             len2 = message->handler(log->buff + log->buff_cnt + len, log->buff_cap - log->buff_cnt - len, message);
-		switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(log->buff_cnt, len2, len, 1)))
-		{
-		case ARRAY_SUCCESS:
-			continue;
-		case ARRAY_FAILURE:
-			return 0;
-		default: // len2 < log->buff_cap - len
-			break;
-		}
-		break;
-	}
+        switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(log->buff_cnt, len2, len, 1)))
+        {
+        case ARRAY_SUCCESS:
+            continue;
+        case ARRAY_FAILURE:
+            return 0;
+        default: // len2 < log->buff_cap - len
+            break;
+        }
+        break;
+    }
     if ((log->buff_cnt += len2 + len + 1) >= log->buff_lim) return log_flush(log);
-	return 1;
+    return 1;
 }
 
 bool log_message(struct log *restrict log, struct message *restrict message)

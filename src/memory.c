@@ -102,15 +102,15 @@ void queue_close(struct queue *restrict queue)
 bool queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;
-	switch (array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff))) 
-	{
-	case ARRAY_FAILURE:
-		return 0;
-	case ARRAY_NO_CHANGE:
-		return 1; // Queue has already enough space
-	default:
-		break;
-	}
+    switch (array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff))) 
+    {
+    case ARRAY_FAILURE:
+        return 0;
+    case ARRAY_NO_CHANGE:
+        return 1; // Queue has already enough space
+    default:
+        break;
+    }
     size_t bor, left = size_sub(&bor, queue->begin, queue->cap - queue->cnt);
     if (!bor && left) // queue->begin > queue->cap - queue->cnt
     {
