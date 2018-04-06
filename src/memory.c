@@ -76,7 +76,7 @@ enum array_status array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, si
     return 0;
 }
 
-enum array_status array_test(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum alloc_flags flags, size_t *restrict args, size_t args_cnt)
+enum array_status array_test(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_flags flags, size_t *restrict args, size_t args_cnt)
 {
     size_t car, cnt = size_sum(&car, args, args_cnt);
     if (!car) return array_init(p_Arr, p_cap, cnt, sz, diff, flags | ARRAY_REALLOC);

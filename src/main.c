@@ -76,10 +76,10 @@ int Main(int argc, char **argv)
         CLII((struct tag[]) { { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 }, { STRI("\xd0\x9b"), 4 } }),
         CLII((struct par[])
         {
-            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, 0 },
-            { offsetof(struct main_args, log_path), NULL, p_str_handler, 1 },
-            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, 0 },
-            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, 1 }
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, PAR_MODE_OPTION },
+            { offsetof(struct main_args, log_path), NULL, p_str_handler, PAR_MODE_VALUE },
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, PAR_MODE_OPTION },
+            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, PAR_MODE_VALUE }
         })
     };
 
@@ -268,29 +268,24 @@ int Main(int argc, char **argv)
         size_t input_cnt = 0;
         char **input = NULL;
         struct main_args main_args = { 0 };
-        //if (argv_parse(&argv_sch, &main_args, argv, argc, &input, &input_cnt, &log))
+        if (argv_parse(&argv_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
-            /*if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
+            if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
                 // Help code
                 log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Help mode triggered!\n");
             }
             else if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
-                log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Unit test mode triggered!\n");
-                */
+                log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Test mode triggered!\n");
                 //test();
-                /*
             }
             else
             {
                 if (!input_cnt) log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "No input data specified.\n");
-            }*/
+            }
             free(input);
         }
-        log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "Hello!\n");
-        for (size_t i = 0; i < 10000; i++) log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "%zu!\n", i);
-        log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "AAAAA!\n");
         log_close(&log);
     }
     

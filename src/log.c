@@ -80,7 +80,6 @@ bool log_flush(struct log *restrict log)
         fflush(log->file);
         return wr == cnt;
     }
-    fflush(log->file);
     return 1;
 }
 

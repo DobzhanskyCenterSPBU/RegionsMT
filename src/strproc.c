@@ -49,7 +49,7 @@ bool str_handler(const char *str, size_t len, void *Ptr, void *context)
     (void) context;
     char **ptr = Ptr;
     char *tmp = malloc(len + 1);
-    if (!tmp) return 0;
+    if (len + 1 && !tmp) return 0;
     memcpy(tmp, str, len + 1);
     *ptr = tmp;
     return 1;

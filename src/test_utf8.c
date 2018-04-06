@@ -19,7 +19,6 @@ DECLARE_PATH
 static size_t message_error_utf8_test(char *buff, size_t buff_cnt, void *Context)
 {
     struct message_error_utf8_test *restrict context = Context;
-
     const char *str[] = { 
         "Incorrect length of the UTF-8 byte sequence",
         "Incorrect UTF-8 byte sequence",
@@ -29,7 +28,6 @@ static size_t message_error_utf8_test(char *buff, size_t buff_cnt, void *Context
         "Incorrect Unicode value for the UTF-16 word sequence",
         "Internal error"
     };
-
     int res = context->obituary < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->obituary]) : 0;
     return MAX(0, res);
 }

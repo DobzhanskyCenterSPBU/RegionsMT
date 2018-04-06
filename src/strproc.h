@@ -27,6 +27,7 @@ struct handler_context {
 };
 
 // Functions to be used as 'read_callback'
+// If the second argument is 'SIZE_MAX', it is considered undefined
 bool empty_handler(const char *, size_t, void *, void *);
 bool p_str_handler(const char *, size_t, void *, void *);
 bool str_handler(const char *, size_t, void *, void *);

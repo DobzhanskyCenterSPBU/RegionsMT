@@ -15,7 +15,7 @@ struct thunk {
 static bool generic_cmp(const void *A, const void *B, void *Thunk)
 {
     struct thunk *restrict thunk = Thunk;
-    const void **restrict a = A, **restrict b = B;
+    const void **restrict a = (void *) A, **restrict b = (void *) B;
     int res = thunk->cmp(*a, *b, thunk->context);
     if (res > 0 || (!res && *a > *b)) return 1;
     return 0;
