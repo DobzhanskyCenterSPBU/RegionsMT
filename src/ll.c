@@ -84,35 +84,6 @@ uint32_t uint32_bit_scan_forward(uint32_t x)
 
 #   ifdef __x86_64__
 
-size_t size_mul(size_t *p_hi, size_t a, size_t b)
-{
-    union { unsigned __int128 val; struct { size_t lo, hi; }; } res = { .val = (unsigned __int128) a * (unsigned __int128) b };
-    *p_hi = res.hi;
-    return res.lo;
-}
-
-size_t size_add(size_t *p_car, size_t x, size_t y)
-{
-    union { unsigned __int128 val; struct { size_t lo, hi; }; } res = { .val = (unsigned __int128) x + (unsigned __int128) y };
-    *p_car = res.hi;
-    return res.lo;
-}
-
-size_t size_sub(size_t *p_bor, size_t x, size_t y)
-{
-    union { unsigned __int128 val; struct { size_t lo, hi; }; } res = { .val = (unsigned __int128) x - (unsigned __int128) y };
-    *p_bor = 0 - res.hi;
-    return res.lo;
-}
-
-size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
-{
-    union { unsigned __int128 val; struct { size_t lo, hi; }; } res = { .val = 0 };
-    for (size_t i = 0; i < args_cnt; res.val += args[i++]);
-    *p_hi = res.hi;
-    return res.lo;
-}
-
 size_t size_bit_scan_reverse(size_t x)
 {
     return x ? SIZE_BIT - __builtin_clzll(x) - 1 : SIZE_MAX;
@@ -278,36 +249,45 @@ void size_dec_interlocked(volatile size_t *mem)
 #   endif
 #endif 
 
-#if defined _M_IX86 || defined __i386__
+#if defined __GNUC__ || defined __clang__ || defined _M_IX86 || defined __i386__
+#   if defined _M_X64 || defined __x86_64__
+typedef unsigned __int128 dsize_t;
+#   elif defined _M_IX86 || defined __i386__
+typedef unsigned long long dsize_t;
+#   endif
 
 size_t size_mul(size_t *p_hi, size_t x, size_t y)
 {
-    union { unsigned long long val; struct { size_t lo, hi; }; } res = { .val = (unsigned long long) x * (unsigned long long) y };
+    union { dsize_t val; struct { size_t lo, hi; }; } res = { .val = (dsize_t) x * (dsize_t) y };
     *p_hi = res.hi;
     return res.lo;
 }
 
 size_t size_add(size_t *p_car, size_t x, size_t y)
 {
-    union { unsigned long long val; struct { size_t lo, hi; }; } res = { .val = (unsigned long long) x + (unsigned long long) y } ;
+    union { dsize_t val; struct { size_t lo, hi; }; } res = { .val = (dsize_t) x + (dsize_t) y } ;
     *p_car = res.hi;
     return res.lo;
 }
 
 size_t size_sub(size_t *p_bor, size_t x, size_t y)
 {
-    union { unsigned long long val; struct { size_t lo, hi; }; } res = { .val = (unsigned long long) x - (unsigned long long) y };
+    union { dsize_t val; struct { size_t lo, hi; }; } res = { .val = (dsize_t) x - (dsize_t) y };
     *p_bor = 0 - res.hi;
     return res.lo;
 }
 
 size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
 {
-    union { unsigned long long val; struct { size_t lo, hi; }; } res = { .val = 0 };
+    union { dsize_t val; struct { size_t lo, hi; }; } res = { .val = 0 };
     for (size_t i = 0; i < args_cnt; res.val += args[i++]);
     *p_hi = res.hi;
     return res.lo;
 }
+
+#endif
+
+#if defined _M_IX86 || defined __i386__
 
 size_t size_bit_scan_reverse(size_t x)
 {
@@ -430,17 +410,17 @@ uint8_t uint8_bit_scan_forward(uint8_t x)
 
 bool size_bit_test(size_t val, uint8_t bit)
 {
-    return !!(val & ((size_t) 1 << (bit & (SIZE_BIT - 1))));
+    return !!(val & ((size_t) 1 << bit));
 }
 
-size_t size_bit_set(size_t val, uint8_t bit)
+void size_bit_set(size_t *p_val, uint8_t bit)
 {
-    return val | ((size_t) 1 << (bit & (SIZE_BIT - 1)));
+    *p_val |= ((size_t) 1 << bit);
 }
 
-size_t size_bit_reset(size_t val, uint8_t bit)
+void size_bit_reset(size_t *p_val, uint8_t bit)
 {
-    return val & ~((size_t) 1 << (bit & (SIZE_BIT - 1)));
+    *p_val &= ~((size_t) 1 << bit);
 }
 
 size_t size_add_sat(size_t a, size_t b)
@@ -496,9 +476,7 @@ int flt64_stable_cmp_dsc_nan(const void *a, const void *b, void *thunk)
 
 uint32_t uint32_fused_mul_add(uint32_t *p_res, uint32_t m, uint32_t a)
 {
-    union { unsigned long long val; struct { uint32_t lo, hi; }; } res = { 
-        .val = (unsigned long long) *p_res * (unsigned long long) m + (unsigned long long) a 
-    };
+    union { uint64_t val; struct { uint32_t lo, hi; }; } res = { .val = (uint64_t) *p_res * (uint64_t) m + (uint64_t) a };
     *p_res = res.lo;
     return res.hi;
 }

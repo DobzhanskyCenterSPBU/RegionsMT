@@ -10,7 +10,6 @@
 DECLARE_PATH
 
 enum argv_parse_status {
-    ARGV_PARSE_SUCCESS = 0,
     ARGV_PARSE_WARNING_MISSING_VALUE,
     ARGV_PARSE_WARNING_UNHANDLED_PAR,
     ARGV_PARSE_WARNING_UNEXPECTED_VALUE,
@@ -39,13 +38,6 @@ struct message_error_argv_parse {
         .ind = (Ind), \
     })
 
-#define MESSAGE_ERROR_ARGV_PARSE(Pos, Ind) \
-    ((struct message_error_argv_parse) { \
-        .base = MESSAGE(message_error_argv_parse, MESSAGE_TYPE_ERROR), \
-        .pos = (Pos), \
-        .ind = (Ind), \
-    })
-
 size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
 {
     struct message_warning_argv_parse *context = Context;
@@ -55,14 +47,7 @@ size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
         "Unexpected value for the command-line parameter no.",
         "Invalid command-line parameter no."
     };    
-    int tmp = snprintf(buff, buff_cnt, "%s %zu \"%.*s\"!\n", str[context->status - 1], context->ind, (int) context->len, context->name);
-    return MAX(0, tmp);
-}
-
-size_t message_error_argv_parse(char *buff, size_t buff_cnt, void *Context)
-{
-    struct message_error_argv_parse *context = Context;
-    int tmp = snprintf(buff, buff_cnt, "Incorrect UTF-8 byte sequence at command-line parameter no. %zu, character %zu!\n", context->ind, context->pos);
+    int tmp = snprintf(buff, buff_cnt, "%s %zu \"%.*s\"!\n", str[context->status], context->ind, (int) context->len, context->name);
     return MAX(0, tmp);
 }
 
@@ -77,7 +62,8 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
         {
             if (capture)
             {
-                if (!sch->par[id].handler(argv[i], SIZE_MAX, (char *) res + sch->par[id].offset, sch->par[id].context))
+                struct par *par = sch->par + id;
+                if (par->handler && !par->handler(argv[i], SIZE_MAX, (char *) res + par->offset, par->context))
                     log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, i, ARGV_PARSE_WARNING_UNHANDLED_PAR).base);
                 capture = 0;
             }
@@ -96,12 +82,13 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
                     if (j + 1)
                     {
                         id = sch->ltag[j].id;
-                        if (sch->par[id].mode & PAR_MODE_OPTION)
+                        struct par *par = sch->par + id;
+                        if (par->mode == PAR_MODE_OPTION)
                         {
                             if (tmp) log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, i, ARGV_PARSE_WARNING_UNEXPECTED_VALUE).base);
                             else
                             {
-                                if (!sch->par[id].handler(NULL, SIZE_MAX, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                if (par->handler && !par->handler(NULL, SIZE_MAX, (char *) res + par->offset, par->context))
                                     log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, i, ARGV_PARSE_WARNING_UNHANDLED_PAR).base);
                             }
                         }
@@ -109,7 +96,7 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
                         {
                             if (tmp)
                             {
-                                if (!sch->par[id].handler(argv[i] + len + 1, SIZE_MAX, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                if (par->handler && !par->handler(argv[i] + len + 1, SIZE_MAX, (char *) res + par->offset, par->context))
                                     log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, i, ARGV_PARSE_WARNING_UNHANDLED_PAR).base);
                             }
                             else capture = 1;
@@ -128,16 +115,17 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
                         {
                             id = sch->stag[j].id;
                             len = sch->stag[j].name.len;
-                            if (sch->par[id].mode == PAR_MODE_OPTION) // Parameter expects value
+                            struct par *par = sch->par + id;
+                            if (par->mode == PAR_MODE_OPTION) // Parameter expects value
                             {
-                                if (!sch->par[id].handler(NULL, SIZE_MAX, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                if (par->handler && !par->handler(NULL, SIZE_MAX, (char *) res + par->offset, par->context))
                                     log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, i, ARGV_PARSE_WARNING_UNHANDLED_PAR).base);
                             }
                             else
                             {
                                 if (str + len) // Executing valued parameter handler
                                 {
-                                    if (!sch->par[id].handler(argv[i] + k + len, SIZE_MAX, (char *) res + sch->par[id].offset, sch->par[id].context))
+                                    if (par->handler && !par->handler(argv[i] + k + len, SIZE_MAX, (char *) res + par->offset, par->context))
                                         log_message(log, &MESSAGE_WARNING_ARGV_PARSE(str, len, i, ARGV_PARSE_WARNING_UNEXPECTED_VALUE).base);
                                 }
                                 else capture = 1;
@@ -151,7 +139,8 @@ bool argv_parse(struct argv_sch *sch, void *res, char **argv, size_t argv_cnt, c
                             uint8_t utf8_context = 0, utf8_len;
                             for (; k < tot; k++)
                             {
-                                if (!utf8_decode(argv[i][k], &utf8_val, NULL, &utf8_len, &utf8_context)) log_message(log, &MESSAGE_ERROR_ARGV_PARSE(k, id).base);
+                                if (!utf8_decode(argv[i][k], &utf8_val, NULL, &utf8_len, &utf8_context)) 
+                                    log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_ERROR), "Incorrect UTF-8 byte sequence at command-line parameter no. %zu, character %zu!\n", i, k);
                                 else
                                 {
                                     if (utf8_context) continue;

@@ -278,11 +278,15 @@ int Main(int argc, char **argv)
             else if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
                 log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Test mode triggered!\n");
-                //test();
+                test(&log);
             }
             else
             {
                 if (!input_cnt) log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "No input data specified.\n");
+                else
+                {
+
+                }
             }
             free(input);
         }

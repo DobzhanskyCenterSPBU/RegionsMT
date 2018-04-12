@@ -6,6 +6,7 @@
 #include "test.h"
 
 #include "test_utf8.h"
+#include "test_sort.h"
 
 #include <float.h>
 #include <inttypes.h>
@@ -229,12 +230,17 @@ bool perf()
 
 */
 
-typedef bool (*test_generator_callback)(void *, size_t *, struct message *);
-typedef bool (*test_callback)(void *, struct message *);
+typedef bool (*test_generator_callback)(void *, size_t *, struct log *);
+typedef void (*test_disposer_callback)(void *);
+typedef bool (*test_callback)(void *, struct log *);
 
 struct test_group {
-    test_generator_callback test_data_generator;
-    size_t test_data_sz, message_sz;
+    test_disposer_callback test_disposer;
+    size_t test_sz;
+    struct {
+        test_generator_callback *test_generator;
+        size_t test_generator_cnt;
+    };
     struct {
         test_callback *test;
         size_t test_cnt;
@@ -244,52 +250,58 @@ struct test_group {
 bool test(struct log *log)
 {
     struct test_group group_arr[] = {
-        { 
-            utf8_test, 
-            sizeof(struct utf8_test),
-            sizeof(struct message_error_utf8_test),
+        /*{
+            test_utf8_generator,
+            NULL,
+            sizeof(struct test_utf8),
             CLII((test_callback[]) { 
-                utf8_test_len,  
-                utf8_test_encode,
-                utf8_test_decode,
-                utf16_test_encode,
-                utf16_test_decode
+                test_utf8_len,  
+                test_utf8_encode,
+                test_utf8_decode,
+                test_utf16_encode,
+                test_utf16_decode
+            })
+        },*/
+        {
+            test_sort_disposer,
+            sizeof(struct test_sort),
+            CLII((test_generator_callback[]) {
+                test_sort_generator_a,
+                test_sort_generator_b
+            }),
+            CLII((test_callback[]) {
+                test_sort_a,
             })
         }
     };
     
     uint64_t start = get_time();
-    size_t succ = 0;
-    struct queue message_queue;
-    
-    if (!queue_init(&message_queue, 1, sizeof(union message_test))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
-    else
+    size_t succ = 0;    
+    size_t test_data_sz = 0;
+    for (size_t i = 0; i < countof(group_arr); i++) if (test_data_sz < group_arr[i].test_sz) test_data_sz = group_arr[i].test_sz;    
+    void *test_data = NULL;
+    if (!array_init(&test_data, NULL, test_data_sz, 1, 0, ARRAY_STRICT)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
     {
-        size_t test_data_sz = 0, message_sz = 0;
-        for (size_t i = 0; i < countof(group_arr); test_data_sz += group_arr[i++].test_data_sz);
-
-        void *test_data = NULL, *message = NULL;
-        if (!array_init(&test_data, NULL, test_data_sz, 1, 0, ARRAY_STRICT)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+        for (size_t i = 0; i < countof(group_arr); i++)
         {
-            for (size_t i = 0; i < countof(group_arr); i++)
+            struct test_group *group = group_arr + i;
+            for (size_t j = 0; j < group->test_generator_cnt; j++)
             {
                 size_t context = 0;
-                
                 do {
-                    if (!group_arr[i].test_data_generator(test_data, &context, message)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
-
-                    for (size_t j = 0; j < group_arr[i].test_cnt; j++)
+                    size_t ind = context;
+                    if (!group->test_generator[j](test_data, &context, log)) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+                    else
                     {
-
+                        for (size_t k = 0; k < group->test_cnt; k++)
+                            if (!group->test[k](test_data, log)) log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_WARNING), "Test no. %zu of the group no. %zu failed on input instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
+                        if (group->test_disposer) group->test_disposer(test_data);
                     }
                 } while (context);
             }
-            free(test_data);
         }
-        queue_close(&message_queue);
+        free(test_data);
     }
-
     log_message(log, &MESSAGE_INFO_TIME_DIFF(start, get_time(), "Tests execution").base);
-    log_close(log);
     return 1;
 }

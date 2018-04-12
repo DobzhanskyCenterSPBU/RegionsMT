@@ -1,35 +1,19 @@
 #pragma once
 
-#include "memory.h"
 #include "log.h"
+#include "utf8.h"
 
-struct utf8_test { 
+struct test_utf8 { 
     uint32_t val; 
-    uint8_t *utf8; 
+    uint8_t utf8[UTF8_COUNT]; 
     uint8_t utf8_len; 
-    uint16_t *utf16; 
+    uint16_t utf16[UTF16_COUNT]; 
     uint8_t utf16_len; 
 };
 
-enum utf8_test_obituary {
-    UTF8_TEST_OBITUARY_UTF8_LEN = 0,
-    UTF8_TEST_OBITUARY_UTF8_ENCODE,
-    UTF8_TEST_OBITUARY_UTF8_DECODE,
-    UTF8_TEST_OBITUARY_UTF8_INTERNAL,
-    UTF8_TEST_OBITUARY_UTF16_LEN,
-    UTF8_TEST_OBITUARY_UTF16_ENCODE,
-    UTF8_TEST_OBITUARY_UTF16_DECODE,
-    UTF8_TEST_OBITUARY_UTF16_INTERNAL
-};
-
-struct message_error_utf8_test {
-    struct message base;
-    enum utf8_test_obituary obituary;
-};
-
-bool utf8_test(void *, size_t *, struct message *);
-bool utf8_test_len(void *, struct message *);
-bool utf8_test_encode(void *, struct message *);
-bool utf8_test_decode(void *, struct message *);
-bool utf16_test_encode(void *, struct message *);
-bool utf16_test_decode(void *, struct message *);
+bool test_utf8_generator(void *, size_t *, struct log *);
+bool test_utf8_len(void *, struct log *);
+bool test_utf8_encode(void *, struct log *);
+bool test_utf8_decode(void *, struct log *);
+bool test_utf16_encode(void *, struct log *);
+bool test_utf16_decode(void *, struct log *);

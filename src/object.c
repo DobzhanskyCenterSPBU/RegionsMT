@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+DECLARE_PATH
+
 struct program_object
 {
     void *context;
@@ -65,7 +67,27 @@ bool program_object_execute(struct program_object *obj, void *in)
     return res;
 }
 
-#ifdef aaa
+
+/*
+
+static size_t message_error_program_object_from_xml(char *buff, size_t buff_cnt, void *Context)
+{
+    struct message_error_utf8_test *restrict context = Context;
+    const char *str[] = {
+        "Incorrect length of the UTF-8 byte sequence",
+        "Incorrect UTF-8 byte sequence",
+        "Incorrect Unicode value of the UTF-8 byte sequence",
+        "Internal error",
+        "Incorrect length of the UTF-16 word sequence",
+        "Incorrect UTF-16 word sequence",
+        "Incorrect Unicode value of the UTF-16 word sequence",
+        "Internal error"
+    };
+    int res = context->obituary < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->obituary]) : 0;
+    return MAX(0, res);
+}
+
+*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -86,8 +108,20 @@ _Static_assert(BLOCK_READ > 2, "'BLOCK_READ' constant is assumed to be greater t
 #define STR_D_VLS "no"
 #define STR_D_PRE "?>"
 
-struct program_object *program_object_from_xml(struct xml_node *sch, const char *path, struct message *inf)
+struct program_object *program_object_from_xml(struct xml_node *sch, const char *path, struct log *log)
 {
+    FILE *f = NULL;
+    if (path)
+    {
+        f = fopen(path, "r");
+        if (!f)
+        {
+            log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+            return 0;
+        }
+    }
+    else f = stdin;
+    
     const char *strings[] =
     {
         __FUNCTION__,
@@ -130,44 +164,26 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     } errm = ERR_EOF;
 #   undef ERR_
 
-    char buff[BLOCK_READ], utf8_byte[UTF8_COUNT], error[TEMP_BUFF];
+    char buff[BLOCK_READ], utf8_byte[UTF8_COUNT];
 
     struct { char *buff; size_t cap; } temp = { 0 }, ctrl = { 0 };
     struct { uint8_t *buff; size_t cap; } attb = { 0 };
     struct { struct frame { struct program_object *obj; struct xml_node *node; struct frame *anc; } *frame; size_t cap; } stack = { 0 };
-
-    FILE *f = NULL;
-    if (path)
-    {
-        if ((f = fopen(path, "r")) == NULL);
-
-    }
-    else f = stdin;
-
-    bool std = !strcmp(xml_name, "stdin");
-
-    f = std ? stdin : fopen(xml_name, "r");
-    if (!f) goto ERR(File);
-    
+            
     bool halt = 0;
     uint8_t quot = 0;
     size_t len = 0, ind = 0, dep = 0;
-    uint32_t ctrlval = 0;
-
+    uint32_t ctrl_val = 0;
     uint8_t utf8_len = 0, utf8_context = 0;
     uint32_t utf8_val = 0;
-
-    struct { size_t line; size_t col; size_t byte; } txt = { 0 }, str = { 0 }, ctr = { 0 }; // Text metrics
-        
+    struct { size_t line; size_t col; size_t byte; } txt = { 0 }, str = { 0 }, ctr = { 0 }; // Text metrics        
     struct att *att = NULL;
-
-    size_t rd = fread(buff, 1, sizeof buff, f), pos = 0;
     
+    size_t rd = fread(buff, 1, sizeof buff, f), pos = 0;    
     if (!strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, txt.byte += 3; // (*) Reading UTF-8 BOM if it is present
     if (pos == rd) halt = 1;
-
-    enum
-    {
+    
+    enum {
         OFF_HD,
         
         STP_HD0 = OFF_HD, 
@@ -242,13 +258,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             {
                 if (pos >= rd) break;
                 
-                if (utf8decode(buff[pos], &utf8_val, utf8_byte, &utf8_len, &utf8_context))
+                if (utf8_decode(buff[pos], &utf8_val, utf8_byte, &utf8_len, &utf8_context))
                 {
                     pos++, txt.byte++;
-
                     if (utf8_context) continue;
-
-                    if (isinvalid(utf8_val, utf8_len))
+                    if (utf8_is_invalid(utf8_val, utf8_len))
                     {
                         errm = ERR_UTF, halt = 1;
                         break;
@@ -318,7 +332,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_W04: case STP_W05: case STP_W06: case STP_W07:
             case STP_W08: case STP_W09: case STP_W10: case STP_W11:
             case STP_W12: case STP_W13: case STP_W14: case STP_W15:
-                if (!iswhitespace(utf8_val, utf8_len)) stp++, upd = 0;
+                if (!utf8_is_whitespace(utf8_val, utf8_len)) stp++, upd = 0;
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -371,7 +385,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     break;
 
                 default:
-                    if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + utf8_len)) goto ERR();
+                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len))) goto error;
                     strncpy(temp.buff + len, utf8_byte, utf8_len), len += utf8_len;
                 }
                 break;
@@ -402,7 +416,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_HS0: case STP_HS1: case STP_HS2:
-                if (iswhitespace(utf8_val, utf8_len)) stp++;
+                if (utf8_is_whitespace(utf8_val, utf8_len)) stp++;
                 else ind = 0, stp = STP_HE0, upd = 0;
                 break;
 
@@ -460,16 +474,16 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_ST0: case STP_ST1: case STP_ST2: case STP_ST3:
                 if (!len)
                 {
-                    if (isxmlnamestartchar(utf8_val, utf8_len))
+                    if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
                     {
-                        if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, utf8_len)) goto ERR();
+                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(utf8_len))) goto error;
                         strncpy(temp.buff, utf8_byte, utf8_len), len += utf8_len;
                     }
                     else errm = ERR_SYM, halt = 1;
                 }
-                else if (isxmlnamechar(utf8_val, utf8_len))
+                else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
-                    if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + utf8_len)) goto ERR();
+                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len))) goto error;
                     strncpy(temp.buff + len, utf8_byte, utf8_len), len += utf8_len;                 
                 }
                 else stp++, upd = 0;
@@ -483,17 +497,17 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_TG0:
                 if (len == sch->name.len && !strncmp(temp.buff, sch->name.str, len))
                 {
-                    if (!dynamicArrayTest((void **) &stack.frame, &stack.cap, sizeof *stack.frame, 1)) goto ERR();
+                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(1))) goto error;
                     
                     stack.frame[0] = (struct frame) { .obj = malloc(sizeof *stack.frame[0].obj), .node = sch }; ;
-                    if (!stack.frame[0].obj) goto ERR();
+                    if (!stack.frame[0].obj) goto error;
 
                     *stack.frame[0].obj = (struct program_object) { .prologue = sch->prologue, .epilogue = sch->epilogue, .dispose = sch->dispose, .context = calloc(1, sch->sz) };
-                    if (!stack.frame[0].obj->context) goto ERR();
+                    if (!stack.frame[0].obj->context) goto error;
                                      
-                    size_t attbcnt = BYTE_CNT(sch->attcnt);
-                    if (!dynamicArrayTest((void **) &attb.buff, &attb.cap, 1, attbcnt)) goto ERR();
-                    memset(attb.buff, 0, attbcnt);
+                    size_t attb_cnt = BYTE_CNT(sch->att_cnt);
+                    if (!array_test(&attb.buff, &attb.cap, 1, 0, 0, ARG_SIZE(attb_cnt))) goto error;
+                    memset(attb.buff, 0, attb_cnt);
 
                     stp++, upd = 0;
                 }
@@ -508,26 +522,26 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_TG1:
                 for (struct frame *anc = &stack.frame[dep - 1];;)
                 {
-                    ind = binarySearch(temp.buff, anc->node->dsc, sizeof *anc->node->dsc, anc->node->dsc_cnt, (stable_cmp_callback) strCompDictLen, &len);
+                    ind = binary_search(temp.buff, anc->node->dsc, sizeof(*anc->node->dsc), anc->node->dsc_cnt, str_strl_cmp_len, &len);
 
                     if (ind + 1)
                     {
                         struct xml_node *nod = &anc->node->dsc[ind];
 
-                        if (!dynamicArrayTest((void **) &stack.frame, &stack.cap, sizeof *stack.frame, dep + 1)) goto ERR();
+                        if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep, 1))) goto error;
 
                         stack.frame[dep - 1].obj->dsc = realloc(stack.frame[dep - 1].obj->dsc, (stack.frame[dep - 1].obj->dsc_cnt + 1) * sizeof *stack.frame[dep - 1].obj->dsc);
-                        if (!stack.frame[dep - 1].obj->dsc) goto ERR();
+                        if (!stack.frame[dep - 1].obj->dsc) goto error;
 
                         stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt] = (struct program_object) { .prologue = nod->prologue, .epilogue = nod->epilogue, .dispose = nod->dispose, .context = calloc(1, nod->sz) };
-                        if (!stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt].context) goto ERR();
+                        if (!stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt].context) goto error;
 
                         stack.frame[dep] = (struct frame) { .obj = &stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt], .node = nod, .anc = anc };
                         stack.frame[dep - 1].obj->dsc_cnt++;
 
-                        size_t attbcnt = BYTE_CNT(nod->attcnt);
-                        if (!dynamicArrayTest((void **) &attb.buff, &attb.cap, 1, attbcnt)) goto ERR();
-                        memset(attb.buff, 0, attbcnt), stp = OFF_LB, upd = 0;
+                        size_t attb_cnt = BYTE_CNT(nod->att_cnt);
+                        if (!array_test(&attb.buff, &attb.cap, 1, 0, 0, ARG_SIZE(attb_cnt))) goto error;
+                        memset(attb.buff, 0, attb_cnt), stp = OFF_LB, upd = 0;
                     }
                     else
                     {
@@ -579,12 +593,12 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_AH0:
-                ind = binarySearch(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->attcnt, (stable_cmp_callback) strCompDictLen, &len);
+                ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_cmp_len, &len);
                 att = stack.frame[dep].node->att + ind;
 
                 if (ind + 1)
                 {
-                    if (!bitTest(attb.buff, ind)) bitSet(attb.buff, ind), stp++, upd = 0;
+                    if (!bit_test(attb.buff, ind)) bit_set(attb.buff, ind), stp++, upd = 0;
                     else errm = ERR_DUP, halt = 1;
                 }
                 else errm = ERR_ATT, halt = 1;
@@ -596,7 +610,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_AV0:
-                if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + 1)) goto ERR();
+                if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 1))) goto error;
                 temp.buff[len] = '\0';
                 
                 if (!att->handler(temp.buff, len, (char *) stack.frame[dep].obj->context + att->offset, att->context)) errm = ERR_HAN, halt = 1;
@@ -619,40 +633,40 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 break;
 
             case STP_SA1:
-                if ('0' <= utf8_val && utf8_val <= '9') ctrlval = utf8_val - '0', stp++;
-                else if ('A' <= utf8_val && utf8_val <= 'F') ctrlval = utf8_val - 'A' + 10, stp++;
-                else if ('a' <= utf8_val && utf8_val <= 'f') ctrlval = utf8_val - 'a' + 10, stp++;
+                if ('0' <= utf8_val && utf8_val <= '9') ctrl_val = utf8_val - '0', stp++;
+                else if ('A' <= utf8_val && utf8_val <= 'F') ctrl_val = utf8_val - 'A' + 10, stp++;
+                else if ('a' <= utf8_val && utf8_val <= 'f') ctrl_val = utf8_val - 'a' + 10, stp++;
                 else errm = ERR_SYM, halt = 1;
                 break;
 
             case STP_SA2:
-                if ('0' <= utf8_val && utf8_val <= '9') { if (!uint32FusedMulAdd(&ctrlval, 16, utf8_val - '0')) errm = ERR_RAN, halt = 1; }
-                else if ('A' <= utf8_val && utf8_val <= 'F') { if (!uint32FusedMulAdd(&ctrlval, 16, utf8_val - 'A' + 10)) errm = ERR_RAN, halt = 1; }
-                else if ('a' <= utf8_val && utf8_val <= 'f') { if (!uint32FusedMulAdd(&ctrlval, 16, utf8_val - 'a' + 10)) errm = ERR_RAN, halt = 1; }
+                if ('0' <= utf8_val && utf8_val <= '9') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - '0')) errm = ERR_RAN, halt = 1; }
+                else if ('A' <= utf8_val && utf8_val <= 'F') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'A' + 10)) errm = ERR_RAN, halt = 1; }
+                else if ('a' <= utf8_val && utf8_val <= 'f') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'a' + 10)) errm = ERR_RAN, halt = 1; }
                 else stp += 3, upd = 0;
                 break;
 
             case STP_SA3:
-                if ('0' <= utf8_val && utf8_val <= '9') ctrlval = utf8_val - '0', stp++;
+                if ('0' <= utf8_val && utf8_val <= '9') ctrl_val = utf8_val - '0', stp++;
                 else errm = ERR_SYM, halt = 1;
                 break;
 
             case STP_SA4:
-                if ('0' <= utf8_val && utf8_val <= '9') { if (!uint32FusedMulAdd(&ctrlval, 10, utf8_val - '0')) errm = ERR_RAN, halt = 1; }
+                if ('0' <= utf8_val && utf8_val <= '9') { if (uint32_fused_mul_add(&ctrl_val, 10, utf8_val - '0')) errm = ERR_RAN, halt = 1; }
                 else stp++, upd = 0;
                 break;
 
             case STP_SA5:
                 if (utf8_val == ';')
                 {
-                    if (ctrlval >= UTF8_BOUND) errm = ERR_RAN, halt = 1;
+                    if (ctrl_val >= UTF8_BOUND) errm = ERR_RAN, halt = 1;
                     else
                     {
                         char ctrlbyte[6];
                         uint8_t ctrllen;
-                        utf8encode(ctrlval, ctrlbyte, &ctrllen);
+                        utf8_encode(ctrl_val, ctrlbyte, &ctrllen);
 
-                        if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + ctrllen)) goto ERR();
+                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, ctrllen))) goto error;
                         strncpy(temp.buff + len, ctrlbyte, ctrllen), len += ctrllen, stp = STP_QC3;
                     }
                 }
@@ -662,16 +676,16 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_SA6:
                 if (!ind)
                 {
-                    if (isxmlnamestartchar(utf8_val, utf8_len))
+                    if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
                     {
-                        if (!dynamicArrayTest((void **) &ctrl.buff, &ctrl.cap, 1, utf8_len)) goto ERR();
+                        if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(utf8_len))) goto error;
                         strncpy(ctrl.buff, utf8_byte, utf8_len), ind += utf8_len;
                     }
                     else errm = ERR_SYM, halt = 1;
                 }
-                else if (isxmlnamechar(utf8_val, utf8_len))
+                else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
-                    if (!dynamicArrayTest((void **) &ctrl.buff, &ctrl.cap, 1, ind + utf8_len)) goto ERR();
+                    if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(ind, utf8_len))) goto error;
                     strncpy(ctrl.buff + ind, utf8_byte, utf8_len), ind += utf8_len;
                 }
                 else stp++, upd = 0;
@@ -680,11 +694,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_SA7:
                 if (utf8_val == ';')
                 {
-                    size_t ctrind = binarySearch(ctrl.buff, ctrseq, sizeof ctrseq[0], countof(ctrseq), (stable_cmp_callback) strCompDictLen, &ind);
+                    size_t ctrind = binary_search(ctrl.buff, ctrseq, sizeof ctrseq[0], countof(ctrseq), str_strl_cmp_len, &ind);
 
                     if (ctrind + 1)
                     {
-                        if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + 1)) goto ERR();
+                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 1))) goto error;
                         temp.buff[len++] = ctrseq[ctrind].ch, stp = STP_QC3;
                     }
                     else errm = ERR_CTR, halt = 1;
@@ -743,26 +757,26 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             txt.byte -= utf8_len, txt.col--;
 
         case ERR_EOF: case ERR_UTF: case ERR_PRL: case ERR_CMP:
-            logMsg(inf, strings[STR_FR_EX], strings[STR_FN], strings[errm], input, txt.line + 1, txt.col + 1, txt.byte + 1);
+            //logMsg(inf, strings[STR_FR_EX], strings[STR_FN], strings[errm], input, txt.line + 1, txt.col + 1, txt.byte + 1);
             break;
         
         case ERR_TAG: case ERR_ATT: case ERR_END: case ERR_DUP:
         case ERR_HAN:
-            if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + 1)) goto ERR();
-            temp.buff[len] = '\0';
+            //if (!dynamicArrayTest((void **) &temp.buff, &temp.cap, 1, len + 1)) goto error;
+            //temp.buff[len] = '\0';
 
-            logMsg(inf, strings[STR_FR_ET], strings[STR_FN], strings[errm], temp.buff, len > MAX_PRINT ? "..." : "", input, str.line + 1, str.col + 1, str.byte + 1);
+            //logMsg(inf, strings[STR_FR_ET], strings[STR_FN], strings[errm], temp.buff, len > MAX_PRINT ? "..." : "", input, str.line + 1, str.col + 1, str.byte + 1);
             break;
 
         case ERR_CTR:
-            if (!dynamicArrayTest((void **) &ctrl.buff, &ctrl.cap, 1, ind + 1)) goto ERR();
-            ctrl.buff[ind] = '\0';
+            //if (!dynamicArrayTest((void **) &ctrl.buff, &ctrl.cap, 1, ind + 1)) goto error;
+            //ctrl.buff[ind] = '\0';
 
-            logMsg(inf, strings[STR_FR_ET], strings[STR_FN], strings[errm], ctrl.buff, ind > MAX_PRINT ? "..." : "", input, ctr.line + 1, ctr.col + 1, ctr.byte + 1);
+            //logMsg(inf, strings[STR_FR_ET], strings[STR_FN], strings[errm], ctrl.buff, ind > MAX_PRINT ? "..." : "", input, ctr.line + 1, ctr.col + 1, ctr.byte + 1);
             break;
 
         case ERR_RAN:
-            logMsg(inf, strings[STR_FR_RN], strings[STR_FN], ctrlval, input, ctr.line + 1, ctr.col + 1, ctr.byte + 1);
+            //logMsg(inf, strings[STR_FR_RN], strings[STR_FN], ctrl_val, input, ctr.line + 1, ctr.col + 1, ctr.byte + 1);
             break;
         }
 
@@ -770,21 +784,16 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
         {
             break;
 
-        ERR():
-            strerror_s(error, sizeof error, errno);
-            logMsg(inf, strings[STR_FR_EG], strings[STR_FN], error);
-            break;
-
-        ERR(File):
-            strerror_s(error, sizeof error, errno);
-            logMsg(inf, strings[STR_FR_EI], strings[STR_FN], input, error);
+        error:
+            //strerror_s(error, sizeof error, errno);
+            //logMsg(inf, strings[STR_FR_EG], strings[STR_FN], error);
             break;
         }
 
-        if (stack.frame) programObjectDispose(stack.frame[0].obj), stack.frame[0].obj = NULL;
+        if (stack.frame) program_object_dispose(stack.frame[0].obj), stack.frame[0].obj = NULL;
     }
     
-    if (!std && f) fclose(f);
+    if (f != stdin) fclose(f);
     
     struct program_object *res = stack.frame ? stack.frame[0].obj : NULL;
 
@@ -795,5 +804,3 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
     return res;
 }
-
-#endif

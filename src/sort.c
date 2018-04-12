@@ -21,7 +21,7 @@ static bool generic_cmp(const void *A, const void *B, void *Thunk)
     return 0;
 }
 
-uintptr_t *orders_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
+uintptr_t *orders_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     uintptr_t *res = NULL;
     if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
@@ -29,11 +29,10 @@ uintptr_t *orders_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback c
     for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
     quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
     for (size_t i = 0; i < cnt; res[i] = (res[i] - (uintptr_t) arr) / sz, i++);
-
     return res;
 }
 
-uintptr_t *orders_stable_unique(void *arr, size_t *p_cnt, size_t sz, stable_cmp_callback cmp, void *context)
+uintptr_t *orders_stable_unique(const void *arr, size_t *p_cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     size_t cnt = *p_cnt;
     uintptr_t *res = NULL;
@@ -43,10 +42,8 @@ uintptr_t *orders_stable_unique(void *arr, size_t *p_cnt, size_t sz, stable_cmp_
     quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
 
     uintptr_t tmp = 0;
-    size_t ucnt = 0;
-    
-    if (cnt) tmp = res[0], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
-    
+    size_t ucnt = 0;    
+    if (cnt) tmp = res[0], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;    
     for (size_t i = 1; i < cnt; i++)
         if (cmp((const void *) tmp, (const void *) res[i], context)) tmp = res[i], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
     
@@ -90,7 +87,7 @@ bool ranks_from_orders_inplace(uintptr_t *restrict arr, uintptr_t base, size_t c
     return 1;
 }
 
-uintptr_t *ranks_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
+uintptr_t *ranks_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     uintptr_t *res = NULL;
     if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
@@ -103,66 +100,104 @@ uintptr_t *ranks_stable(void *arr, size_t cnt, size_t sz, stable_cmp_callback cm
     return NULL;
 }
 
-#define QUICK_SORT_STACK_SZ 96
-#define QUICK_SORT_CUTOFF 5
+static void swap(void *a, void *b, void *swp, size_t sz)
+{
+    memcpy(swp, a, sz);
+    memcpy(a, b, sz);
+    memcpy(b, swp, sz);
+}
 
-typedef void (*cpy_callback)(void *, const void *);
-typedef void (*swp_callback)(void *, void *, void *);
+static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *swp, size_t cutoff)
+{
+    size_t min = 0;
+    for (size_t i = sz; i < cutoff; i += sz) if (cmp((char *) arr + min, (char *) arr + i, context)) min = i;
+    if (min) swap((char *) arr + min, (char *) arr, swp, sz);
+    for (size_t i = sz + sz; i < tot; i += sz)
+    {
+        size_t j = i;
+        if (cmp((char *) arr + j - sz, (char *) arr + j, context)) // First iteration is unrolled
+        {
+            memcpy(swp, (char *) arr + j, sz);
+            memcpy((char *) arr + j, (char *) arr + j - sz, sz);
+            for (j -= sz; j > sz && cmp((char *) arr + j - sz, swp, context); j -= sz) memcpy((char *) arr + j, (char *) arr + j - sz, sz);
+            memcpy((char *) arr + j, swp, sz);
+        }
+    }
+}
+
+static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *swp, size_t cutoff)
+{
+    uint8_t frm = 0;
+    struct { size_t a, b; } stk[SIZE_BIT];
+    size_t a = 0, b = tot - sz;
+    for (;;)
+    {
+        size_t left = a, right = b, pvt = a + ((b - a) / sz >> 1) * sz;
+        if (cmp((char *) arr + left, (char *) arr + pvt, context)) swap((char *) arr + left, (char *) arr + pvt, swp, sz);
+        if (cmp((char *) arr + pvt, (char *) arr + right, context))
+        {
+            swap((char *) arr + pvt, (char *) arr + right, swp, sz);
+            if (cmp((char *) arr + left, (char *) arr + pvt, context)) swap((char *) arr + left, (char *) arr + pvt, swp, sz);
+        }
+        left += sz;
+        right -= sz;
+        do {
+            while (cmp((char *) arr + pvt, (char *) arr + left, context)) left += sz;
+            while (cmp((char *) arr + right, (char *) arr + pvt, context)) right -= sz;
+            if (left == right)
+            {
+                left += sz;
+                right -= sz;
+                break;
+            }
+            else if (left > right) break;
+            swap((char *) arr + left, (char *) arr + right, swp, sz);
+            if (left == pvt) pvt = right;
+            else if (pvt == right) pvt = left;
+            left += sz;
+            right -= sz;
+        } while (left <= right);
+        if (right - a < cutoff)
+        {
+            if (b - left < cutoff)
+            {
+                if (!frm--) break;
+                a = stk[frm].a;
+                b = stk[frm].b;
+            }
+            else a = left;
+        }
+        else if (b - left < cutoff) b = right;
+        else
+        {
+            if (right - a > b - left)
+            {
+                stk[frm].a = a;
+                stk[frm].b = right;
+                a = left;
+            }
+            else
+            {
+                stk[frm].a = left;
+                stk[frm].b = b;
+                b = right;
+            }
+            frm++;
+        }
+    }
+}
 
 void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, void *context)
 {
-    uint8_t frm = 0;
-    size_t stk[QUICK_SORT_STACK_SZ]; // This is a sufficient with 99.99% probability stack space
-    size_t left = 0, tot = cnt * sz;
-    size_t rnd = (size_t) arr; // Random seed is just the array initial address
-    char *restrict swp = Alloca(sz); // Place for swap is allocated on the stack
-
-    for (;;)
+    if (cnt < 2) return;
+    void *restrict swp = Alloca(sz);
+    const size_t cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz;
+    if (tot > cutoff)
     {
-        for (; left + sz < tot; tot += sz)
-        {
-            if (tot < QUICK_SORT_CUTOFF * sz + left) // Insertion sort for small ranges. Cutoff estimation is purely empirical
-            {
-                for (size_t i = left + sz; i < tot; i += sz)
-                {
-                    size_t j = i;
-                    memcpy(swp, (char *) arr + j, sz);
-
-                    for (; j > left && cmp((char *) arr + j - sz, swp, context); j -= sz)
-                        memcpy((char *) arr + j, (char *) arr + j - sz, sz);
-
-                    memcpy((char *) arr + j, swp, sz);
-                }
-                break;
-            }
-
-            if (frm == countof(stk)) frm = 0, tot = stk[0]; // Practically unfeasible case of stack overflow
-            stk[frm++] = tot;
-
-            rnd = rnd * (size_t) LCG_MUL + (size_t) LCG_INC;
-            size_t pvt = left + (rnd % ((tot - left) / sz)) * sz, tmp = left - sz;
-
-            for (;;) // Partitioning
-            {
-                while (tmp += sz, cmp((char *) arr + pvt, (char *) arr + tmp, context));
-                while (tot -= sz, cmp((char *) arr + tot, (char *) arr + pvt, context));
-
-                if (tmp >= tot) break;
-
-                memcpy(swp, (char *) arr + tmp, sz);
-                memcpy((char *) arr + tmp, (char *) arr + tot, sz);
-                memcpy((char *) arr + tot, swp, sz);
-
-                if (tmp == pvt) pvt = tot;
-                else if (tot == pvt) pvt = tmp;
-            }
-        }
-
-        if (!frm) break;
-
-        left = tot;
-        tot = stk[--frm];
+        quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
+        insertion_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
     }
+    else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
 }
 
 size_t binary_search(const void *restrict key, const void *restrict list, size_t sz, size_t cnt, stable_cmp_callback cmp, void *context)

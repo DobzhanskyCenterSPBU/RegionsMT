@@ -103,6 +103,14 @@ size_t Strnlen(const char *str, size_t len)
 
 #ifdef _WIN32
 #   include <windows.h>
+#   include <io.h>
+
+int64_t file_get_size(FILE *f)
+{
+    LARGE_INTEGER sz;
+    if (GetFileSizeEx((HANDLE) _get_osfhandle(_fileno(f)), &sz)) return (int64_t) sz.QuadPart;
+    else return 0;
+}
 
 size_t get_processor_count()
 {
@@ -134,6 +142,13 @@ uint64_t get_time()
 #   include <sys/types.h>
 #   include <sys/time.h>
 #   include <unistd.h>
+
+int64_t file_get_size(FILE *f)
+{
+    struct stat st;
+    if (!fstat(fileno(f), &st)) return (int64_t) st.st_size;
+    else return 0;
+}
 
 size_t get_processor_count() 
 { 

@@ -21,8 +21,8 @@ struct sort_args {
 };
 
 struct merge_args {
-    size_t off, pvt, len;
-} ;
+    size_t off, mid, len;
+};
 
 struct sort_mt
 {
@@ -34,19 +34,14 @@ struct sort_mt
     size_t *args;
 };
 
-static void merge_sorted_arrays(void *restrict arr, void *restrict temp, size_t pvt, size_t cnt, size_t sz, cmp_callback cmp, void *context)
+static void merge_arrays(void *restrict arr, void *restrict temp, size_t mid, size_t cnt, size_t sz, cmp_callback cmp, void *context)
 {
-    const size_t tot = cnt * sz, mid = pvt * sz;
-    size_t i = 0, j = mid;
-        
-    for (size_t k = 0; k < tot; k += sz)
+    const size_t tot = cnt * sz, pvt = mid * sz;
+    for (size_t i = 0, j = pvt, k = 0; k < tot; k += sz)
     {
-        if (i < mid && (j == tot || cmp((char *) arr + j, (char *) arr + i, context))) 
-            memcpy((char *) temp + k, (char *) arr + i, sz), i += sz;
-        else 
-            memcpy((char *) temp + k, (char *) arr + j, sz), j += sz;
+        if (i < pvt && (j == tot || cmp((char *) arr + j, (char *) arr + i, context))) memcpy((char *) temp + k, (char *) arr + i, sz), i += sz;
+        else memcpy((char *) temp + k, (char *) arr + j, sz), j += sz;
     }
-
     memcpy(arr, temp, tot);
 }
 
@@ -55,7 +50,7 @@ static bool merge_thread_proc(void *Args, void *Context)
     struct merge_args *restrict args = Args;
     struct sort_context *restrict context = Context;
     const size_t off = args->off * context->sz;
-    merge_sorted_arrays((char *) context->arr + off, (char *) context->temp + off, args->pvt, args->len, context->sz, context->cmp, context->context);
+    merge_arrays((char *) context->arr + off, (char *) context->temp + off, args->mid, args->len, context->sz, context->cmp, context->context);
     return 1;
 }
 
@@ -63,8 +58,7 @@ static bool sort_thread_proc(void *Args, void *Context)
 {
     struct sort_args *restrict args = Args;
     struct sort_context *restrict context = Context;
-    const size_t off = args->off * context->sz;
-    quick_sort((char *) context->arr + off, args->len, context->sz, context->cmp, context->context);
+    quick_sort((char *) context->arr + args->off * context->sz, args->len, context->sz, context->cmp, context->context);
     return 1;
 }
 

@@ -53,6 +53,8 @@
     (countof((STR)) - 1)
 
 // Helper macros evaluating and inserting the count of arguments
+#define INIT(T, ...) \
+    { __VA_ARGS__ }, countof(((T []) { __VA_ARGS__ }))
 #define ARG(T, ...) \
     ((T []) { __VA_ARGS__ }), countof(((T []) { __VA_ARGS__ }))
 #define ARG_SIZE(...) \

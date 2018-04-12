@@ -37,4 +37,4 @@ struct xml_node
     };
 };
 
-struct program_object *program_object_from_xml(struct xml_node *, const char *, struct message *);
+struct program_object *program_object_from_xml(struct xml_node *, const char *, struct log *);

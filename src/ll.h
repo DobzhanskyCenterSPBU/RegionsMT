@@ -72,8 +72,8 @@ size_t size_bit_scan_forward(size_t);
 
 #define SIZE_BIT (sizeof(size_t) << 3)
 bool size_bit_test(size_t, uint8_t);
-size_t size_bit_set(size_t, uint8_t);
-size_t size_bit_reset(size_t, uint8_t);
+void size_bit_set(size_t *, uint8_t);
+void size_bit_reset(size_t *, uint8_t);
 
 size_t size_add_sat(size_t, size_t);
 size_t size_sub_sat(size_t, size_t);
