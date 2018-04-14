@@ -52,38 +52,38 @@ uint64_t row_align(FILE *f, int64_t offset)
     return (uint64_t) offset;
 }
 
-typedef enum {
-    ROWREAD_SUCC = 0,
-    ROWREAD_ERR_QUOT,
-    ROWREAD_ERR_VAL,
-    ROWREAD_ERR_EOL,
-    ROWREAD_ERR_EOF,
-    ROWREAD_ERR_FORM,
-    ROWREAD_ERR_CNT
-} rowReadErr;
+/*
+struct row_read_handlers {
 
-enum row_read_obituary {
-    ROW_READ_ERROR_INVALID_PAR = 0,
-    ROW_READ_ERROR_BAD_QUOTES,
-    ROW_READ_ERROR_UNHANDLED_VALUE,
-    ROW_READ_ERROR_EXPECTED_EOL,
-    ROW_READ_ERROR_UNEXPECTED_EOL,
-    ROW_READ_ERROR_UNEXPECTED_EOF,
-    ROW_READ_ERROR_EXPECTED_MORE_ROWS
+};
+
+void row_read(char buff, size_t )
+{
+    
+}
+*/
+
+enum row_read_status {
+    ROW_READ_STATUS_INVALID_PAR = 0,
+    ROW_READ_STATUS_BAD_QUOTES,
+    ROW_READ_STATUS_UNHANDLED_VALUE,
+    ROW_READ_STATUS_EXPECTED_EOL,
+    ROW_READ_STATUS_UNEXPECTED_EOL,
+    ROW_READ_STATUS_UNEXPECTED_EOF,
+    ROW_READ_STATUS_EXPECTED_MORE_ROWS
 };
 
 struct message_error_row_read {
     struct message base;
-    enum row_read_obituary obituary;
+    enum row_read_status status;
     uint64_t byte;
     size_t row, col;
-
 };
 
-#define MESSAGE_ERROR_ROW_READ(Obituary, Byte, Row, Col) \
+#define MESSAGE_ERROR_ROW_READ(Status, Byte, Row, Col) \
     ((struct message_error_row_read) { \
         .base = MESSAGE(message_error_row_read, MESSAGE_TYPE_ERROR), \
-        .obituary = (Obituary), \
+        .status = (Status), \
         .byte = (Byte), \
         .row = (Row), \
         .col = (Col) \
@@ -102,8 +102,8 @@ static size_t message_error_row_read(char *buff, size_t buff_cnt, void *Context)
         "Read less rows than expected"
     };
     int res = !(context->byte + 1) || !(context->row + 1) || !(context->col + 1) ?
-        snprintf(buff, buff_cnt, "%s!\n", str[context->obituary]) :
-        snprintf(buff, buff_cnt, "%s (byte %" PRIu64 ", row %zu, column %zu)!\n", str[context->obituary], context->byte + 1, context->row + 1, context->col + 1);
+        snprintf(buff, buff_cnt, "%s!\n", str[context->status]) :
+        snprintf(buff, buff_cnt, "%s (byte %" PRIu64 ", row %zu, column %zu)!\n", str[context->status], context->byte + 1, context->row + 1, context->col + 1);
     return MAX(0, res);
 }
 
@@ -115,7 +115,7 @@ bool row_read(FILE *f, struct tbl_sch *sch, void *tbl, size_t *p_row_skip, size_
     // This guarantees that all conditions of type 'byte + rd < length' will be eventually triggered.
     if (length && length > SIZE_MAX - BLOCK_READ)
     {
-        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_INVALID_PAR, UINT64_MAX, SIZE_MAX, SIZE_MAX).base);
+        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_INVALID_PAR, UINT64_MAX, SIZE_MAX, SIZE_MAX).base);
         return 0;
     }
 
@@ -131,16 +131,20 @@ bool row_read(FILE *f, struct tbl_sch *sch, void *tbl, size_t *p_row_skip, size_
     size_t rd = 0, ind = 0, skip = row_skip;
     uint64_t byte = 0;
 
-    for (size_t rd = fread(buff, 1, sizeof(buff), f); rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
+    if (skip)
     {
-        for (char *ptr = memchr(buff, '\n', rd); skip && ptr && (!length || ptr - buff < length - byte); skip--, ind = ptr - buff + 1, ptr = memchr(ptr + 1, '\n', buff + rd - ptr - 1));
-        if (skip && (!length || byte + rd < length)) continue;
-        break;
+        for (size_t rd = fread(buff, 1, sizeof(buff), f); rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
+        {
+            for (char *ptr = memchr(buff, '\n', rd); skip && ptr && (!length || (size_t) (ptr - buff) < (size_t) (length - byte)); skip--, ind = ptr - buff + 1, ptr = memchr(ptr + 1, '\n', buff + rd - ptr - 1));
+            if (skip && (!length || byte + rd < length)) continue;
+            break;
+        }
+        if (p_row_skip) *p_row_skip = row_skip - skip;
     }
-    if (p_row_skip) *p_row_skip = row_skip - skip;
-    
+
     size_t row = 0, col = 0, len = 0, cap = 0;
     uint8_t quote = 0;
+    struct tbl_col cl;
     for (; rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f), ind = 0)
     {
         for (; ind < rd && (!row_cnt || row < row_cnt) && (!length || byte + ind < length); ind++)
@@ -149,16 +153,16 @@ bool row_read(FILE *f, struct tbl_sch *sch, void *tbl, size_t *p_row_skip, size_
             {
                 if (quote != 2)
                 {
-                    if (col + 1 >= sch->col_sch_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_EXPECTED_EOL, byte + ind + offset, row + row_skip + row_offset, col).base);
+                    if (col + 1 >= sch->col_sch_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_EXPECTED_EOL, byte + ind + offset, row + row_skip + row_offset, col).base);
                     else
                     {
-                        struct tbl_col_sch *cl = sch->col_sch + col;                        
+                         sch->col_sch + col;
                         if (!array_test(&temp_buff, &cap, 1, 0, 0, ARG_SIZE(len, 1))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
                         else
                         {
                             temp_buff[len] = '\0';
                             if (cl->handler.read && !cl->handler.read(temp_buff, len, (char *) line + cl->offset, cl->context))
-                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_UNHANDLED_VALUE, byte + ind + offset, row + row_skip + row_offset, col).base);
+                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind + offset, row + row_skip + row_offset, col).base);
                             else
                             {
                                 quote = 0;
@@ -174,7 +178,7 @@ bool row_read(FILE *f, struct tbl_sch *sch, void *tbl, size_t *p_row_skip, size_
             else switch (buff[ind])
             {
             default:
-                if (quote == 1) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_BAD_QUOTES, byte + ind + offset, row + row_skip + row_offset, col).base);
+                if (quote == 1) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind + offset, row + row_skip + row_offset, col).base);
                 else break;
                 goto error;
             case ' ':
@@ -185,34 +189,34 @@ bool row_read(FILE *f, struct tbl_sch *sch, void *tbl, size_t *p_row_skip, size_
                     if (len) break;
                     continue;
                 case 1:
-                    log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_BAD_QUOTES, byte + ind + offset, row + row_skip + row_offset, col).base);
+                    log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind + offset, row + row_skip + row_offset, col).base);
                     goto error;
                 case 2: 
                     break;
                 }
                 break;
             case '\n':
-                if (quote == 2) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_BAD_QUOTES, byte + ind + offset, row + row_skip + row_offset, col).base);
+                if (quote == 2) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind + offset, row + row_skip + row_offset, col).base);
                 else
                 {
-                    if (col + 1 != sch->col_sch_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_UNEXPECTED_EOL, byte + ind + row_offset, row + row_skip + row_offset, col).base);
+                    if (col + 1 != sch->col_sch_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNEXPECTED_EOL, byte + ind + row_offset, row + row_skip + row_offset, col).base);
                     else
                     {
-                        struct tbl_col_sch *cl = sch->col_sch + col;
+                        struct tbl_col *cl = sch->col_sch + col;
 
                         if (!array_test(&temp_buff, &cap, 1, 0, 0, ARG_SIZE(len, 1))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
                         else
                         {
                             temp_buff[len] = '\0';
                             if (cl->handler.read && !cl->handler.read(temp_buff, len, (char *) line + cl->offset, cl->context))
-                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_UNHANDLED_VALUE, byte + ind + offset, row + row_skip + row_offset, col).base);
+                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind + offset, row + row_skip + row_offset, col).base);
                             else
                             {
                                 quote = 0;
                                 len = col = 0;
                                 row++;
                                 if (sch->finalizer && !sch->finalizer(row + row_offset, tbl, line))
-                                    log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_UNHANDLED_VALUE, byte + ind + offset, row + row_skip + row_offset, col).base);
+                                    log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind + offset, row + row_skip + row_offset, col).base);
                                 else continue;
                             }
                         }
@@ -247,8 +251,8 @@ bool row_read(FILE *f, struct tbl_sch *sch, void *tbl, size_t *p_row_skip, size_
         break;
     }
 
-    if (col) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_UNEXPECTED_EOF, byte + ind + offset, row + row_skip + row_offset, col).base);
-    else if (row_cnt && row < row_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_ERROR_EXPECTED_MORE_ROWS, byte + ind + offset, row + row_skip + row_offset, col).base);
+    if (col) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNEXPECTED_EOF, byte + ind + offset, row + row_skip + row_offset, col).base);
+    else if (row_cnt && row < row_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_EXPECTED_MORE_ROWS, byte + ind + offset, row + row_skip + row_offset, col).base);
     else succ = 1;
 
 error:
@@ -259,16 +263,20 @@ error:
     return succ;
 }
 
-/*
-void tblschDispose(tblsch *sch)
+bool tbl_selector(struct tbl_col *cl, struct par *par, size_t row, size_t col, void *Context)
 {
-    if (!sch) return;
-    
-    free(sch->colsch);
+
+}
+
+void tbl_sch_dispose(struct tbl_sch *sch)
+{
+    if (!sch) return;    
+    free(sch->col_sch);
     free(sch);
 }
 
-tblsch *headRead(FILE *f, tblsch *sch, tblselector sel, rowReadRes *res, char delim, void *context)
+/*
+struct tbl_sch *tbl_sch_from_text(FILE *f, tbl_selector sel, tbl_finalizer finalizer, char delim, void *context)
 {
     char buff[BLOCK_READ] = { '\0' }, *temp_buff = NULL;
     size_t ind = 0, byte = 0, col = 0, len = 0, cap = 0;

@@ -67,27 +67,55 @@ bool program_object_execute(struct program_object *obj, void *in)
     return res;
 }
 
+///////////////////////////////////////////////////////////////////////////////
 
-/*
+enum xml_status {
+    ERR_EOF, ERR_UTF, ERR_SYM, ERR_PRL,
+    ERR_TAG, ERR_ATT, ERR_END, ERR_DUP,
+    ERR_HAN, ERR_CTR, ERR_CMP, ERR_RAN
+};
 
-static size_t message_error_program_object_from_xml(char *buff, size_t buff_cnt, void *Context)
+struct message_error_xml {
+    struct message base;
+    enum xml_status status;
+    uint64_t byte;
+    size_t col, row;
+};
+
+#define MESSAGE_ERROR_XML(Name, Len, Ind, Status) \
+    ((struct message_error_xml) { \
+        .base = MESSAGE(message_error_xml, MESSAGE_TYPE_WARNING), \
+        .status = (Status), \
+        .name = (Name), \
+        .len = (Len), \
+        .ind = (Ind), \
+    })
+
+static size_t message_error_xml(char *buff, size_t buff_cnt, void *Context)
 {
-    struct message_error_utf8_test *restrict context = Context;
+    struct message_error_xml *restrict context = Context;
     const char *str[] = {
-        "Incorrect length of the UTF-8 byte sequence",
+        __FUNCTION__,
+        "ERROR (%s): %s!\n",
+        "ERROR (%s): Cannot open specified XML document \"%s\". %s!\n",
+        "ERRPR (%s): Numeric value %" PRIu32 " is out of range (file \"%s\", line %zu, character %zu, byte %zu)!\n",
+        "ERROR (%s): %s (file \"%s\", line %zu, character %zu, byte %zu)!\n",
+        "ERROR (%s): %s \"%." TOSTRING(MAX_PRINT) "s%s\" (file \"%s\", line %zu, character %zu, byte %zu)!\n",
+        "Unexpected end of file",
         "Incorrect UTF-8 byte sequence",
-        "Incorrect Unicode value of the UTF-8 byte sequence",
-        "Internal error",
-        "Incorrect length of the UTF-16 word sequence",
-        "Incorrect UTF-16 word sequence",
-        "Incorrect Unicode value of the UTF-16 word sequence",
-        "Internal error"
+        "Invalid symbol",
+        "Invalid XML prologue",
+        "Invalid tag",
+        "Invalid attribute",
+        "Unexpected close tag",
+        "Duplicated attribute",
+        "Unable to handle value",
+        "Invalid control sequence",
+        "Compiler malfunction" // Not intended to happen
     };
-    int res = context->obituary < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->obituary]) : 0;
+    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;
     return MAX(0, res);
 }
-
-*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -121,27 +149,6 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
         }
     }
     else f = stdin;
-    
-    const char *strings[] =
-    {
-        __FUNCTION__,
-        "ERROR (%s): %s!\n",
-        "ERROR (%s): Cannot open specified XML document \"%s\". %s!\n",        
-        "ERRPR (%s): Numeric value %" PRIu32 " is out of range (file \"%s\", line %zu, character %zu, byte %zu)!\n",
-        "ERROR (%s): %s (file \"%s\", line %zu, character %zu, byte %zu)!\n",
-        "ERROR (%s): %s \"%." TOSTRING(MAX_PRINT) "s%s\" (file \"%s\", line %zu, character %zu, byte %zu)!\n",        
-        "Unexpected end of file",
-        "Incorrect UTF-8 byte sequence",
-        "Invalid symbol",        
-        "Invalid XML prologue",
-        "Invalid tag",
-        "Invalid attribute",        
-        "Unexpected close tag",
-        "Duplicated attribute",
-        "Unable to handle value",        
-        "Invalid control sequence",
-        "Compiler malfunction" // Not intended to happen
-    };
 
     enum
     {
@@ -152,18 +159,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
         STR_M_CMP
     };
     
+    enum xml_status errm;
+
     struct { struct strl name; char ch; } ctrseq[] = { { STRI("amp"), '&' }, { STRI("apos"), '\'' }, { STRI("gt"), '>' }, { STRI("lt"), '<' }, { STRI("quot"), '\"' } };
         
     // Parser errors
-#   define ERR_(X) ERR_ ## X = STR_M_ ## X
-    enum
-    {
-        ERR_(EOF), ERR_(UTF), ERR_(SYM), ERR_(PRL), 
-        ERR_(TAG), ERR_(ATT), ERR_(END), ERR_(DUP), 
-        ERR_(HAN), ERR_(CTR), ERR_(CMP), ERR_RAN
-    } errm = ERR_EOF;
-#   undef ERR_
-
     char buff[BLOCK_READ], utf8_byte[UTF8_COUNT];
 
     struct { char *buff; size_t cap; } temp = { 0 }, ctrl = { 0 };
@@ -179,8 +179,8 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     struct { size_t line; size_t col; size_t byte; } txt = { 0 }, str = { 0 }, ctr = { 0 }; // Text metrics        
     struct att *att = NULL;
     
-    size_t rd = fread(buff, 1, sizeof buff, f), pos = 0;    
-    if (!strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, txt.byte += 3; // (*) Reading UTF-8 BOM if it is present
+    size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;    
+    if (rd >= 3 && !strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, txt.byte += 3; // (*) Reading UTF-8 BOM if it is present
     if (pos == rd) halt = 1;
     
     enum {
@@ -277,8 +277,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     break;
                 }
             }
-
-            upd = 1;
+            else upd = 1;
 
             switch (stp)
             {
@@ -385,7 +384,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     break;
 
                 default:
-                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len))) goto error;
+                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len, 1))) goto error;
                     strncpy(temp.buff + len, utf8_byte, utf8_len), len += utf8_len;
                 }
                 break;
@@ -476,14 +475,14 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 {
                     if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
                     {
-                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(utf8_len))) goto error;
+                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(utf8_len, 1))) goto error;
                         strncpy(temp.buff, utf8_byte, utf8_len), len += utf8_len;
                     }
                     else errm = ERR_SYM, halt = 1;
                 }
                 else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
-                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len))) goto error;
+                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len, 1))) goto error;
                     strncpy(temp.buff + len, utf8_byte, utf8_len), len += utf8_len;                 
                 }
                 else stp++, upd = 0;
@@ -497,7 +496,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_TG0:
                 if (len == sch->name.len && !strncmp(temp.buff, sch->name.str, len))
                 {
-                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(1))) goto error;
+                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(stack.cap, 1))) goto error;
                     
                     stack.frame[0] = (struct frame) { .obj = malloc(sizeof *stack.frame[0].obj), .node = sch }; ;
                     if (!stack.frame[0].obj) goto error;
@@ -610,9 +609,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_AV0:
-                if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 1))) goto error;
-                temp.buff[len] = '\0';
-                
+                temp.buff[len] = '\0'; // There is always room for the zero-terminator
                 if (!att->handler(temp.buff, len, (char *) stack.frame[dep].obj->context + att->offset, att->context)) errm = ERR_HAN, halt = 1;
                 else upd = 0, stp = OFF_LB;
                 break;
@@ -662,12 +659,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     if (ctrl_val >= UTF8_BOUND) errm = ERR_RAN, halt = 1;
                     else
                     {
-                        char ctrlbyte[6];
-                        uint8_t ctrllen;
-                        utf8_encode(ctrl_val, ctrlbyte, &ctrllen);
-
-                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, ctrllen))) goto error;
-                        strncpy(temp.buff + len, ctrlbyte, ctrllen), len += ctrllen, stp = STP_QC3;
+                        char ctrl_byte[6];
+                        uint8_t ctrl_len;
+                        utf8_encode(ctrl_val, ctrl_byte, &ctrl_len);
+                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, ctrl_len, 1))) goto error;
+                        strncpy(temp.buff + len, ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
                     }
                 }
                 else errm = ERR_SYM, halt = 1;
@@ -695,10 +691,9 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 if (utf8_val == ';')
                 {
                     size_t ctrind = binary_search(ctrl.buff, ctrseq, sizeof ctrseq[0], countof(ctrseq), str_strl_cmp_len, &ind);
-
                     if (ctrind + 1)
                     {
-                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 1))) goto error;
+                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 2))) goto error;
                         temp.buff[len++] = ctrseq[ctrind].ch, stp = STP_QC3;
                     }
                     else errm = ERR_CTR, halt = 1;
@@ -793,14 +788,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
         if (stack.frame) program_object_dispose(stack.frame[0].obj), stack.frame[0].obj = NULL;
     }
     
-    if (f != stdin) fclose(f);
-    
+    if (f != stdin) fclose(f);    
     struct program_object *res = stack.frame ? stack.frame[0].obj : NULL;
-
     free(stack.frame);
     free(attb.buff);
     free(ctrl.buff);
     free(temp.buff);
-
     return res;
 }

@@ -68,7 +68,6 @@ bool ranks_from_orders_inplace(uintptr_t *restrict arr, uintptr_t base, size_t c
 {
     uint8_t *bits = NULL;
     if (!array_init(&bits, NULL, BYTE_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
-
     for (size_t i = 0; i < cnt; i++)
     {
         size_t j = i;
@@ -117,10 +116,11 @@ static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_c
         size_t j = i;
         if (cmp((char *) arr + j - sz, (char *) arr + j, context)) // First iteration is unrolled
         {
+            j -= sz;
             memcpy(swp, (char *) arr + j, sz);
-            memcpy((char *) arr + j, (char *) arr + j - sz, sz);
-            for (j -= sz; j > sz && cmp((char *) arr + j - sz, swp, context); j -= sz) memcpy((char *) arr + j, (char *) arr + j - sz, sz);
-            memcpy((char *) arr + j, swp, sz);
+            for (; j > sz && cmp((char *) arr + j - sz, (char *) arr + i, context); j -= sz) memcpy((char *) arr + j, (char *) arr + j - sz, sz);
+            memcpy((char *) arr + j, (char *) arr + i, sz);
+            memcpy((char *) arr + i, swp, sz);
         }
     }
 }

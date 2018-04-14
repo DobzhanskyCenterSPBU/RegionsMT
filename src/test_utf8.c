@@ -22,13 +22,13 @@ enum utf8_test_obituary {
 
 struct message_error_utf8_test {
     struct message base;
-    enum utf8_test_obituary obituary;
+    enum utf8_test_obituary status;
 };
 
 #define MESSAGE_ERROR_UTF8_TEST(Obituary) \
     ((struct message_error_utf8_test) { \
         .base = MESSAGE(message_error_utf8_test, MESSAGE_TYPE_ERROR), \
-        .obituary = (Obituary), \
+        .status = (Obituary), \
     })
 
 static size_t message_error_utf8_test(char *buff, size_t buff_cnt, void *Context)
@@ -44,7 +44,7 @@ static size_t message_error_utf8_test(char *buff, size_t buff_cnt, void *Context
         "Incorrect Unicode value of the UTF-16 word sequence",
         "Internal error"
     };
-    int res = context->obituary < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->obituary]) : 0;
+    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;
     return MAX(0, res);
 }
 

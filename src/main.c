@@ -70,16 +70,16 @@ int Main(int argc, char **argv)
     */
 
     // All names should be sorted according to 'strncmp'!!!
-    struct argv_sch argv_sch =
+    struct argv_par_sch argv_par_sch =
     {
         CLII((struct tag[]) { { STRI("help"), 0 }, { STRI("log"), 1 }, { STRI("test"), 2 }, { STRI("threads"), 3 }}),
         CLII((struct tag[]) { { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 }, { STRI("\xd0\x9b"), 4 } }),
         CLII((struct par[])
         {
-            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, PAR_MODE_OPTION },
-            { offsetof(struct main_args, log_path), NULL, p_str_handler, PAR_MODE_VALUE },
-            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, PAR_MODE_OPTION },
-            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, PAR_MODE_VALUE }
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, 1 },
+            { offsetof(struct main_args, log_path), NULL, p_str_handler, 0 },
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, 1 },
+            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, 0 }
         })
     };
 
@@ -268,7 +268,7 @@ int Main(int argc, char **argv)
         size_t input_cnt = 0;
         char **input = NULL;
         struct main_args main_args = { 0 };
-        if (argv_parse(&argv_sch, &main_args, argv, argc, &input, &input_cnt, &log))
+        if (argv_parse(argv_par_selector, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
             if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {

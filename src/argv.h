@@ -9,17 +9,22 @@
 #include "log.h"
 #include "strproc.h"
 
-enum par_mode {
-    PAR_MODE_VALUE = 0,
-    PAR_MODE_OPTION,
+struct par {
+    ptrdiff_t offset; // Offset of the field
+    void *context; // Third argument of the handler
+    read_callback handler;
+    bool option;
 };
+
+typedef bool (*par_selector_callback)(struct par *, char *, size_t, bool, void *);
+bool argv_parse(par_selector_callback, void *, void *, char **, size_t, char ***, size_t *, struct log *);
 
 struct tag {
     struct strl name;
     size_t id;
 };
 
-struct argv_sch {
+struct argv_par_sch {
     struct {
         struct tag *ltag; // Long tag name handling; array should be sorted by 'name' according to the 'strncmp'
         size_t ltag_cnt;
@@ -29,14 +34,9 @@ struct argv_sch {
         size_t stag_cnt;
     };
     struct {
-        struct par {
-            ptrdiff_t offset; // Offset of the field
-            void *context; // Third argument of the handler
-            read_callback handler;
-            enum par_mode mode;
-        } *par;
+        struct par *par;
         size_t par_cnt;
     };
 };
 
-bool argv_parse(struct argv_sch *, void *, char **, size_t, char ***, size_t *, struct log *);
+bool argv_par_selector(struct par *, char *, size_t len, bool shrt, void *);

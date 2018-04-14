@@ -18,6 +18,7 @@ bool utf8_is_xml_name_char(uint32_t, uint8_t);
 
 void utf8_encode(uint32_t, uint8_t *restrict, uint8_t *restrict);
 bool utf8_decode(uint8_t, uint32_t *restrict, uint8_t *restrict, uint8_t *restrict, uint8_t *restrict);
+bool utf8_decode_once(uint8_t *restrict, size_t, uint32_t *restrict, uint8_t *restrict);
 
 #define UTF16_COUNT 2
 
