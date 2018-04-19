@@ -20,7 +20,7 @@ struct program_object
     void *context;
     prologue_callback prologue;
     epilogue_callback epilogue;
-    dispose_callback dispose;    
+    disposer_callback dispose;    
     struct {
         struct program_object *dsc;
         size_t dsc_cnt;
@@ -795,4 +795,9 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     free(ctrl.buff);
     free(temp.buff);
     return res;
+}
+
+bool xml_node_selector()
+{
+    return 1;
 }

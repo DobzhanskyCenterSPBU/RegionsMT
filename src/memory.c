@@ -199,3 +199,20 @@ void queue_dequeue(struct queue *restrict queue, size_t offset)
     queue->begin++;
     if (queue->begin == queue->cap) queue->begin = 0;
 }
+
+struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
+{
+    
+    struct persistent_array *res;
+    size_t off = size_bit_scan_reverse(cnt) + 1;
+    if (array_init(&res, NULL, SIZE_BIT - off, sizeof(*res->ptr), sizeof(*res), ARRAY_STRICT))
+    {
+        res->off = off;
+        res->sz = sz;
+        res->cnt = cnt;
+        
+        for  ()
+    }
+    return 0;
+    return ind ? &pnum->num[ind][num - (SIZE_C(1) << (ind - 1))] : pnum->num[0];
+}

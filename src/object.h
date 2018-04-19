@@ -8,20 +8,25 @@
 
 typedef bool (*prologue_callback)(void *, void **, void *);
 typedef bool (*epilogue_callback)(void *, void *, void *);
-typedef void (*dispose_callback)(void *);
+typedef void (*disposer_callback)(void *);
 
 struct program_object;
 
 void program_object_dispose(struct program_object *);
 bool program_object_execute(struct program_object *, void *);
 
-struct xml_node
-{
+struct xml_attribute {
+    void *ptr;
+    void *context;
+    read_callback handler;
+};
+
+struct xml_node {
     struct strl name;
     size_t sz;
     prologue_callback prologue;
     epilogue_callback epilogue;
-    dispose_callback dispose;    
+    disposer_callback dispose;    
     struct {
         struct att {
             struct strl name;

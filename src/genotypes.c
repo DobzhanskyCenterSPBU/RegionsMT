@@ -29,7 +29,7 @@ bool strTableHandler(const char *str, size_t len, ptrdiff_t *offset, strTableHan
 
     return 1;
 }
-
+/*
 static const struct tbl_sch statSchFam = CLII((struct tbl_col[])
 {
     { .handler = { .read = NULL } },
@@ -39,7 +39,7 @@ static const struct tbl_sch statSchFam = CLII((struct tbl_col[])
     { .handler = { .read = NULL } },
     { .handler = { .read = (read_callback) strTableHandler }, .offset = 0 } // phenotype
 });
-
+*/
 bool read_phenotypes(void *Res, void *Context)
 {
     struct phenotype *res = Res;
@@ -57,7 +57,7 @@ bool read_phenotypes(void *Res, void *Context)
     void *cont[6] = { [0] = &(strTableHandlerContext) { .strtbl = &str,.strtblcnt = &strtblcnt, .strtblcap = &strtblcap } };
 
     Fseeki64(f, 0, SEEK_SET);
-    bool r = row_read(f, &statSchFam, tbl, NULL, NULL, NULL, NULL, ' ', 0, 0);
+    //bool r = row_read(f, &statSchFam, tbl, NULL, NULL, NULL, NULL, ' ', 0, 0);
 
     res->name_off = tbl[0];
     res->cnt = row_cnt;

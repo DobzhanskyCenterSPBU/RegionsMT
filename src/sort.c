@@ -58,13 +58,12 @@ uintptr_t *orders_stable_unique(const void *arr, size_t *p_cnt, size_t sz, stabl
 uintptr_t *ranks_from_orders(const uintptr_t *restrict arr, size_t cnt)
 {
     uintptr_t *res = NULL;
-    if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
-    
+    if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;    
     for (size_t i = 0; i < cnt; res[arr[i]] = i, i++);
     return res;
 }
 
-bool ranks_from_orders_inplace(uintptr_t *restrict arr, uintptr_t base, size_t cnt, size_t sz)
+bool ranks_from_pointers_inplace(uintptr_t *restrict arr, uintptr_t base, size_t cnt, size_t sz)
 {
     uint8_t *bits = NULL;
     if (!array_init(&bits, NULL, BYTE_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
@@ -86,6 +85,11 @@ bool ranks_from_orders_inplace(uintptr_t *restrict arr, uintptr_t base, size_t c
     return 1;
 }
 
+bool ranks_from_orders_inplace(uintptr_t *restrict arr, size_t cnt)
+{
+    return ranks_from_pointers_inplace(arr, 0, cnt, 1);
+}
+
 uintptr_t *ranks_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     uintptr_t *res = NULL;
@@ -93,10 +97,47 @@ uintptr_t *ranks_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callb
     
     for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
     quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
-    if (ranks_from_orders_inplace(res, (uintptr_t) arr, cnt, sz)) return res;
+    if (ranks_from_pointers_inplace(res, (uintptr_t) arr, cnt, sz)) return res;
     
     free(res);
     return NULL;
+}
+
+// This procedure applies orders to the array. Orders are not assumed to be a surjective map. 
+bool orders_apply(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict arr)
+{
+    uint8_t *bits = NULL;
+    if (!array_init(&bits, NULL, BYTE_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
+    void *restrict swp = Alloca(sz);
+
+    for (size_t i = 0; i < cnt; i++)
+    {
+        if (bit_test(bits, i)) continue;
+        size_t k = ord[i];
+        if (k == i) continue;
+        bit_set(bits, i);
+        memcpy(swp, (char *) arr + i * sz, sz);
+        for (size_t j = i;;)
+        {
+            while (k < cnt && bit_test(bits, k)) k = ord[k];
+            memcpy((char *) arr + j * sz, (char *) arr + k * sz, sz);
+            if (k >= cnt)
+            {
+                memcpy((char *) arr + k * sz, swp, sz);
+                break;
+            }
+            j = k;
+            k = ord[j];
+            bit_set(bits, j);
+            if (k == i)
+            {
+                memcpy((char *) arr + j * sz, swp, sz);
+                break;
+            }
+        }
+    }
+    free(bits);
+    return 1;
 }
 
 static void swap(void *a, void *b, void *swp, size_t sz)

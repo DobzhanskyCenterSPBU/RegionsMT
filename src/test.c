@@ -16,7 +16,7 @@ bool test(struct log *log)
     struct test_group group_arr[] = {
         {
             NULL,
-            sizeof(struct test_ll),
+            sizeof(struct test_ll_a),
             CLII((test_generator_callback[]) {
                 test_ll_generator_a,
             }),
@@ -24,6 +24,16 @@ bool test(struct log *log)
                 test_ll_a_1,
                 test_ll_a_2,
                 test_ll_a_3
+            })
+        },
+        {
+            NULL,
+            sizeof(struct test_ll_a),
+            CLII((test_generator_callback[]) {
+                test_ll_generator_b,
+            }),
+            CLII((test_callback[]) {
+                test_ll_b,
             })
         },
         {

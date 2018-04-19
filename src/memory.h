@@ -34,3 +34,10 @@ bool queue_test(struct queue *restrict, size_t);
 void *queue_peek(struct queue *restrict, size_t);
 bool queue_enqueue(struct queue *restrict, bool, void *restrict, size_t);
 void queue_dequeue(struct queue *restrict, size_t);
+
+struct persistent_array {
+    size_t cap, cnt, sz, off;
+    void *ptr[];
+};
+
+struct persistent_array *persistent_array_create(size_t cnt, size_t sz);

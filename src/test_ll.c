@@ -10,7 +10,7 @@ DECLARE_PATH
 bool test_ll_generator_a(void *dst, size_t *p_context, struct log *log)
 {
     (void) log;
-    struct test_ll data[] = {
+    struct test_ll_a data[] = {
         { 1. , -1, -1, 0, -1 },
         { -1., 1, 1, 0, 1 },
         { 1., 0., -1, -1, -1 },
@@ -31,9 +31,8 @@ bool test_ll_generator_a(void *dst, size_t *p_context, struct log *log)
         { 0, DBL_EPSILON, 1, 1, 1 },
         { DBL_EPSILON, 0, -1, -1, -1 }
     };
-    size_t ind = *p_context;
-    if (ind < countof(data)) memcpy(dst, data + ind, sizeof(*data)), ++*p_context;
-    else *p_context = 0;
+    memcpy(dst, data + *p_context, sizeof(*data));
+    if (++*p_context >= countof(data)) *p_context = 0;
     return 1;
 }
 
@@ -59,7 +58,7 @@ static int flt64_stable_cmp_dsc_nan_test(double *p_a, double *p_b, void *context
 bool test_ll_a_1(void *In, struct log *log)
 {
     (void) log;
-    struct test_ll *in = In;
+    struct test_ll_a *in = In;
     int res = flt64_stable_cmp_dsc(&in->a, &in->b, NULL);
     return res == in->res_dsc && flt64_stable_cmp_dsc_test(&in->a, &in->b, NULL) == res;
 }
@@ -67,7 +66,7 @@ bool test_ll_a_1(void *In, struct log *log)
 bool test_ll_a_2(void *In, struct log *log)
 {
     (void) log;
-    struct test_ll *in = In;
+    struct test_ll_a *in = In;
     int res = flt64_stable_cmp_dsc_abs(&in->a, &in->b, NULL);
     return res == in->res_dsc_abs && flt64_stable_cmp_dsc_abs_test(&in->a, &in->b, NULL) == res;
 }
@@ -75,35 +74,73 @@ bool test_ll_a_2(void *In, struct log *log)
 bool test_ll_a_3(void *In, struct log *log)
 {
     (void) log;
-    struct test_ll *in = In;
+    struct test_ll_a *in = In;
     int res = flt64_stable_cmp_dsc_nan(&in->a, &in->b, NULL);
     return res == in->res_dsc_nan && flt64_stable_cmp_dsc_nan_test(&in->a, &in->b, NULL) == res;
 }
 
+bool test_ll_generator_b(void *dst, size_t *p_context, struct log *log)
+{
+    struct test_ll_b data[] = {
+        { 0b0, UINT32_MAX, UINT32_MAX },
+        { 0b1, 0, 0 },
+        { 0b10, 1, 1 },
+        { 0b100, 2, 2 },
+        { 0b1001, 0, 3 },
+        { 0b10010, 1, 4 },
+        { 0b100100, 2, 5 },
+        { 0b1001000, 3, 6 },
+        { 0b10010000, 4, 7 },
+        { 0b100100000, 5, 8 },
+        { 0b1001000000, 6, 9 },
+        { 0b10010000000, 7, 10 },
+        { 0b100100000000, 8, 11 },
+        { 0b1001000000000, 9, 12 },
+        { 0b10010000000000, 10, 13 },
+        { 0b100100000000000, 11, 14 },
+        { 0b1001000000000000, 12, 15 },
+        { 0b10010000000000000, 13, 16 },
+        { 0b100100000000000000, 14, 17 },
+        { 0b1001000000000000000, 15, 18 },
+    };
+    memcpy(dst, data + *p_context, sizeof(*data));
+    if (++*p_context >= countof(data)) *p_context = 0;
+    return 1;
+}
+
+bool test_ll_b(void *In, struct log *log)
+{
+    struct test_ll_b *in = In;
+    uint32_t res_bsr = uint32_bit_scan_reverse(in->a), res_bsf = uint32_bit_scan_forward(in->a);
+    if (res_bsr != in->res_bsr || res_bsf != in->res_bsf) return 0;
+    return 1;
+}
+
+#if 0
 void test_ll_2_perf(struct log *log)
 {
     struct { double a, b; int res; } in[] = {
         { 1. , -1, -1 },
-        { -1., 1, 1 },
-        { 1., 0., -1 },
-        { 0., 1., 1 },
-        { -1., 0., 1 },
-        { 0., -1., -1 },
-        { 0., 0., 0 },
-        { 1., 1., 0 },
-        { -1., -1., 0 },
-        { NaN, 0., 1 },
-        { 0., NaN, -1 },
-        { NaN, NaN, 0 },
-        { NaN, nan("zzz"), 0 },
-        { NaN, DBL_MAX, 1 },
-        { nan("zzz"), NaN, 0 },
-        { DBL_MAX, NaN, -1 },
-        { nan("zzz"), nan("zzz"), 0 },
-        { DBL_MIN, DBL_MAX, 1 },
-        { DBL_MAX, DBL_MIN, -1 },
-        { 0, DBL_EPSILON, 1 },
-        { DBL_EPSILON, 0, -1 },
+    { -1., 1, 1 },
+    { 1., 0., -1 },
+    { 0., 1., 1 },
+    { -1., 0., 1 },
+    { 0., -1., -1 },
+    { 0., 0., 0 },
+    { 1., 1., 0 },
+    { -1., -1., 0 },
+    { NaN, 0., 1 },
+    { 0., NaN, -1 },
+    { NaN, NaN, 0 },
+    { NaN, nan("zzz"), 0 },
+    { NaN, DBL_MAX, 1 },
+    { nan("zzz"), NaN, 0 },
+    { DBL_MAX, NaN, -1 },
+    { nan("zzz"), nan("zzz"), 0 },
+    { DBL_MIN, DBL_MAX, 1 },
+    { DBL_MAX, DBL_MIN, -1 },
+    { 0, DBL_EPSILON, 1 },
+    { DBL_EPSILON, 0, -1 },
     };
 
     int cnt = 0;
@@ -163,27 +200,4 @@ bool test_ll_3()
     free(res);
     return 1;
 }
-
-bool test_ll_4()
-{
-    struct { uint32_t a; uint32_t res_bsf, res_bsr; } in[] = {
-        { 0b0, UINT32_MAX, UINT32_MAX },
-    { 0b1001, 0, 3 },
-    { 0b10010, 1, 4 },
-    { 0b100100, 2, 5 },
-    { 0b1001000, 3, 6 },
-    { 0b10010000, 4, 7 },
-    { 0b100100000000, 8, 11 },
-    { 0b1001000000000000, 12, 15 },
-    { 0b1001000000000000000, 15, 18 },
-    };
-
-    for (size_t i = 0; i < countof(in); i++)
-    {
-        uint32_t res_bsr = uint32_bit_scan_reverse(in[i].a), res_bsf = uint32_bit_scan_forward(in[i].a);
-        //printf("%zu: %zu, %zu\n", in[i].a, res_bsr, res_bsf);
-        if (res_bsr != in[i].res_bsr || res_bsf != in[i].res_bsf) return 0;
-    }
-
-    return 1;
-}
+#endif

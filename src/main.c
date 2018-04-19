@@ -1,8 +1,7 @@
 #include "np.h"
-#include "ll.h"
+#include "main.h"
 #include "argv.h"
 #include "memory.h"
-#include "log.h"
 #include "test.h"
 #include "utf8.h"
 
@@ -29,25 +28,33 @@ DECLARE_PATH
 #include "Sort.h"
 */
 
-enum {
-    MAIN_ARGS_BIT_POS_HELP = 0,
-    MAIN_ARGS_BIT_POS_TEST,
-    MAIN_ARGS_BIT_POS_THREAD_CNT,
-    MAIN_ARGS_BIT_CNT
-};
+struct main_args main_args_default()
+{
+    struct main_args res = { .thread_cnt = get_processor_count() };
+    bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
+    return res;
+}
 
-struct main_args {
-    char *log_path;
-    size_t thread_cnt;
-    uint8_t bits[BYTE_CNT(MAIN_ARGS_BIT_CNT)];
-};
+struct main_args main_args_override(struct main_args args_hi, struct main_args args_lo)
+{
+    struct main_args res = { .log_path = args_hi.log_path ? args_hi.log_path : args_lo.log_path };
+    memcpy(res.bits, args_hi.bits, BYTE_CNT(MAIN_ARGS_BIT_CNT));
+    if (bit_test(args_hi.bits, MAIN_ARGS_BIT_POS_THREAD_CNT))
+        res.thread_cnt = args_hi.thread_cnt;
+    else
+    {
+        res.thread_cnt = args_lo.thread_cnt;
+        bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
+    }
+    return res;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  Main routine (see below for actual entry point)
 //
 
-int Main(int argc, char **argv) 
+static int Main(int argc, char **argv) 
 {
     /*const char *strings[] = {
         __FUNCTION__,
@@ -268,8 +275,9 @@ int Main(int argc, char **argv)
         size_t input_cnt = 0;
         char **input = NULL;
         struct main_args main_args = { 0 };
-        if (argv_parse(argv_par_selector, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
+        if (argv_parse(argv_par_selector_long, argv_par_selector_shrt, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
+            main_args = main_args_override(main_args, main_args_default());
             if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
                 // Help code
@@ -285,7 +293,7 @@ int Main(int argc, char **argv)
                 if (!input_cnt) log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "No input data specified.\n");
                 else
                 {
-
+                    p_test();
                 }
             }
             free(input);

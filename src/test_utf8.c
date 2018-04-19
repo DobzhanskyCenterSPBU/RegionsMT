@@ -73,9 +73,8 @@ bool test_utf8_generator(void *dst, size_t *p_context, struct log *log)
         { 0x4000000, UTF8I('\xFC', '\x84', '\x80', '\x80', '\x80', '\x80') },
         { 0x7FFFFFFF, UTF8I('\xFD', '\xBF', '\xBF', '\xBF', '\xBF', '\xBF') }
     };    
-    size_t ind = *p_context;
-    if (ind < countof(data)) memcpy(dst, data + ind, sizeof(*data)), ++*p_context;
-    else *p_context = 0;
+    memcpy(dst, data + *p_context, sizeof(*data));
+    if (++*p_context >= countof(data)) *p_context = 0;
     return 1;
 }
 
