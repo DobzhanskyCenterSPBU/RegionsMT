@@ -68,7 +68,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, struct log *lo
 
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_taus);
     size_t rpl = 10000000;
-    double x = maver_adj(gen, phen, snp_cnt, phen_cnt, &rpl, 10, 1. + 1.e-7, rng);
+    double x = maver_adj(gen, phen, snp_cnt, phen_cnt, &rpl, 10, 1. + 1.e-7, rng, TEST_TYPE_CODOMINANT);
         
     log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Adjusted P-value for density: %f.\n", x);
 
