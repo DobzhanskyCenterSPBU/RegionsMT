@@ -12,6 +12,8 @@ struct module_root_in {
     struct log *main_log;
 };
 
+#if 0
+
 bool module_root_prologue(void *In, void **p_Out, void *Context)
 {
     struct module_root_in *in = In;
@@ -119,3 +121,5 @@ bool frameworkEpilogue(frameworkIn *in, frameworkOut *out, frameworkContext *con
 
     return 1;
 }
+
+#endif

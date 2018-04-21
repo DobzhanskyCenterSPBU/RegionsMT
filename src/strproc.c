@@ -99,6 +99,12 @@ uint16_t str_to_uint16(const char *str, char **ptr)
     return (uint16_t) MIN(res, UINT16_MAX);
 }
 
+uint8_t str_to_uint8(const char *str, char **ptr)
+{
+    unsigned long res = strtoul(str, ptr, 10);
+    return (uint8_t) MIN(res, UINT8_MAX);
+}
+
 #define DECLARE_INTEGER_HANDLER(TYPE, PREFIX, CONV) \
     bool PREFIX ## _handler(const char *str, size_t len, void *Ptr, void *Context) \
     { \
@@ -113,6 +119,7 @@ uint16_t str_to_uint16(const char *str, char **ptr)
 DECLARE_INTEGER_HANDLER(uint64_t, uint64, str_to_uint64)
 DECLARE_INTEGER_HANDLER(uint32_t, uint32, str_to_uint32)
 DECLARE_INTEGER_HANDLER(uint16_t, uint16, str_to_uint16)
+DECLARE_INTEGER_HANDLER(uint8_t, uint8, str_to_uint8)
 DECLARE_INTEGER_HANDLER(double, flt64, strtod)
 
 #if defined _M_X64 || defined __x86_64__

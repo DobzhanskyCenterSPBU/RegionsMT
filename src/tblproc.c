@@ -103,7 +103,7 @@ static size_t message_error_row_read(char *buff, size_t buff_cnt, void *Context)
     return MAX(0, res);
 }
 
-bool tbl_read(char *path, tbl_selector_callback selector, tbl_selector_callback selector_eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
+bool tbl_read(const char *path, tbl_selector_callback selector, tbl_selector_callback selector_eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
 {
     size_t row_skip = p_row_skip ? *p_row_skip : 0, row_cnt = p_row_cnt ? *p_row_cnt : 0, length = p_length ? *p_length : 0;
 
@@ -126,10 +126,10 @@ bool tbl_read(char *path, tbl_selector_callback selector, tbl_selector_callback 
     size_t rd = fread(buff, 1, sizeof(buff), f), ind = 0, skip = row_skip;
     uint64_t byte = 0;
 
-    for (; skip && rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
+    for (; rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
     {
         for (char *ptr = memchr(buff, '\n', rd); skip && ptr && (!length || (size_t) (ptr - buff) < (size_t) (length - byte)); skip--, ind = ptr - buff + 1, ptr = memchr(ptr + 1, '\n', buff + rd - ptr - 1));
-        if (length && byte + rd >= length) break;
+        if (!skip || (length && byte + rd >= length)) break;
     }
     if (p_row_skip) *p_row_skip = row_skip - skip;
 
@@ -154,13 +154,10 @@ bool tbl_read(char *path, tbl_selector_callback selector, tbl_selector_callback 
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
                                 log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col).base);
                         }
-                        else
-                        {
-                            quote = 0;
-                            len = 0;
-                            col++;
-                            continue;
-                        }
+                        quote = 0;
+                        len = 0;
+                        col++;
+                        continue;
                     }
                     goto error;
                 }
@@ -199,13 +196,10 @@ bool tbl_read(char *path, tbl_selector_callback selector, tbl_selector_callback 
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
                                 log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col).base);
                         }
-                        else
-                        {
-                            quote = 0;
-                            len = col = 0;
-                            row++;
-                            continue;
-                        }
+                        quote = 0;
+                        len = col = 0;
+                        row++;
+                        continue;
                     }
                 }
                 goto error;
@@ -228,7 +222,11 @@ bool tbl_read(char *path, tbl_selector_callback selector, tbl_selector_callback 
                 break;            
             }
             if (!array_test(&temp_buff, &cap, 1, 0, 0, ARG_SIZE(len, 2))) log_message(log, &MESSAGE_ERROR_CRT(errno).base);
-            else temp_buff[len++] = buff[ind];
+            else
+            {
+                temp_buff[len++] = buff[ind];
+                continue;
+            }
             goto error;
         }
 
@@ -262,19 +260,21 @@ struct tbl_head_context {
     size_t tmp;
 };
 
+bool tbl_head_handler(const char *str, size_t len, void *ptr, void *context)
+{
+    return 0;
+}
+
 bool tbl_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
     (void) row;
     *cl = (struct tbl_col) {
         .handler = tbl_head_handler,
-            .ptr = NULL,
+        .ptr = NULL,
     };
+    return 0;
 }
 
-bool tbl_head_handler(const char *, size_t, void *, void *)
-{
-
-}
 
 /*
 struct tbl_sch *tbl_sch_from_text(FILE *f, tbl_selector sel, tbl_finalizer finalizer, char delim, void *context)

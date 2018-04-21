@@ -5,28 +5,12 @@
 #include "test.h"
 #include "utf8.h"
 
+#include "module_categorical.h"
+
 #include <stdlib.h>
+#include <string.h>
 
 DECLARE_PATH
-
-/*
-#include "Compare.h"
-#include "Debug.h"
-#include "Density.h"
-#include "Density-Report.h"
-#include "DensityFold.h"
-#include "DensityFold-Report.h"
-#include "Framework.h"
-#include "Genotypes.h"
-#include "Log.h"
-#include "LoadData.h"
-#include "Memory.h"
-#include "MySQL-Dispatch.h"
-#include "MySQL-Fetch.h"
-#include "Object.h"
-#include "Regions.h"
-#include "Sort.h"
-*/
 
 struct main_args main_args_default()
 {
@@ -80,13 +64,14 @@ static int Main(int argc, char **argv)
     struct argv_par_sch argv_par_sch =
     {
         CLII((struct tag[]) { { STRI("help"), 0 }, { STRI("log"), 1 }, { STRI("test"), 2 }, { STRI("threads"), 3 }}),
-        CLII((struct tag[]) { { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 }, { STRI("\xd0\x9b"), 4 } }),
+        CLII((struct tag[]) { { STRI("C"), 4 }, { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 } }),
         CLII((struct par[])
         {
             { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, 1 },
             { offsetof(struct main_args, log_path), NULL, p_str_handler, 0 },
             { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, 1 },
-            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, 0 }
+            { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, 0 },
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_CAT }, empty_handler, 1 },
         })
     };
 
@@ -288,12 +273,16 @@ static int Main(int argc, char **argv)
                 log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Test mode triggered!\n");
                 test(&log);
             }
+            else if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
+            {
+                if (input_cnt >= 2) categorical_run(input[0], input[1], &log);
+            }
             else
             {
                 if (!input_cnt) log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "No input data specified.\n");
                 else
                 {
-                    p_test();
+                    
                 }
             }
             free(input);

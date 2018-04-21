@@ -200,6 +200,7 @@ void queue_dequeue(struct queue *restrict queue, size_t offset)
     if (queue->begin == queue->cap) queue->begin = 0;
 }
 
+/*
 struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
 {
     
@@ -216,3 +217,4 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
     return 0;
     return ind ? &pnum->num[ind][num - (SIZE_C(1) << (ind - 1))] : pnum->num[0];
 }
+*/

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if 0
+
 typedef struct
 {
     char **strtbl;
@@ -107,3 +109,5 @@ bool read_genotypes(void *Res, void *Context)
 
     return 1;
 }
+
+#endif

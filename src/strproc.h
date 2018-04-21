@@ -35,5 +35,6 @@ bool bool_handler(const char *, size_t, void *, void *);
 bool uint64_handler(const char *, size_t, void *, void *);
 bool uint32_handler(const char *, size_t, void *, void *);
 bool uint16_handler(const char *, size_t, void *, void *);
+bool uint8_handler(const char *, size_t, void *, void *);
 bool size_handler(const char *, size_t, void *, void *);
 bool flt64_handler(const char *, size_t, void *, void *);
