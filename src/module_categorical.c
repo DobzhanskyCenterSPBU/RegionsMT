@@ -4,6 +4,8 @@
 
 #include "module_categorical.h"
 
+DECLARE_PATH
+
 bool tbl_phen_selector_eol(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
     if (!array_test(tbl, (size_t *) Context, 1, 0, 0, ARG_SIZE(row, 1))) return 0;
@@ -65,9 +67,11 @@ bool categorical_run(const char *path_phen, const char *path_gen, struct log *lo
     gsl_set_error_handler(gsl_error);
 
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_taus);
-    size_t rpl = 1000000;
+    size_t rpl = 10000000;
     double x = maver_adj(gen, phen, snp_cnt, phen_cnt, &rpl, 10, 1. + 1.e-7, rng);
         
+    log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "Adjucted density: %f.\n", x);
+
     gsl_rng_free(rng);
     free(phen);
     free(gen);

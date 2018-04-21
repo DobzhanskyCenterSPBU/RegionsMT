@@ -143,7 +143,7 @@ double maver_adj(uint8_t *gen, uint8_t *phen, size_t snp_cnt, size_t phen_cnt, s
         !array_init(&snp_data, NULL, snp_cnt, sizeof(*snp_data), 0, ARRAY_CLEAR | ARRAY_STRICT)) goto error;        
       
     //  Initialization
-    size_t table[9] = { 0 }, mar_y[3] = { 0 };
+    size_t table[9], mar_y[3];
     double outer[9];
 
     double density = 0.;
@@ -173,6 +173,7 @@ double maver_adj(uint8_t *gen, uint8_t *phen, size_t snp_cnt, size_t phen_cnt, s
         if (!mar_y_cnt) continue;
 
         // Building contingency table
+        memset(table, 0, sizeof(table));
         for (size_t i = 0; i < sel_cnt; i++)
         {
             size_t ind = filter[i + off];
@@ -182,6 +183,7 @@ double maver_adj(uint8_t *gen, uint8_t *phen, size_t snp_cnt, size_t phen_cnt, s
 
         // Computing sums
         size_t *mar_x = snp_data[j].mar_x, mar_xy = 0;
+        memset(mar_y, 0, mar_y_cnt * sizeof(*mar_y));
         for (uint8_t t = 0; t < mar_y_cnt; mar_xy += mar_y[t], t++) for (uint8_t s = 0; s < mar_x_cnt; s++)
         {
             size_t el = table[s + mar_x_cnt * t];
