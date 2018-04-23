@@ -322,10 +322,6 @@ static void table_shuffle_recessive(size_t *table, uint8_t bits_x, uint8_t bits_
 {
     switch (bits_x)
     {
-    case (1 | 4):        
-    case (2 | 4):
-        table_shuffle_codominant(table, bits_x, bits_y);
-        break;
     case (1 | 2 | 4):
         switch (bits_y)
         {
@@ -343,6 +339,9 @@ static void table_shuffle_recessive(size_t *table, uint8_t bits_x, uint8_t bits_
             break;
         }
         break;
+    default:
+        table_shuffle_codominant(table, bits_x, bits_y);
+        break;
     }
 }
 
@@ -350,10 +349,6 @@ static void table_shuffle_dominant(size_t *table, uint8_t bits_x, uint8_t bits_y
 {
     switch (bits_x)
     {
-    case (1 | 2):
-    case (1 | 4):
-        table_shuffle_codominant(table, bits_x, bits_y);
-        break;
     case (1 | 2 | 4):
         switch (bits_y)
         {
@@ -370,6 +365,9 @@ static void table_shuffle_dominant(size_t *table, uint8_t bits_x, uint8_t bits_y
             table[1] += table[2], table[2] = table[3], table[3] = table[4] + table[5], table[4] = table[6], table[5] = table[7] + table[8];
             break;
         }
+        break;
+    default:
+        table_shuffle_codominant(table, bits_x, bits_y);
         break;
     }
 }

@@ -47,7 +47,7 @@ size_t message_warning_argv_parse(char *buff, size_t buff_cnt, void *Context)
         "Unused value for the command-line parameter no.",
         "Invalid command-line parameter no."
     };    
-    int tmp = snprintf(buff, buff_cnt, "%s %zu \"%.*s\"!\n", str[context->status], context->ind, (int) context->len, context->name);
+    int tmp = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s %zu \"%.*s\"!\n", str[context->status], context->ind, (int) context->len, context->name) : 0;
     return MAX(0, tmp);
 }
 

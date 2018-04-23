@@ -91,6 +91,8 @@ struct message_error_xml {
         .ind = (Ind), \
     })
 
+#if 0
+
 static size_t message_error_xml(char *buff, size_t buff_cnt, void *Context)
 {
     struct message_error_xml *restrict context = Context;
@@ -116,6 +118,8 @@ static size_t message_error_xml(char *buff, size_t buff_cnt, void *Context)
     int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;
     return MAX(0, res);
 }
+
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -164,7 +168,8 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     struct { struct strl name; char ch; } ctrseq[] = { { STRI("amp"), '&' }, { STRI("apos"), '\'' }, { STRI("gt"), '>' }, { STRI("lt"), '<' }, { STRI("quot"), '\"' } };
         
     // Parser errors
-    char buff[BLOCK_READ], utf8_byte[UTF8_COUNT];
+    char buff[BLOCK_READ];
+    uint8_t utf8_byte[UTF8_COUNT];
 
     struct { char *buff; size_t cap; } temp = { 0 }, ctrl = { 0 };
     struct { uint8_t *buff; size_t cap; } attb = { 0 };
@@ -385,7 +390,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
                 default:
                     if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len, 1))) goto error;
-                    strncpy(temp.buff + len, utf8_byte, utf8_len), len += utf8_len;
+                    strncpy(temp.buff + len, (char *) utf8_byte, utf8_len), len += utf8_len;
                 }
                 break;
 
@@ -476,14 +481,14 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
                     {
                         if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(utf8_len, 1))) goto error;
-                        strncpy(temp.buff, utf8_byte, utf8_len), len += utf8_len;
+                        strncpy(temp.buff, (char *) utf8_byte, utf8_len), len += utf8_len;
                     }
                     else errm = ERR_SYM, halt = 1;
                 }
                 else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
                     if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len, 1))) goto error;
-                    strncpy(temp.buff + len, utf8_byte, utf8_len), len += utf8_len;                 
+                    strncpy(temp.buff + len, (char *) utf8_byte, utf8_len), len += utf8_len;
                 }
                 else stp++, upd = 0;
                 break;
@@ -659,11 +664,10 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     if (ctrl_val >= UTF8_BOUND) errm = ERR_RAN, halt = 1;
                     else
                     {
-                        char ctrl_byte[6];
-                        uint8_t ctrl_len;
+                        uint8_t ctrl_byte[6], ctrl_len;
                         utf8_encode(ctrl_val, ctrl_byte, &ctrl_len);
                         if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, ctrl_len, 1))) goto error;
-                        strncpy(temp.buff + len, ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
+                        strncpy(temp.buff + len, (char *) ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
                     }
                 }
                 else errm = ERR_SYM, halt = 1;
@@ -675,14 +679,14 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
                     {
                         if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(utf8_len))) goto error;
-                        strncpy(ctrl.buff, utf8_byte, utf8_len), ind += utf8_len;
+                        strncpy(ctrl.buff, (char *) utf8_byte, utf8_len), ind += utf8_len;
                     }
                     else errm = ERR_SYM, halt = 1;
                 }
                 else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
                     if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(ind, utf8_len))) goto error;
-                    strncpy(ctrl.buff + ind, utf8_byte, utf8_len), ind += utf8_len;
+                    strncpy(ctrl.buff + ind, (char *) utf8_byte, utf8_len), ind += utf8_len;
                 }
                 else stp++, upd = 0;
                 break;

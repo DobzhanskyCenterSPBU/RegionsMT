@@ -48,6 +48,12 @@ size_t message_var_generic(char *buff, size_t buff_cap, void *context, char *for
     return (size_t) MAX(tmp, 0);
 }
 
+size_t message_error_crt_ext(char *buff, size_t buff_cap, void *context, char *format, va_list arg)
+{
+    size_t len = message_var_generic(buff, buff_cap, context, format, arg);
+    return len < buff_cap ? len + message_error_crt(buff + len, buff_cap - len, context) : len;
+}
+
 bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
 {
     if (array_init(&log->buff, &log->buff_cap, cnt, sizeof(*log->buff), 0, 0))
@@ -56,7 +62,7 @@ bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
         log->buff_lim = cnt;
         if (path)
         {
-            log->file = fopen(path, "w");
+            log->file = fopen(path, "wt");
             if (log->file) return 1;
         }
         else

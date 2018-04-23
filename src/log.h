@@ -49,6 +49,7 @@ struct message_error_crt {
 
 size_t message_error_crt(char *, size_t, void *);
 size_t message_var_generic(char *, size_t, void *, char *, va_list);
+size_t message_error_crt_ext(char *, size_t, void *, char *, va_list);
 
 #define DECLARE_PATH \
     static const char Path[] = __FILE__;    
@@ -82,6 +83,12 @@ size_t message_var_generic(char *, size_t, void *, char *, va_list);
 #define MESSAGE_ERROR_CRT(Code) \
     ((struct message_error_crt) { \
         .base = MESSAGE(message_error_crt, MESSAGE_TYPE_ERROR), \
+        .code = (Code) \
+    })
+
+#define MESSAGE_ERROR_CRT_EXT(Code) \
+    ((struct message_error_crt) { \
+        .base = MESSAGE_VAR(message_error_crt_ext, MESSAGE_TYPE_ERROR), \
         .code = (Code) \
     })
 

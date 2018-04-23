@@ -14,9 +14,8 @@ DECLARE_PATH
 size_t row_count(FILE *f, int64_t offset, size_t length)
 {
     char buff[BLOCK_READ] = { '\0' };
-    const int64_t orig = Ftelli64(f);
-    int64_t row = 0;
-    if (Fseeki64(f, offset, SEEK_SET)) return 0;
+    int64_t orig = Ftelli64(f), row = 0;
+    if (Fseeki64(f, offset, SEEK_CUR)) return 0;
     for (size_t rd = fread(buff, 1, sizeof buff, f); rd; rd = fread(buff, 1, sizeof buff, f))
     {
         for (char *ptr = memchr(buff, '\n', rd); ptr && (!length || (size_t) (ptr - buff) < length); row++, ptr = memchr(ptr + 1, '\n', buff + rd - ptr - 1));
@@ -40,13 +39,16 @@ uint64_t row_align(FILE *f, int64_t offset)
         size_t read = countof(buff);
         if (offset > countof(buff)) offset -= read;
         else read = (size_t) offset, offset = 0;
-        if (Fseeki64(f, offset, SEEK_SET)) return UINT64_MAX; // Bad offset provided
+        if (Fseeki64(f, offset, SEEK_CUR)) return UINT64_MAX; // Bad offset provided
 
         size_t rd = fread(buff, 1, read, f);
         if (rd != read) return UINT64_MAX; // Never happens?
+
         while (rd && buff[rd - 1] != '\n') rd--;        
         if (!rd && offset) continue;
-        if (Fseeki64(f, offset += rd, SEEK_SET)) return UINT64_MAX; // Never happens?
+        
+        offset += rd;
+        if (rd < read && Fseeki64(f, -(int64_t) (read - rd), SEEK_CUR)) return UINT64_MAX; // Never happens?
         break;
     }
     return (uint64_t) offset;
@@ -59,8 +61,7 @@ struct row_read_handlers {
 */
 
 enum row_read_status {
-    ROW_READ_STATUS_INVALID_PAR = 0,
-    ROW_READ_STATUS_BAD_QUOTES,
+    ROW_READ_STATUS_BAD_QUOTES = 0,
     ROW_READ_STATUS_UNHANDLED_VALUE,
     ROW_READ_STATUS_EXPECTED_EOL,
     ROW_READ_STATUS_UNEXPECTED_EOL,
@@ -71,25 +72,27 @@ enum row_read_status {
 struct message_error_row_read {
     struct message base;
     enum row_read_status status;
-    char *path;
+    const char *path;
     uint64_t byte;
+    int64_t offset;
     size_t row, col;
 };
 
-#define MESSAGE_ERROR_ROW_READ(Status, Byte, Row, Col) \
+#define MESSAGE_ERROR_ROW_READ(Status, Byte, Row, Col, Path, Offset) \
     ((struct message_error_row_read) { \
         .base = MESSAGE(message_error_row_read, MESSAGE_TYPE_ERROR), \
         .status = (Status), \
         .byte = (Byte), \
         .row = (Row), \
-        .col = (Col) \
+        .col = (Col), \
+        .path = (Path), \
+        .offset = (Offset) \
     })
 
 static size_t message_error_row_read(char *buff, size_t buff_cnt, void *Context)
 {
     struct message_error_row_read *restrict context = Context;
     const char *str[] = {
-        "Invalid parameter",
         "Incorrect order of quotes",
         "Unable to handle value",
         "End of line expected",
@@ -97,39 +100,51 @@ static size_t message_error_row_read(char *buff, size_t buff_cnt, void *Context)
         "Unexpected end of file",        
         "Read less rows than expected"
     };
-    int res = !(context->byte + 1) || !(context->row + 1) || !(context->col + 1) ?
-        snprintf(buff, buff_cnt, "Unable to  %s!\n", str[context->status]) :
-        snprintf(buff, buff_cnt, "%s (byte %" PRIu64 ", row %zu, column %zu)!\n", str[context->status], context->byte + 1, context->row + 1, context->col + 1);
+    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s in the file \"%s\" + %" PRId64 " B (byte %" PRIu64 ", row %zu, column %zu)!\n",
+        str[context->status],
+        context->path,
+        context->offset, 
+        context->byte + 1, 
+        context->row + 1, 
+        context->col + 1
+    ) : 0;
     return MAX(0, res);
 }
 
-bool tbl_read(const char *path, tbl_selector_callback selector, tbl_selector_callback selector_eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
+bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, tbl_selector_callback selector_eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
 {
     size_t row_skip = p_row_skip ? *p_row_skip : 0, row_cnt = p_row_cnt ? *p_row_cnt : 0, length = p_length ? *p_length : 0;
 
     // This guarantees that all conditions of type 'byte + rd < length' will be eventually triggered.
     if (length && length > SIZE_MAX - BLOCK_READ)
     {
-        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_INVALID_PAR, UINT64_MAX, SIZE_MAX, SIZE_MAX).base);
+        log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_ERROR), "Invalid value of the parameter!\n");
         return 0;
     }
 
     FILE *f = fopen(path, "rt");
     if (!f)
     {
-        log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+        log_message_var(log, &MESSAGE_ERROR_CRT_EXT(errno).base, "Unable to open file \"%s\": ", path);
         return 0;
     }
-
+       
     bool succ = 0;
     char buff[BLOCK_READ] = { '\0' }, *temp_buff = NULL;
     size_t rd = fread(buff, 1, sizeof(buff), f), ind = 0, skip = row_skip;
     uint64_t byte = 0;
 
+    if (offset && Fseeki64(f, offset, SEEK_CUR))
+    {
+        log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_NOTE), "Unable to seek into the position " PRId64 " while reading the file \"%s\"!\n", offset, path);
+        goto error;
+    }
+
     for (; rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
     {
         for (char *ptr = memchr(buff, '\n', rd); skip && ptr && (!length || (size_t) (ptr - buff) < (size_t) (length - byte)); skip--, ind = ptr - buff + 1, ptr = memchr(ptr + 1, '\n', buff + rd - ptr - 1));
-        if (!skip || (length && byte + rd >= length)) break;
+        if (skip && (!length || byte + rd < length)) continue;
+        break;
     }
     if (p_row_skip) *p_row_skip = row_skip - skip;
 
@@ -145,14 +160,14 @@ bool tbl_read(const char *path, tbl_selector_callback selector, tbl_selector_cal
                 if (quote != 2)
                 {
                     if (!selector(&cl, row, col, res, context))
-                        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_EXPECTED_EOL, byte + ind, row + row_skip, col).base);
+                        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_EXPECTED_EOL, byte + ind, row + row_skip, col, path, offset).base);
                     else
                     {
                         if (cl.handler.read)
                         {
                             temp_buff[len] = '\0';
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
-                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col).base);
+                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col, path, offset).base);
                         }
                         quote = 0;
                         len = 0;
@@ -165,7 +180,7 @@ bool tbl_read(const char *path, tbl_selector_callback selector, tbl_selector_cal
             else switch (buff[ind])
             {
             default:
-                if (quote == 1) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind, row + row_skip, col).base);
+                if (quote == 1) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind, row + row_skip, col, path, offset).base);
                 else break;
                 goto error;
             case ' ':
@@ -176,25 +191,25 @@ bool tbl_read(const char *path, tbl_selector_callback selector, tbl_selector_cal
                     if (len) break;
                     continue;
                 case 1:
-                    log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind, row + row_skip, col).base);
+                    log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind, row + row_skip, col, path, offset).base);
                     goto error;
                 case 2: 
                     break;
                 }
                 break;
             case '\n':
-                if (quote == 2) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind, row + row_skip, col).base);
+                if (quote == 2) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_BAD_QUOTES, byte + ind, row + row_skip, col, path, offset).base);
                 else
                 {
                     if (!selector_eol(&cl, row, col, res, context))
-                        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNEXPECTED_EOL, byte + ind, row + row_skip, col).base);
+                        log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNEXPECTED_EOL, byte + ind, row + row_skip, col, path, offset).base);
                     else
                     {
                         if (cl.handler.read)
                         {
                             temp_buff[len] = '\0';
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
-                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col).base);
+                                log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col, path, offset).base);
                         }
                         quote = 0;
                         len = col = 0;
@@ -234,8 +249,8 @@ bool tbl_read(const char *path, tbl_selector_callback selector, tbl_selector_cal
         break;
     }
 
-    if (col) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNEXPECTED_EOF, byte + ind, row + row_skip, col).base);
-    else if (row_cnt && row < row_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_EXPECTED_MORE_ROWS, byte + ind, row + row_skip, col).base);
+    if (col) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNEXPECTED_EOF, byte + ind, row + row_skip, col, path, offset).base);
+    else if (row_cnt && row < row_cnt) log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_EXPECTED_MORE_ROWS, byte + ind, row + row_skip, col, path, offset).base);
     else succ = 1;
 
 error:
@@ -246,6 +261,7 @@ error:
     return succ;
 }
 
+#if 0
 
 //struct tbl_sch {
 //
@@ -275,8 +291,6 @@ bool tbl_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, vo
     return 0;
 }
 
-
-/*
 struct tbl_sch *tbl_sch_from_text(FILE *f, tbl_selector sel, tbl_finalizer finalizer, char delim, void *context)
 {
     char buff[BLOCK_READ] = { '\0' }, *temp_buff = NULL;
@@ -406,13 +420,11 @@ struct tbl_sch *tbl_sch_from_text(FILE *f, tbl_selector sel, tbl_finalizer final
     
     return ressch;
 }
-*/
 
-///////////////////////////////////////////////////////////////////////////////
 
-/*
 bool rowWrite(FILE *f, tblsch *sch, void **tbl, void **context, size_t rowskip, size_t rowread, size_t byteread, rowReadRes *res)
 {
     return 0;
 }
-*/
+
+#endif

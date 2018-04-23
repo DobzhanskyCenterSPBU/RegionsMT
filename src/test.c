@@ -9,6 +9,8 @@
 #include "test_sort.h"
 #include "test_utf8.h"
 
+#include <stdlib.h>
+
 DECLARE_PATH
 
 bool test(struct log *log)
@@ -64,7 +66,6 @@ bool test(struct log *log)
     };
     
     uint64_t start = get_time();
-    size_t succ = 0;    
     size_t test_data_sz = 0;
     for (size_t i = 0; i < countof(group_arr); i++) if (test_data_sz < group_arr[i].test_sz) test_data_sz = group_arr[i].test_sz;    
     void *test_data = NULL;

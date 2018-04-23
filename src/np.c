@@ -141,6 +141,7 @@ uint64_t get_time()
 #elif defined __unix__ || defined __APPLE__
 #   include <sys/types.h>
 #   include <sys/time.h>
+#   include <sys/stat.h>
 #   include <unistd.h>
 
 int64_t file_get_size(FILE *f)
