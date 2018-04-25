@@ -203,9 +203,10 @@ void queue_dequeue(struct queue *restrict queue, size_t offset)
 struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
 {
     struct persistent_array *res;
-    size_t off = size_bit_scan_reverse(cnt) + 1, cap = ((size_t) 1 << off) - 1;
-    if (cap)
+    size_t off = size_bit_scan_reverse(cnt);
+    if ((size_t) ~off)
     {
+        size_t cap = ((size_t) 2 << off) - 1;
         if (array_init(&res, NULL, SIZE_BIT - off, sizeof(*res->ptr), sizeof(*res), ARRAY_STRICT | ARRAY_CLEAR))
         {
             res->off = off;
@@ -219,6 +220,7 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
     {
         if (array_init(&res, NULL, SIZE_BIT, sizeof(*res->ptr), sizeof(*res), ARRAY_STRICT | ARRAY_CLEAR))
         {
+            res->off = off;
             res->sz = sz;
             return res;
         }
@@ -226,3 +228,15 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
     return NULL;
 }
 
+bool persistent_array_test(struct persistent_array *arr, size_t cnt)
+{
+    for (size_t i = size_bit_scan_reverse(arr->cap) + 1; i < SIZE_BIT; i++)
+    {
+        size_t bor = 0, diff = size_sub(&bor, cnt, arr->cap - arr->cnt);
+        if (!bor && diff)
+        {
+
+        }
+        else break;
+    }
+}
