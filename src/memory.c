@@ -230,13 +230,20 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
 
 bool persistent_array_test(struct persistent_array *arr, size_t cnt)
 {
-    for (size_t i = size_bit_scan_reverse(arr->cap) + 1; i < SIZE_BIT; i++)
+    size_t cap = arr->cap;
+    for (;;)
     {
-        size_t bor = 0, diff = size_sub(&bor, cnt, arr->cap - arr->cnt);
+        size_t bor = 0, diff = size_sub(&bor, cnt, cap - arr->cnt);
         if (!bor && diff)
         {
+            size_t off = arr->off + 1, cap2 = (size_t) 1 << off;
+            if (array_init(&arr->ptr[off], NULL, , arr->sz, 0, ARRAY_STRICT))
+            {
 
+            }
+            return 0;
         }
-        else break;
+        arr->cap = cap;
+        break;
     }
 }
