@@ -11,4 +11,4 @@ enum categorical_test_type {
     TEST_TYPE_ALLELIC
 };
 
-double maver_adj(uint8_t *, uint8_t *, size_t, size_t, size_t *, size_t, double, gsl_rng *, enum categorical_test_type);
+double maver_adj(uint8_t *, size_t *, size_t, size_t, size_t, size_t *, size_t, double, gsl_rng *, enum categorical_test_type);

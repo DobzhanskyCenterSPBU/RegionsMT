@@ -15,20 +15,20 @@ DECLARE_PATH
 struct main_args main_args_default()
 {
     struct main_args res = { .thread_cnt = get_processor_count() };
-    bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
+    uint8_bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
     return res;
 }
 
 struct main_args main_args_override(struct main_args args_hi, struct main_args args_lo)
 {
     struct main_args res = { .log_path = args_hi.log_path ? args_hi.log_path : args_lo.log_path };
-    memcpy(res.bits, args_hi.bits, BYTE_CNT(MAIN_ARGS_BIT_CNT));
-    if (bit_test(args_hi.bits, MAIN_ARGS_BIT_POS_THREAD_CNT))
+    memcpy(res.bits, args_hi.bits, UINT8_CNT(MAIN_ARGS_BIT_CNT));
+    if (uint8_bit_test(args_hi.bits, MAIN_ARGS_BIT_POS_THREAD_CNT))
         res.thread_cnt = args_hi.thread_cnt;
     else
     {
         res.thread_cnt = args_lo.thread_cnt;
-        bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
+        uint8_bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
     }
     return res;
 }
@@ -263,17 +263,17 @@ static int Main(int argc, char **argv)
         if (argv_parse(argv_par_selector_long, argv_par_selector_shrt, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
             main_args = main_args_override(main_args, main_args_default());
-            if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
+            if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
                 // Help code
                 log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Help mode triggered!\n");
             }
-            else if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
+            else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
                 log_message_var(&log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Test mode triggered!\n");
                 test(&log);
             }
-            else if (bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
+            else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
                 if (input_cnt >= 2) categorical_run(input[0], input[1], &log);
             }

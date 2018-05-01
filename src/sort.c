@@ -7,119 +7,172 @@
 #include <string.h>
 #include <stdlib.h>
 
-struct thunk {
+struct generic_cmp_thunk {
     stable_cmp_callback cmp;
     void *context;
 };
 
 static bool generic_cmp(const void *A, const void *B, void *Thunk)
 {
-    struct thunk *restrict thunk = Thunk;
+    struct generic_cmp_thunk *restrict thunk = Thunk;
     const void **restrict a = (void *) A, **restrict b = (void *) B;
     int res = thunk->cmp(*a, *b, thunk->context);
     if (res > 0 || (!res && *a > *b)) return 1;
     return 0;
 }
 
-uintptr_t *orders_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
+uintptr_t *pointers_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     uintptr_t *res = NULL;
     if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
-
     for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
-    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
-    for (size_t i = 0; i < cnt; res[i] = (res[i] - (uintptr_t) arr) / sz, i++);
+    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct generic_cmp_thunk) { .cmp = cmp, .context = context });
+    return res;
+}
+
+void orders_from_pointers_inplace(uintptr_t *ptr, uintptr_t base, size_t cnt, size_t sz)
+{
+    for (size_t i = 0; i < cnt; ptr[i] = (ptr[i] - base) / sz, i++);
+}
+
+uintptr_t *orders_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
+{
+    uintptr_t *res = pointers_stable(arr, cnt, sz, cmp, context);
+    if (!res) return NULL;
+    orders_from_pointers_inplace(res, (uintptr_t) arr, cnt, sz);
     return res;
 }
 
 uintptr_t *orders_stable_unique(const void *arr, size_t *p_cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
     size_t cnt = *p_cnt;
-    uintptr_t *res = NULL;
-    if (!array_init(&res, p_cnt, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
-    
-    for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
-    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
+    uintptr_t *res = pointers_stable(arr, cnt, sz, cmp, context);
+    if (!res) return NULL;
 
     uintptr_t tmp = 0;
     size_t ucnt = 0;    
-    if (cnt) tmp = res[0], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;    
+    if (cnt) tmp = res[0], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
     for (size_t i = 1; i < cnt; i++)
-        if (cmp((const void *) tmp, (const void *) res[i], context)) tmp = res[i], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
-    
-    if (array_test(&res, p_cnt, sizeof(*res), 0, ARRAY_REDUCE, ARG_SIZE(ucnt)))
-        return res;
+        if (cmp((const void *) res[i], (const void *) tmp, context) > 0) tmp = res[i], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
+    if (array_test(&res, p_cnt, sizeof(*res), 0, ARRAY_REDUCE, ARG_SIZE(ucnt))) return res;
 
     free(res);
     *p_cnt = 0;
     return NULL;
 }
 
-uintptr_t *ranks_from_orders(const uintptr_t *restrict arr, size_t cnt)
+void ranks_from_pointers_impl(size_t *rnk, const uintptr_t *ptr, uintptr_t base, size_t cnt, size_t sz)
 {
-    uintptr_t *res = NULL;
-    if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;    
-    for (size_t i = 0; i < cnt; res[arr[i]] = i, i++);
+    for (size_t i = 0; i < cnt; rnk[(ptr[i] - base) / sz] = i, i++);
+}
+
+size_t *ranks_from_pointers(const uintptr_t *ptr, uintptr_t base, size_t cnt, size_t sz)
+{
+    size_t *res = NULL;
+    if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
+    ranks_from_pointers_impl(res, ptr, base, cnt, sz);
     return res;
 }
 
-bool ranks_from_pointers_inplace(uintptr_t *restrict arr, uintptr_t base, size_t cnt, size_t sz)
+size_t *ranks_from_orders(const uintptr_t *ord, size_t cnt)
 {
-    uint8_t *bits = NULL;
-    if (!array_init(&bits, NULL, BYTE_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
+    return ranks_from_pointers(ord, 0, cnt, 1);
+}
+
+// Warning! 'ptr' may contain pointers to the 'rnk' array (i.e. 'rnk' = 'base').
+void ranks_unique_from_pointers_impl(size_t *rnk, const uintptr_t *ptr, uintptr_t base, size_t *p_cnt, size_t sz, cmp_callback cmp, void *context)
+{
+    size_t cnt = *p_cnt;
+    if (!cnt) return;
+    size_t ucnt = 0;
+    for (size_t i = 0; i < cnt - 1; i++)
+    {
+        size_t tmp = ucnt;
+        if (cmp((void *) ptr[i + 1], (void *) ptr[i], context)) ucnt++;
+        rnk[(ptr[i] - base) / sz] = tmp;
+    }
+    rnk[(ptr[cnt - 1] - base) / sz] = ucnt;
+    *p_cnt = ucnt + 1;
+}
+
+size_t *ranks_unique_from_pointers(const uintptr_t *ptr, uintptr_t base, size_t *p_cnt, size_t sz, cmp_callback cmp, void *context)
+{
+    size_t *res = NULL;
+    if (!array_init(&res, NULL, *p_cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
+    ranks_unique_from_pointers_impl(res, ptr, base, p_cnt, sz, cmp, context);
+    return res;
+}
+
+struct cmp_helper_thunk {
+    cmp_callback cmp;
+    const void *arr;
+    size_t sz;
+    void *context;
+};
+
+static bool cmp_helper(const void *a, const void *b, void *Context)
+{
+    struct cmp_helper_thunk *context = Context;
+    return context->cmp((char *) context->arr + (uintptr_t) a * context->sz, (char *) context->arr + (uintptr_t) b * context->sz, context->context);
+}
+
+size_t *ranks_unique_from_orders(const uintptr_t *ord, const void *arr, size_t *p_cnt, size_t sz, cmp_callback cmp, void *context)
+{
+    return ranks_unique_from_pointers(ord, 0, p_cnt, 1, cmp_helper, &(struct cmp_helper_thunk) { .cmp = cmp, .arr = arr, .sz = sz, .context = context });
+}
+
+void ranks_from_pointers_inplace_impl(uintptr_t *restrict ptr, uintptr_t base, size_t cnt, size_t sz, uint8_t *restrict bits)
+{
     for (size_t i = 0; i < cnt; i++)
     {
         size_t j = i;
-        uintptr_t k = (arr[i] - base) / sz;
-        while (!bit_test(bits, j))
+        uintptr_t k = (ptr[i] - base) / sz;
+        while (!uint8_bit_test(bits, j))
         {
-            uintptr_t l = (arr[k] - base) / sz;
-            bit_set(bits, j);
-            arr[k] = j;
+            uintptr_t l = (ptr[k] - base) / sz;
+            uint8_bit_set(bits, j);
+            ptr[k] = j;
             j = k;
             k = l;
         }
     }
+}
 
+bool ranks_from_pointers_inplace(uintptr_t *restrict ptr, uintptr_t base, size_t cnt, size_t sz)
+{
+    uint8_t *restrict bits = NULL;
+    if (!array_init(&bits, NULL, UINT8_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
+    ranks_from_pointers_inplace_impl(ptr, base, cnt, sz, bits);
     free(bits);
     return 1;
 }
 
-bool ranks_from_orders_inplace(uintptr_t *restrict arr, size_t cnt)
+bool ranks_from_orders_inplace(uintptr_t *restrict ord, size_t cnt)
 {
-    return ranks_from_pointers_inplace(arr, 0, cnt, 1);
+    return ranks_from_pointers_inplace(ord, 0, cnt, 1);
 }
 
 uintptr_t *ranks_stable(const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context)
 {
-    uintptr_t *res = NULL;
-    if (!array_init(&res, NULL, cnt, sizeof(*res), 0, ARRAY_STRICT)) return NULL;
-    
-    for (size_t i = 0; i < cnt; res[i] = (uintptr_t) arr + i * sz, i++);
-    quick_sort(res, cnt, sizeof(*res), generic_cmp, &(struct thunk) { .cmp = cmp, .context = context });
+    uintptr_t *res = pointers_stable(arr, cnt, sz, cmp, context);
+    if (!res) return NULL;
     if (ranks_from_pointers_inplace(res, (uintptr_t) arr, cnt, sz)) return res;
-    
     free(res);
     return NULL;
 }
 
-// This procedure applies orders to the array. Orders are not assumed to be a surjective map. 
-bool orders_apply(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict arr)
+void orders_apply_impl(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict arr, uint8_t *restrict bits, void *restrict swp)
 {
-    uint8_t *bits = NULL;
-    if (!array_init(&bits, NULL, BYTE_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
-    void *restrict swp = Alloca(sz);
-
     for (size_t i = 0; i < cnt; i++)
     {
-        if (bit_test(bits, i)) continue;
+        if (uint8_bit_test(bits, i)) continue;
         size_t k = ord[i];
         if (k == i) continue;
-        bit_set(bits, i);
+        uint8_bit_set(bits, i);
         memcpy(swp, (char *) arr + i * sz, sz);
         for (size_t j = i;;)
         {
-            while (k < cnt && bit_test(bits, k)) k = ord[k];
+            while (k < cnt && uint8_bit_test(bits, k)) k = ord[k];
             memcpy((char *) arr + j * sz, (char *) arr + k * sz, sz);
             if (k >= cnt)
             {
@@ -128,7 +181,7 @@ bool orders_apply(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict
             }
             j = k;
             k = ord[j];
-            bit_set(bits, j);
+            uint8_bit_set(bits, j);
             if (k == i)
             {
                 memcpy((char *) arr + j * sz, swp, sz);
@@ -136,6 +189,14 @@ bool orders_apply(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict
             }
         }
     }
+}
+
+// This procedure applies orders to the array. Orders are not assumed to be a surjective map. 
+bool orders_apply(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict arr)
+{
+    uint8_t *bits = NULL;
+    if (!array_init(&bits, NULL, UINT8_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
+    orders_apply_impl(ord, cnt, sz, arr, bits, Alloca(sz));
     free(bits);
     return 1;
 }
@@ -147,7 +208,7 @@ static void swap(void *a, void *b, void *swp, size_t sz)
     memcpy(b, swp, sz);
 }
 
-static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *swp, size_t cutoff)
+static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff)
 {
     size_t min = 0;
     for (size_t i = sz; i < cutoff; i += sz) if (cmp((char *) arr + min, (char *) arr + i, context)) min = i;
@@ -166,7 +227,7 @@ static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_c
     }
 }
 
-static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *swp, size_t cutoff)
+static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff)
 {
     uint8_t frm = 0;
     struct { size_t a, b; } stk[SIZE_BIT];

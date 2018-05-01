@@ -190,14 +190,14 @@ static inline size_t threadproc_startup(struct thread_pool *pool)
     size_t res = SIZE_MAX;    
     spinlock_acquire(&pool->startuplock);
 
-    for (size_t i = 0; i < BYTE_CNT(pool->cnt); i++)
+    for (size_t i = 0; i < UINT8_CNT(pool->cnt); i++)
     {
         uint8_t j = uint8_bit_scan_forward(~pool->thread_bits[i]);
         if ((uint8_t) ~j)
         {
-            res = (i << 3) + j;
+            res = i * CHAR_BIT + j;
             tls_assign(&pool->tls, &pool->storage[res]);
-            bit_set(pool->thread_bits, res);
+            uint8_bit_set(pool->thread_bits, res);
             break;
         }
     }
@@ -209,7 +209,7 @@ static inline size_t threadproc_startup(struct thread_pool *pool)
 static inline void threadproc_shutdown(struct thread_pool *pool, size_t id)
 {
     spinlock_acquire(&pool->startuplock);
-    bit_reset(pool->thread_bits, id);
+    uint8_bit_reset(pool->thread_bits, id);
     spinlock_release(&pool->startuplock);
 }
 
@@ -291,7 +291,7 @@ struct thread_pool *thread_pool_create(size_t cnt, size_t tasks_cnt, size_t stor
             }
             if (ind == pool->cnt)
             {
-                if (array_init(&pool->thread_bits, NULL, BYTE_CNT(pool->cnt), 1, 0, ARRAY_STRICT | ARRAY_CLEAR) && (pool->queue = task_queue_create(tasks_cnt)) != NULL)
+                if (array_init(&pool->thread_bits, NULL, UINT8_CNT(pool->cnt), 1, 0, ARRAY_STRICT | ARRAY_CLEAR) && (pool->queue = task_queue_create(tasks_cnt)) != NULL)
                 {
                     pool->spinlock = pool->startuplock = SPINLOCK_INIT;
                     if (mutex_init(&pool->mutex))

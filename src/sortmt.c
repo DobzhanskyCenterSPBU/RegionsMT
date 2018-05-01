@@ -82,7 +82,7 @@ struct sort_mt *sort_mt_create(void *arr, size_t cnt, size_t sz, cmp_callback cm
 
     struct sort_mt *res;
     if ((res = calloc(1, sizeof(*res))) != NULL &&
-        (res->sync = calloc((s_cnt + 3) >> 2, 1)) != NULL && // No overflow happens (cf. previous comment), s_cnt > 0
+        (res->sync = calloc(NIBBLE_CNT(s_cnt), 1)) != NULL && // No overflow happens (cf. previous comment), s_cnt > 0
         array_init(&res->s_args, NULL, s_cnt, sizeof(*res->s_args), 0, ARRAY_STRICT) &&
         array_init(&res->m_args, NULL, m_cnt, sizeof(*res->m_args), 0, ARRAY_STRICT) &&
         array_init(&res->context.temp, NULL, cnt, sz, 0, ARRAY_STRICT))

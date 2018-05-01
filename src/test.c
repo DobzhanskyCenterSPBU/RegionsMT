@@ -38,8 +38,9 @@ bool test(struct log *log)
                 test_ll_b,
             })
         },
+#if 0
         {
-            test_sort_disposer,
+            test_sort_disposer_a,
             sizeof(struct test_sort_a),
             CLII((test_generator_callback[]) {
                 test_sort_generator_a_1,
@@ -47,6 +48,18 @@ bool test(struct log *log)
             }),
             CLII((test_callback[]) {
                 test_sort_a,
+            })
+        },
+#endif
+        {
+            test_sort_disposer_b,
+            sizeof(struct test_sort_b),
+            CLII((test_generator_callback[]) {
+                test_sort_generator_b_1
+            }),
+            CLII((test_callback[]) {
+                test_sort_b_1,
+                test_sort_b_2
             })
         },
         {
@@ -84,7 +97,7 @@ bool test(struct log *log)
                     {
                         for (size_t k = 0; k < group->test_cnt; k++)
                             if (!group->test[k](test_data, log)) 
-                                log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_WARNING), "Test no. %zu of the group no. %zu failed on input instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
+                                log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_WARNING), "Test no. %zu of the group no. %zu failed under the input data instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
                         if (group->test_disposer) group->test_disposer(test_data);
                     }
                 } while (context);

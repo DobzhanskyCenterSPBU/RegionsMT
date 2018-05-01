@@ -15,7 +15,7 @@ enum {
 struct main_args {
     char *log_path;
     size_t thread_cnt;
-    uint8_t bits[BYTE_CNT(MAIN_ARGS_BIT_CNT)];
+    uint8_t bits[UINT8_CNT(MAIN_ARGS_BIT_CNT)];
 };
 
 struct main_args main_args_default();

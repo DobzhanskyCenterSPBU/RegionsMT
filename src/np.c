@@ -135,7 +135,7 @@ uint64_t get_time()
 {
     FILETIME ft;
     GetSystemTimePreciseAsFileTime(&ft);
-    return ((uint64_t) ft.dwHighDateTime << 32 | (uint64_t) ft.dwLowDateTime) / 10;
+    return ((uint64_t) ft.dwHighDateTime << (sizeof(uint32_t) * CHAR_BIT) | (uint64_t) ft.dwLowDateTime) / 10;
 }
 
 #elif defined __unix__ || defined __APPLE__

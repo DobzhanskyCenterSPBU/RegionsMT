@@ -509,7 +509,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     *stack.frame[0].obj = (struct program_object) { .prologue = sch->prologue, .epilogue = sch->epilogue, .dispose = sch->dispose, .context = calloc(1, sch->sz) };
                     if (!stack.frame[0].obj->context) goto error;
                                      
-                    size_t attb_cnt = BYTE_CNT(sch->att_cnt);
+                    size_t attb_cnt = UINT8_CNT(sch->att_cnt);
                     if (!array_test(&attb.buff, &attb.cap, 1, 0, 0, ARG_SIZE(attb_cnt))) goto error;
                     memset(attb.buff, 0, attb_cnt);
 
@@ -526,7 +526,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_TG1:
                 for (struct frame *anc = &stack.frame[dep - 1];;)
                 {
-                    ind = binary_search(temp.buff, anc->node->dsc, sizeof(*anc->node->dsc), anc->node->dsc_cnt, str_strl_cmp_len, &len);
+                    ind = binary_search(temp.buff, anc->node->dsc, sizeof(*anc->node->dsc), anc->node->dsc_cnt, str_strl_stable_cmp_len, &len);
 
                     if (ind + 1)
                     {
@@ -543,7 +543,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         stack.frame[dep] = (struct frame) { .obj = &stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt], .node = nod, .anc = anc };
                         stack.frame[dep - 1].obj->dsc_cnt++;
 
-                        size_t attb_cnt = BYTE_CNT(nod->att_cnt);
+                        size_t attb_cnt = UINT8_CNT(nod->att_cnt);
                         if (!array_test(&attb.buff, &attb.cap, 1, 0, 0, ARG_SIZE(attb_cnt))) goto error;
                         memset(attb.buff, 0, attb_cnt), stp = OFF_LB, upd = 0;
                     }
@@ -597,12 +597,12 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_AH0:
-                ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_cmp_len, &len);
+                ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_stable_cmp_len, &len);
                 att = stack.frame[dep].node->att + ind;
 
                 if (ind + 1)
                 {
-                    if (!bit_test(attb.buff, ind)) bit_set(attb.buff, ind), stp++, upd = 0;
+                    if (!uint8_bit_test_set(attb.buff, ind)) stp++, upd = 0;
                     else errm = ERR_DUP, halt = 1;
                 }
                 else errm = ERR_ATT, halt = 1;
@@ -694,7 +694,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_SA7:
                 if (utf8_val == ';')
                 {
-                    size_t ctrind = binary_search(ctrl.buff, ctrseq, sizeof ctrseq[0], countof(ctrseq), str_strl_cmp_len, &ind);
+                    size_t ctrind = binary_search(ctrl.buff, ctrseq, sizeof ctrseq[0], countof(ctrseq), str_strl_stable_cmp_len, &ind);
                     if (ctrind + 1)
                     {
                         if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 2))) goto error;

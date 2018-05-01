@@ -100,7 +100,7 @@ static size_t message_error_row_read(char *buff, size_t buff_cnt, void *Context)
         "Unexpected end of file",        
         "Read less rows than expected"
     };
-    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s in the file \"%s\" + %" PRId64 " B (byte %" PRIu64 ", row %zu, column %zu)!\n",
+    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s in the file \"%s\" + %" PRId64 " B (byte: %" PRIu64 "; row: %zu; column: %zu)!\n",
         str[context->status],
         context->path,
         context->offset, 
@@ -167,7 +167,10 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                         {
                             temp_buff[len] = '\0';
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
+                            {
                                 log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col, path, offset).base);
+                                goto error;
+                            }
                         }
                         quote = 0;
                         len = 0;
@@ -209,7 +212,10 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                         {
                             temp_buff[len] = '\0';
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
+                            {
                                 log_message(log, &MESSAGE_ERROR_ROW_READ(ROW_READ_STATUS_UNHANDLED_VALUE, byte + ind, row + row_skip, col, path, offset).base);
+                                goto error;
+                            }
                         }
                         quote = 0;
                         len = col = 0;

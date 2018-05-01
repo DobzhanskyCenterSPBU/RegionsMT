@@ -220,7 +220,6 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
     {
         if (array_init(&res, NULL, SIZE_BIT, sizeof(*res->ptr), sizeof(*res), ARRAY_STRICT | ARRAY_CLEAR))
         {
-            res->off = off;
             res->sz = sz;
             return res;
         }
@@ -228,22 +227,29 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
     return NULL;
 }
 
+void persistent_array_dispose(struct persistent_array *arr)
+{
+    if (!arr) return;
+    size_t cnt = size_bit_scan_reverse(arr->cap) - arr->off + 1;
+    for (size_t i = 0; i < cnt; free(arr->ptr[i++]));
+    free(arr);
+}
+
 bool persistent_array_test(struct persistent_array *arr, size_t cnt)
 {
-    size_t cap = arr->cap;
-    for (;;)
+    size_t bor = 0, diff = size_sub(&bor, cnt, arr->cap - arr->cnt);
+    if (!bor && diff)
     {
-        size_t bor = 0, diff = size_sub(&bor, cnt, cap - arr->cnt);
-        if (!bor && diff)
+        size_t off = size_bit_scan_reverse(arr->cap) - arr->off + 1, cap = (size_t) 1 << off;
+        for (;;) 
         {
-            size_t off = arr->off + 1, cap2 = (size_t) 1 << off;
-            if (array_init(&arr->ptr[off], NULL, , arr->sz, 0, ARRAY_STRICT))
-            {
-
-            }
-            return 0;
+            if (!array_init(&arr->ptr[off], NULL, cap, arr->sz, 0, ARRAY_STRICT)) return 0;
+            arr->cap += cap;
+            diff = size_sub(&bor, diff, cap);
+            if (bor || !diff) break;
+            cap <<= 1;
+            off++;
         }
-        arr->cap = cap;
-        break;
     }
+    return 1;
 }
