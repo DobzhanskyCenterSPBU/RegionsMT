@@ -60,12 +60,12 @@ static size_t gen_pop_cnt_codominant(uint8_t *bits, size_t pop_cnt)
 
 static size_t gen_pop_cnt_recessive(uint8_t *bits, size_t pop_cnt)
 {
-    return pop_cnt == 2 ? bits[0] == (1 | 4) || bits[0] == (2 | 4) ? 2 : 1 : pop_cnt;
+    return pop_cnt == 2 ? bits[0] == (1 | 4) || bits[0] == (2 | 4) ? 2 : 1 : MIN(pop_cnt, 2);
 }
 
 static size_t gen_pop_cnt_dominant(uint8_t *bits, size_t pop_cnt)
 {
-    return pop_cnt == 2 ? bits[0] == (1 | 2) || bits[0] == (1 | 4) ? 2 : 1 : pop_cnt;
+    return pop_cnt == 2 ? bits[0] == (1 | 2) || bits[0] == (1 | 4) ? 2 : 1 : MIN(pop_cnt, 2);
 }
 
 static size_t gen_pop_cnt_allelic(uint8_t *bits, size_t pop_cnt)
