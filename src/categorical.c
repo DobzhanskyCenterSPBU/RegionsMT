@@ -133,16 +133,16 @@ static void gen_shuffle_allelic(size_t *row, uint8_t *bits, size_t pop_cnt)
 }
 
 typedef size_t (*gen_pop_cnt_callback)(uint8_t *, size_t);
-typedef void (*gen_suffle_callback)(size_t *, uint8_t *, size_t);
+typedef void (*gen_shuffle_callback)(size_t *, uint8_t *, size_t);
 
 gen_pop_cnt_callback get_gen_pop_cnt(enum categorical_test_type type)
 {
     return (gen_pop_cnt_callback[]) { gen_pop_cnt_codominant, gen_pop_cnt_recessive, gen_pop_cnt_dominant, gen_pop_cnt_allelic }[type];
 }
 
-gen_suffle_callback get_gen_shuffle(enum categorical_test_type type)
+gen_shuffle_callback get_gen_shuffle(enum categorical_test_type type)
 {
-    return (gen_suffle_callback[]) { gen_shuffle_codominant, gen_shuffle_dominant, gen_shuffle_recessive, gen_shuffle_allelic }[type];
+    return (gen_shuffle_callback[]) { gen_shuffle_codominant, gen_shuffle_dominant, gen_shuffle_recessive, gen_shuffle_allelic }[type];
 }
 
 #define DECLARE_BITS_INIT(TYPE, PREFIX) \
@@ -162,7 +162,7 @@ DECLARE_BITS_INIT(size_t, phen)
 
 #define GEN_MAX 3
 
-void table_shuffle(size_t *table, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_suffle_callback gen_shuffle)
+void table_shuffle(size_t *table, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_shuffle_callback gen_shuffle)
 {
     size_t off = 0;
     for (size_t i = 0, j = 0; i < phen_pop_cnt; i++, j += GEN_MAX)
@@ -173,6 +173,9 @@ void table_shuffle(size_t *table, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t
         off += gen_pop_cnt;
     }
 }
+
+_Static_assert((GEN_MAX * sizeof(size_t)) / GEN_MAX == sizeof(size_t), "Multiplication overflow!");
+_Static_assert((GEN_MAX * sizeof(double)) / GEN_MAX == sizeof(double), "Multiplication overflow!");
 
 double maver_adj(uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, double rel_err, gsl_rng *rng, enum categorical_test_type type)
 {
@@ -189,13 +192,13 @@ double maver_adj(uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, si
     if ((phen_ucnt && !phen_mar && !phen_bits) ||
         (phen_cnt && !phen_perm) ||
         !array_init(&snp_data, NULL, snp_cnt, sizeof(*snp_data), 0, ARRAY_CLEAR | ARRAY_STRICT) ||
-        !array_init(&filter, NULL, snp_cnt * phen_cnt, sizeof(*filter), 0, ARRAY_STRICT) ||
-        !array_init(&outer, NULL, GEN_MAX * phen_ucnt, sizeof(*outer), 0, ARRAY_STRICT) ||
-        !array_init(&table, NULL, GEN_MAX * phen_ucnt, sizeof(*table), 0, ARRAY_STRICT)) goto error;
-      
+        !array_init(&filter, NULL, snp_cnt * phen_cnt, sizeof(*filter), 0, ARRAY_STRICT) || // Result of 'snp_cnt * phen_cnt' is assumed not to be wrapped due to the validness of the 'gen' array
+        !array_init(&outer, NULL, phen_ucnt, GEN_MAX * sizeof(*outer), 0, ARRAY_STRICT) ||
+        !array_init(&table, NULL, phen_ucnt, GEN_MAX * sizeof(*table), 0, ARRAY_STRICT)) goto error;
+
     //  Initialization
     gen_pop_cnt_callback gen_pop_cnt_impl = get_gen_pop_cnt(type);
-    gen_suffle_callback gen_shuffle_impl = get_gen_shuffle(type);
+    gen_shuffle_callback gen_shuffle_impl = get_gen_shuffle(type);
     
     double density = 0.;
     size_t density_cnt = 0;
