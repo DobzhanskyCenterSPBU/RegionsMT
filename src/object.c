@@ -70,39 +70,61 @@ bool program_object_execute(struct program_object *obj, void *in)
 ///////////////////////////////////////////////////////////////////////////////
 
 enum xml_status {
-    ERR_EOF, ERR_UTF, ERR_SYM, ERR_PRL,
+    //XML_ERROR_UNEXPECTED_EOF = 0,
+    
+    XML_ERROR_UNEXPECTED_EOF = 0,
+    XML_ERROR_UTF,
+    XML_ERROR_INVALID_SYMBOL,
+    XML_ERROR_PROLOGUE,
     ERR_TAG, ERR_ATT, ERR_END, ERR_DUP,
     ERR_HAN, ERR_CTR, ERR_CMP, ERR_RAN
 };
 
-struct message_error_xml {
-    struct message base;
-    enum xml_status status;
+struct text_metric {
     uint64_t byte;
-    size_t col, row;
+    size_t col, line;
 };
 
-#define MESSAGE_ERROR_XML(Name, Len, Ind, Status) \
-    ((struct message_error_xml) { \
-        .base = MESSAGE(message_error_xml, MESSAGE_TYPE_WARNING), \
-        .status = (Status), \
-        .name = (Name), \
-        .len = (Len), \
-        .ind = (Ind), \
-    })
+struct xml_context {
+    struct text_metric *text_metric;
+    const char *path;
+    char *str;    
+    uint32_t val;
+    enum xml_status status;
+};
 
-#if 0
-
-static size_t message_error_xml(char *buff, size_t buff_cnt, void *Context)
+static size_t message_xml(char *buff, size_t buff_cnt, void *Context)
 {
-    struct message_error_xml *restrict context = Context;
+    int tmp = 0;
+    size_t col_disp = 0, byte_disp = 0;
+    struct xml_context *restrict context = Context;
     const char *str[] = {
+        "",
+        "Incorrect UTF-8 byte sequence",
+        "Invalid symbol '%.*s'",
+        "Invalid XML prologue"
+    };
+    switch (context->status)
+    {
+    case XML_ERROR_UTF:
+    case XML_ERROR_PROLOGUE:
+        tmp = snprintf(buff, buff_cnt, str[context->status]);
+        break;
+    case XML_ERROR_INVALID_SYMBOL:
+        tmp = snprintf(buff, buff_cnt, str[context->status], context->str);
+        break;
+
+    default:;
+
+    }   
+    
+    /*const char *str[] = {
         __FUNCTION__,
         "ERROR (%s): %s!\n",
         "ERROR (%s): Cannot open specified XML document \"%s\". %s!\n",
         "ERRPR (%s): Numeric value %" PRIu32 " is out of range (file \"%s\", line %zu, character %zu, byte %zu)!\n",
         "ERROR (%s): %s (file \"%s\", line %zu, character %zu, byte %zu)!\n",
-        "ERROR (%s): %s \"%." TOSTRING(MAX_PRINT) "s%s\" (file \"%s\", line %zu, character %zu, byte %zu)!\n",
+        "ERROR (%s): %s \"%.s%s\" (file \"%s\", line %zu, character %zu, byte %zu)!\n",
         "Unexpected end of file",
         "Incorrect UTF-8 byte sequence",
         "Invalid symbol",
@@ -115,11 +137,26 @@ static size_t message_error_xml(char *buff, size_t buff_cnt, void *Context)
         "Invalid control sequence",
         "Compiler malfunction" // Not intended to happen
     };
-    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;
-    return MAX(0, res);
+    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;*/
+
+    if (tmp > 0 && (size_t) tmp < buff_cnt)
+    {
+        size_t len = (size_t) tmp;
+        tmp = snprintf(buff + len, buff_cnt - len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n", 
+            context->path, 
+            context->text_metric->line + 1, 
+            context->text_metric->col - col_disp + 1,
+            context->text_metric->byte - byte_disp + 1
+        );
+        return len + (size_t) MAX(0, tmp);
+    }
+    return MAX(0, tmp);
 }
 
-#endif
+static bool log_message_error_xml(struct log *restrict log, struct code_metric *restrict code_metric, struct text_metric *restrict text_metric, const char *path, char *str, uint32_t val, enum xml_status status)
+{
+    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_xml, &(struct xml_context) { .text_metric = text_metric, .path = path, .str = str, .val = val, .status = status });
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -148,7 +185,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
         f = fopen(path, "r");
         if (!f)
         {
-            log_message(log, &MESSAGE_ERROR_CRT(errno).base);
+            log_message_fopen(log, &CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno); 
             return 0;
         }
     }
@@ -164,7 +201,6 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     };
     
     enum xml_status errm;
-
     struct { struct strl name; char ch; } ctrseq[] = { { STRI("amp"), '&' }, { STRI("apos"), '\'' }, { STRI("gt"), '>' }, { STRI("lt"), '<' }, { STRI("quot"), '\"' } };
         
     // Parser errors
@@ -181,7 +217,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     uint32_t ctrl_val = 0;
     uint8_t utf8_len = 0, utf8_context = 0;
     uint32_t utf8_val = 0;
-    struct { size_t line; size_t col; size_t byte; } txt = { 0 }, str = { 0 }, ctr = { 0 }; // Text metrics        
+    struct text_metric txt = { 0 }, str = { 0 }, ctr = { 0 }; // Text metrics        
     struct att *att = NULL;
     
     size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;    
@@ -257,8 +293,8 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
     for (; rd; rd = fread(buff, 1, sizeof buff, f), pos = 0)
     {
-        for (bool upd = 1; !halt;)
-        {
+        bool upd = 1;
+        do {
             if (upd) // UTF-8 decoder coroutine
             {
                 if (pos >= rd) break;
@@ -269,16 +305,17 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     if (utf8_context) continue;
                     if (utf8_is_invalid(utf8_val, utf8_len))
                     {
-                        errm = ERR_UTF, halt = 1;
+                        log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
+                        halt = 1;
                         break;
                     }
-
                     if (utf8_val == '\n') txt.line++, txt.col = 0; // Updating text metrics
                     else txt.col++;                 
                 }
                 else
                 {
-                    errm = ERR_UTF, halt = 1;
+                    log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
+                    halt = 1;
                     break;
                 }
             }
@@ -322,7 +359,8 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         break;
 
                     default:
-                        errm = ERR_PRL, halt = 1;
+                        log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
+                        halt = 1;
                     }                    
                 }
                 break;
@@ -346,7 +384,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
             case STP_EQ0: case STP_EQ1: case STP_EQ2: case STP_EQ3:
                 if (utf8_val == '=') stp++;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -366,7 +404,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     break;
 
                 default:
-                    errm = ERR_SYM, halt = 1;
+                    errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 }
                 break;
 
@@ -385,7 +423,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     break;
 
                 case '<':
-                    errm = ERR_SYM, halt = 1;
+                    errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                     break;
 
                 default:
@@ -431,7 +469,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
             case STP_HE0: case STP_HE1:
                 if (utf8_val == (uint32_t) (STR_D_PRE)[ind]) ind++, stp++;
-                else errm = ERR_PRL, halt = 1;
+                else
+                {
+                    log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
+                    halt = 1;
+                }
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -441,7 +483,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         
             case STP_LT0: case STP_LT1: case STP_LT2:
                 if (utf8_val == '<') stp++;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -483,7 +525,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(utf8_len, 1))) goto error;
                         strncpy(temp.buff, (char *) utf8_byte, utf8_len), len += utf8_len;
                     }
-                    else errm = ERR_SYM, halt = 1;
+                    else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 }
                 else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
@@ -573,7 +615,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
             case STP_EB0: case STP_EB1:
                 if (utf8_val == '>') stp += OFF_LC - OFF_EB;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -638,7 +680,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 if ('0' <= utf8_val && utf8_val <= '9') ctrl_val = utf8_val - '0', stp++;
                 else if ('A' <= utf8_val && utf8_val <= 'F') ctrl_val = utf8_val - 'A' + 10, stp++;
                 else if ('a' <= utf8_val && utf8_val <= 'f') ctrl_val = utf8_val - 'a' + 10, stp++;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
             case STP_SA2:
@@ -650,7 +692,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
             case STP_SA3:
                 if ('0' <= utf8_val && utf8_val <= '9') ctrl_val = utf8_val - '0', stp++;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
             case STP_SA4:
@@ -670,7 +712,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         strncpy(temp.buff + len, (char *) ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
                     }
                 }
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
             case STP_SA6:
@@ -681,7 +723,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(utf8_len))) goto error;
                         strncpy(ctrl.buff, (char *) utf8_byte, utf8_len), ind += utf8_len;
                     }
-                    else errm = ERR_SYM, halt = 1;
+                    else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 }
                 else if (utf8_is_xml_name_char(utf8_val, utf8_len))
                 {
@@ -702,7 +744,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     }
                     else errm = ERR_CTR, halt = 1;
                 }
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -713,7 +755,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             case STP_CM0: case STP_CM1: case STP_CM2:
             case STP_CA0: case STP_CA1: case STP_CA2:
                 if (utf8_val == '-') stp++;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
             case STP_CB0: case STP_CB1: case STP_CB2:
@@ -724,7 +766,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 
             case STP_CC0: case STP_CC1: case STP_CC2:
                 if (utf8_val == '>') stp -= OFF_CM - OFF_LA + OFF_CC - OFF_CM;
-                else errm = ERR_SYM, halt = 1;
+                else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -733,29 +775,28 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_SQ0: case STP_SQ1: case STP_SQ2:
-                errm = ERR_PRL, halt = 1;
+                log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
+                halt = 1;
                 break;
 
             case STP_ST4:
-                errm = ERR_SYM, halt = 1;
+                errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
 
             default:
                 errm = ERR_CMP, halt = 1;
             }          
-        }
-
-        if (halt) break;
+        } while (!halt);
     }
     
     if (halt || dep) // Compiler errors
     {
         switch (errm)
         {
-        case ERR_SYM:
+        case XML_ERROR_INVALID_SYMBOL:
             txt.byte -= utf8_len, txt.col--;
 
-        case ERR_EOF: case ERR_UTF: case ERR_PRL: case ERR_CMP:
+        case XML_ERROR_UNEXPECTED_EOF: case XML_ERROR_UTF: case XML_ERROR_PROLOGUE: case ERR_CMP:
             //logMsg(inf, strings[STR_FR_EX], strings[STR_FN], strings[errm], input, txt.line + 1, txt.col + 1, txt.byte + 1);
             break;
         
@@ -802,6 +843,11 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
 }
 
 bool xml_node_selector()
+{
+    return 1;
+}
+
+bool xml_att_selector()
 {
     return 1;
 }

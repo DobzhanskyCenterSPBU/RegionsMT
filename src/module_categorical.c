@@ -85,8 +85,8 @@ bool categorical_run(const char *path_phen, const char *path_gen, struct log *lo
     size_t ini_rpl = 1000000, rpl = ini_rpl;
     double x = maver_adj(gen, phen, snp_cnt, phen_cnt, phen_ucnt, &rpl, 10, 1. + 1.e-7, rng, TEST_TYPE_CODOMINANT);
  
-    log_message_var(log, &MESSAGE_VAR_GENERIC(MESSAGE_TYPE_INFO), "Adjusted P-value for density: %f; count of replications: %zu / %zu.\n", x, rpl, ini_rpl);
-    log_message(log, &MESSAGE_INFO_TIME_DIFF(start, get_time(), "Adjusted P-value computation").base);
+    log_message_generic(log, &CODE_METRIC, MESSAGE_TYPE_INFO, "Adjusted P-value for density: %f; count of replications: %zu / %zu.\n", x, rpl, ini_rpl);
+    log_message_time_diff(log, &CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "Adjusted P-value computation");
 
 error:
     gsl_rng_free(rng);

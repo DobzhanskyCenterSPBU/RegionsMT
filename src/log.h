@@ -22,81 +22,42 @@ enum message_type {
 };
 
 typedef size_t (*message_callback)(char *, size_t, void *);
-typedef size_t (*message_callback_var)(char *, size_t, void *, char *, va_list);
+typedef size_t (*message_callback_var)(char *, size_t, void *, const char *, va_list);
 
-struct message {
+struct code_metric {
     const char *path, *func;
     size_t line;
-    union {
-        message_callback handler;
-        message_callback_var handler_var;
-    };
-    enum message_type type;
 };
 
-struct message_info_time_diff {
-    struct message base;
+struct time_diff {
     uint64_t start, stop;
-    char *descr;
+    const char *prefix;
 };
 
-size_t message_info_time_diff(char *, size_t, void *);
-
-struct message_error_crt {
-    struct message base;
-    Errno_t code;
-};
-
-size_t message_error_crt(char *, size_t, void *);
-size_t message_var_generic(char *, size_t, void *, char *, va_list);
-size_t message_error_crt_ext(char *, size_t, void *, char *, va_list);
+size_t message_time_diff(char *, size_t, void *);
+size_t message_crt(char *, size_t, void *);
+size_t message_var_generic(char *, size_t, void *, const char *, va_list);
+size_t message_var_crt(char *, size_t, void *, const char *, va_list);
 
 #define DECLARE_PATH \
     static const char Path[] = __FILE__;    
 
-#define MESSAGE(Handler, Type) \
-    (struct message) { \
+#define CODE_METRIC \
+    (struct code_metric) { \
         .path = Path, \
         .func = __func__, \
         .line = __LINE__, \
-        .handler = (Handler), \
-        .type = (Type) \
     }
-
-#define MESSAGE_VAR(Handler_var, Type) \
-    (struct message) { \
-        .path = Path, \
-        .func = __func__, \
-        .line = __LINE__, \
-        .handler_var = (Handler_var), \
-        .type = (Type) \
-    }
-
-#define MESSAGE_INFO_TIME_DIFF(Start, Stop, Descr) \
-    ((struct message_info_time_diff) { \
-        .base = MESSAGE(message_info_time_diff, MESSAGE_TYPE_INFO), \
-        .start = (Start), \
-        .stop = (Stop), \
-        .descr = (Descr) \
-    })
-
-#define MESSAGE_ERROR_CRT(Code) \
-    ((struct message_error_crt) { \
-        .base = MESSAGE(message_error_crt, MESSAGE_TYPE_ERROR), \
-        .code = (Code) \
-    })
-
-#define MESSAGE_ERROR_CRT_EXT(Code) \
-    ((struct message_error_crt) { \
-        .base = MESSAGE_VAR(message_error_crt_ext, MESSAGE_TYPE_ERROR), \
-        .code = (Code) \
-    })
-
-#define MESSAGE_VAR_GENERIC(Type) \
-    (MESSAGE_VAR(message_var_generic, (Type)))
 
 bool log_init(struct log *restrict, char *restrict, size_t);
 void log_close(struct log *restrict);
 bool log_flush(struct log *restrict);
-bool log_message(struct log *restrict, struct message *restrict);
-bool log_message_var(struct log *restrict, struct message *restrict, char *, ...);
+bool log_message(struct log *restrict, struct code_metric *restrict, enum message_type, message_callback, void *);
+bool log_message_var(struct log *restrict, struct code_metric *restrict, enum message_type, message_callback_var, void *, const char *restrict, ...);
+
+// Some specialized messages
+bool log_message_generic(struct log *restrict, struct code_metric *restrict, enum message_type, const char *restrict, ...);
+bool log_message_time_diff(struct log *restrict, struct code_metric *restrict, enum message_type, uint64_t, uint64_t, const char *restrict);
+bool log_message_crt(struct log *restrict, struct code_metric *restrict, enum message_type, Errno_t);
+bool log_message_fopen(struct log *restrict, struct code_metric *restrict, enum message_type, const char *restrict, Errno_t);
+bool log_message_fseek(struct log *restrict, struct code_metric *restrict, enum message_type, int64_t, const char *restrict);
