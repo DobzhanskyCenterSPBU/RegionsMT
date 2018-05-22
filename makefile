@@ -17,7 +17,7 @@ ASM_OPT_Debug = -D_DEBUG
 LD = $(CC)
 LD_INC_Release = /usr/lib
 LD_INC_Debug = $(LD_INC_Release)
-LD_LIB_Release = m pthread mysqlclient gsl gslcblas
+LD_LIB_Release = m pthread gsl gslcblas
 LD_LIB_Debug = $(LD_LIB_Release)
 LD_OPT_Release = -flto
 LD_OPT_Debug =
@@ -25,16 +25,12 @@ LD_OPT_Debug =
 OS = $(shell uname)
 
 ifeq ($(OS),$(addsuffix $(subst CYGWIN,,$(OS)),CYGWIN))
-    CC_INC_Release += /usr/include/mysql
     ASM_OPT_Release += -fwin64
     ASM_OPT_Debug += -fwin64
 else ifeq ($(OS),Linux)
-    CC_INC_Release += /usr/include/mysql
     ASM_OPT_Release += -felf64
     ASM_OPT_Debug += -felf64 -gdwarf2
 else ifeq ($(OS),Darwin)
-    CC_INC_Release += /usr/local/mysql/include
-    LD_INC_Release += /usr/local/mysql/lib
     ASM_OPT_Release += -fmacho64
     ASM_OPT_Debug += -fmacho64
 endif
