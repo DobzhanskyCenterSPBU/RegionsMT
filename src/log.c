@@ -21,8 +21,7 @@ bool message_time_diff(char *buff, size_t *p_buff_cnt, void *Context)
             mdq ? snprintf(buff, buff_cnt, "%s took %" PRIu64 " min %.4f sec.\n", context->prefix, mdq, sec) :
             snprintf(buff, buff_cnt, "%s took %.4f sec.\n", context->prefix, sec);
     }
-    else
-        tmp = snprintf(buff, buff_cnt, "%s took too much time.\n", context->prefix);
+    else tmp = snprintf(buff, buff_cnt, "%s took too much time.\n", context->prefix);
     if (tmp < 0) return 0;
     *p_buff_cnt = (size_t) tmp;
     return 1;
@@ -140,7 +139,7 @@ static bool log_message_impl(struct log *restrict log, struct code_metric code_m
                 if (!log_prefix(log->buff + cnt, &len, code_metric, type)) return 0;
                 break;
             case 1:
-                if (handler ? !handler(log->buff + cnt, &len, context) : handler_var && format ? !handler_var(log->buff + cnt, &len, context, format, *arg) : 0) return 0;
+                if (handler ? !handler(log->buff + cnt, &len, context) : handler_var && format && !handler_var(log->buff + cnt, &len, context, format, *arg)) return 0;
                 break;
             }
             switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(cnt, len, 1)))

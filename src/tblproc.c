@@ -82,7 +82,7 @@ struct row_read_context {
 static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context)
 {
     struct row_read_context *restrict context = Context;
-    const char *str[] = {
+    const char *fmt[] = {
         "Unable to handle the value \"%.*s\"",
         "Incorrect order of quotes",
         "End of line expected",
@@ -91,7 +91,7 @@ static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context
         "Read less rows than expected",
         "Unable to handle line"
     };
-    if (context->status >= countof(str)) return 0;
+    if (context->status >= countof(fmt)) return 0;
     size_t cnt = 0, len = *p_buff_cnt;
     for (unsigned i = 0; i < 2; i++)
     {
@@ -102,10 +102,10 @@ static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context
             switch (context->status)
             {
             case ROW_READ_STATUS_UNHANDLED_VALUE:
-                tmp = snprintf(buff + cnt, len, str[context->status], (int) context->len, context->str);
+                tmp = snprintf(buff + cnt, len, fmt[context->status], (int) context->len, context->str);
                 break;
             default:
-                tmp = snprintf(buff + cnt, len, str[context->status]);
+                tmp = snprintf(buff + cnt, len, fmt[context->status]);
             }
             break;
         case 1:
@@ -304,7 +304,7 @@ struct tbl_head_context {
     size_t tmp;
 };
 
-bool tbl_head_handler(const char *str, size_t len, void *ptr, void *context)
+bool tbl_head_handler(const char *fmt, size_t len, void *ptr, void *context)
 {
     return 0;
 }
