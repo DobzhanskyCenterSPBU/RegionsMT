@@ -20,7 +20,7 @@ int str_off_stable_cmp(const void *, const void *, void *);
 bool str_off_cmp(const void *, const void *, void *);
 
 typedef bool (*read_callback)(const char *, size_t, void *, void *); // Functional type for read callbacks
-typedef bool (*write_callback)(char **, size_t *, size_t, void *, void *); // Functional type for write callbacks
+typedef bool (*write_callback)(char *, size_t *, void *, void *); // Functional type for write callbacks
 typedef union { read_callback read; write_callback write; } rw_callback;
 
 struct handler_context {

@@ -93,10 +93,10 @@ struct xml_context {
     enum xml_status status;
 };
 
-static size_t message_xml(char *buff, size_t buff_cnt, void *Context)
+static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
 {
     int tmp = 0;
-    size_t col_disp = 0, byte_disp = 0;
+    size_t col_disp = 0, byte_disp = 0, buff_cnt = *p_buff_cnt;
     struct xml_context *restrict context = Context;
     const char *str[] = {
         "",
@@ -116,7 +116,8 @@ static size_t message_xml(char *buff, size_t buff_cnt, void *Context)
 
     default:;
 
-    }   
+    } 
+    if (tmp < 0) return 0;
     
     /*const char *str[] = {
         __FUNCTION__,
@@ -139,21 +140,23 @@ static size_t message_xml(char *buff, size_t buff_cnt, void *Context)
     };
     int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;*/
 
-    if (tmp > 0 && (size_t) tmp < buff_cnt)
+    size_t len = (size_t) tmp;
+    if (len < buff_cnt)
     {
-        size_t len = (size_t) tmp;
         tmp = snprintf(buff + len, buff_cnt - len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n", 
             context->path, 
             context->text_metric->line + 1, 
             context->text_metric->col - col_disp + 1,
             context->text_metric->byte - byte_disp + 1
         );
-        return len + (size_t) MAX(0, tmp);
+        if (tmp < 0) return 0;
+        return size_add_sat(len, + (size_t) tmp);
     }
-    return MAX(0, tmp);
+    *p_buff_cnt = len;
+    return 1;
 }
 
-static bool log_message_error_xml(struct log *restrict log, struct code_metric *restrict code_metric, struct text_metric *restrict text_metric, const char *path, char *str, uint32_t val, enum xml_status status)
+static bool log_message_error_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, char *str, uint32_t val, enum xml_status status)
 {
     return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_xml, &(struct xml_context) { .text_metric = text_metric, .path = path, .str = str, .val = val, .status = status });
 }
@@ -185,7 +188,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
         f = fopen(path, "r");
         if (!f)
         {
-            log_message_fopen(log, &CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno); 
+            log_message_fopen(log, CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno); 
             return 0;
         }
     }
@@ -305,7 +308,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     if (utf8_context) continue;
                     if (utf8_is_invalid(utf8_val, utf8_len))
                     {
-                        log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
+                        log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
                         halt = 1;
                         break;
                     }
@@ -314,7 +317,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 }
                 else
                 {
-                    log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
+                    log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
                     halt = 1;
                     break;
                 }
@@ -359,7 +362,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                         break;
 
                     default:
-                        log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
+                        log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
                         halt = 1;
                     }                    
                 }
@@ -471,7 +474,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 if (utf8_val == (uint32_t) (STR_D_PRE)[ind]) ind++, stp++;
                 else
                 {
-                    log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
+                    log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
                     halt = 1;
                 }
                 break;
@@ -775,7 +778,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_SQ0: case STP_SQ1: case STP_SQ2:
-                log_message_error_xml(log, &CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
+                log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
                 halt = 1;
                 break;
 

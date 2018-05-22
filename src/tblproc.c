@@ -61,64 +61,91 @@ struct row_read_handlers {
 */
 
 enum row_read_status {
-    ROW_READ_STATUS_BAD_QUOTES = 0,
-    ROW_READ_STATUS_UNHANDLED_VALUE,
+    ROW_READ_STATUS_UNHANDLED_VALUE = 0,
+    ROW_READ_STATUS_BAD_QUOTES,
     ROW_READ_STATUS_EXPECTED_EOL,
     ROW_READ_STATUS_UNEXPECTED_EOL,
     ROW_READ_STATUS_UNEXPECTED_EOF,
-    ROW_READ_STATUS_EXPECTED_MORE_ROWS
+    ROW_READ_STATUS_EXPECTED_MORE_ROWS,
+    ROW_READ_STATUS_UNHANDLED_EOL
 };
 
 struct row_read_context {
     const char *path;
+    char *str;
     int64_t offset;
     uint64_t byte;
-    size_t row, col;
+    size_t row, col, len;
     enum row_read_status status;
 };
 
-static size_t message_error_row_read(char *buff, size_t buff_cnt, void *Context)
+static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context)
 {
     struct row_read_context *restrict context = Context;
     const char *str[] = {
+        "Unable to handle the value \"%.*s\"",
         "Incorrect order of quotes",
-        "Unable to handle value",
         "End of line expected",
         "Unexpected end of line",
         "Unexpected end of file",        
-        "Read less rows than expected"
+        "Read less rows than expected",
+        "Unable to handle line"
     };
-    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s in the file \"%s\" + %" PRId64 " B (byte: %" PRIu64 "; row: %zu; column: %zu)!\n",
-        str[context->status],
-        context->path,
-        context->offset, 
-        context->byte + 1, 
-        context->row + 1, 
-        context->col + 1
-    ) : 0;
-    return MAX(0, res);
+    if (context->status >= countof(str)) return 0;
+    size_t cnt = 0, len = *p_buff_cnt;
+    for (unsigned i = 0; i < 2; i++)
+    {
+        int tmp;
+        switch (i)
+        {
+        case 0:
+            switch (context->status)
+            {
+            case ROW_READ_STATUS_UNHANDLED_VALUE:
+                tmp = snprintf(buff + cnt, len, str[context->status], (int) context->len, context->str);
+                break;
+            default:
+                tmp = snprintf(buff + cnt, len, str[context->status]);
+            }
+            break;
+        case 1:
+            tmp = snprintf(buff + cnt, len, " in the file \"%s\" + %" PRId64 " B (byte: %" PRIu64 "; row: %zu; column: %zu)!\n",
+                context->path,
+                context->offset,
+                context->byte + 1,
+                context->row + 1,
+                context->col + 1
+            );
+            break;
+        }
+        if (tmp < 0) return 0;
+        len = size_sub_sat(len, (size_t) tmp);
+        cnt = size_add_sat(cnt, (size_t) tmp);
+    }
+    *p_buff_cnt = cnt;
+    return 1;
 }
 
-static bool log_message_error_row_read(struct log *restrict log, struct code_metric *restrict code_metric, const char *path, int64_t offset, uint64_t byte, size_t row, size_t col, enum row_read_status status)
+static bool log_message_error_row_read(struct log *restrict log, struct code_metric code_metric, const char *path, int64_t offset, uint64_t byte, size_t row, size_t col, enum row_read_status status, char *str, size_t len)
 {
-    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_error_row_read, &(struct row_read_context) { .byte = byte, .row = row, .col = col, .path = path, .offset = offset, .status = status });
+    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_error_row_read, &(struct row_read_context) { .byte = byte, .row = row, .col = col, .path = path, .offset = offset, .status = status, .str = str, .len = len });
 }
 
-bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, tbl_selector_callback selector_eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
+bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, tbl_eol_callback eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
 {
     size_t row_skip = p_row_skip ? *p_row_skip : 0, row_cnt = p_row_cnt ? *p_row_cnt : 0, length = p_length ? *p_length : 0;
 
     // This guarantees that all conditions of type 'byte + rd < length' will be eventually triggered.
     if (length && length > SIZE_MAX - BLOCK_READ)
     {
-        log_message_generic(log, &CODE_METRIC, MESSAGE_TYPE_ERROR, "Invalid value of the parameter!\n");
+        log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_ERROR, "Invalid value of the parameter!\n");
         return 0;
     }
 
     FILE *f = fopen(path, "rt");
     if (!f)
     {
-        log_message_fopen(log, &CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno);
+        log_message_fopen(log, CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno);
         return 0;
     }
        
@@ -129,7 +156,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
 
     if (offset && Fseeki64(f, offset, SEEK_CUR))
     {
-        log_message_fseek(log, &CODE_METRIC, MESSAGE_TYPE_ERROR, offset, path);
+        log_message_fseek(log, CODE_METRIC, MESSAGE_TYPE_ERROR, offset, path);
         goto error;
     }
 
@@ -153,7 +180,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                 if (quote != 2)
                 {
                     if (!selector(&cl, row, col, res, context))
-                        log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_EXPECTED_EOL);
+                        log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_EXPECTED_EOL, NULL, 0);
                     else
                     {
                         if (cl.handler.read)
@@ -161,7 +188,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                             temp_buff[len] = '\0';
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
                             {
-                                log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE);
+                                log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE, temp_buff, len);
                                 goto error;
                             }
                         }
@@ -176,7 +203,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
             else switch (buff[ind])
             {
             default:
-                if (quote == 1) log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES);
+                if (quote == 1) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES, NULL, 0);
                 else break;
                 goto error;
             case ' ':
@@ -187,18 +214,18 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                     if (len) break;
                     continue;
                 case 1:
-                    log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES);
+                    log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES, NULL, 0);
                     goto error;
                 case 2: 
                     break;
                 }
                 break;
             case '\n':
-                if (quote == 2) log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES);
+                if (quote == 2) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES, NULL, 0);
                 else
                 {
-                    if (!selector_eol(&cl, row, col, res, context))
-                        log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNEXPECTED_EOL);
+                    if (!selector(&cl, row, col, res, context))
+                        log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNEXPECTED_EOL, NULL, 0);
                     else
                     {
                         if (cl.handler.read)
@@ -206,10 +233,12 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                             temp_buff[len] = '\0';
                             if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
                             {
-                                log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE);
+                                log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE, temp_buff, len);
                                 goto error;
                             }
                         }
+                        if (eol && !eol(row, res, context))
+                            log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_EOL, NULL, 0);
                         quote = 0;
                         len = col = 0;
                         row++;
@@ -235,7 +264,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                 }
                 break;            
             }
-            if (!array_test(&temp_buff, &cap, 1, 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, &CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+            if (!array_test(&temp_buff, &cap, 1, 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
             else
             {
                 temp_buff[len++] = buff[ind];
@@ -248,8 +277,8 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
         break;
     }
 
-    if (col) log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNEXPECTED_EOF);
-    else if (row_cnt && row < row_cnt) log_message_error_row_read(log, &CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_EXPECTED_MORE_ROWS);
+    if (col) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNEXPECTED_EOF, NULL, 0);
+    else if (row_cnt && row < row_cnt) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_EXPECTED_MORE_ROWS, NULL, 0);
     else succ = 1;
 
 error:

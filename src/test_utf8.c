@@ -20,7 +20,7 @@ enum utf8_test_obituary {
     UTF8_TEST_OBITUARY_UTF16_INTERNAL
 };
 
-static size_t message_utf8_test(char *buff, size_t buff_cnt, void *Context)
+static bool message_utf8_test(char *buff, size_t *p_buff_cnt, void *Context)
 {
     enum utf8_test_obituary obituary = *(enum utf8_test_obituary *) Context;
     const char *str[] = { 
@@ -33,11 +33,14 @@ static size_t message_utf8_test(char *buff, size_t buff_cnt, void *Context)
         "Incorrect Unicode value of the UTF-16 word sequence",
         "Internal error"
     };
-    int res = obituary < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[obituary]) : 0;
-    return MAX(0, res);
+    if (obituary >= countof(str)) return 0;
+    int tmp = snprintf(buff, *p_buff_cnt, "%s!\n", str[obituary]);
+    if (tmp < 0) return 0;
+    *p_buff_cnt = (size_t) tmp;
+    return 1;
 }
 
-static bool log_message_error_utf8_test(struct log *restrict log, struct code_metric *restrict code_metric, enum utf8_test_obituary obituary)
+static bool log_message_error_utf8_test(struct log *restrict log, struct code_metric code_metric, enum utf8_test_obituary obituary)
 {
     return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_utf8_test, &obituary);
 }
@@ -76,7 +79,7 @@ bool test_utf8_len(void *In, struct log *log)
 {
     struct test_utf8 *restrict in = In;
     uint8_t len = utf8_len(in->val);
-    if (len != in->utf8_len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_LEN);
+    if (len != in->utf8_len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_LEN);
     else return 1;
     return 0;
 }
@@ -86,7 +89,7 @@ bool test_utf8_encode(void *In, struct log *log)
     struct test_utf8 *restrict in = In;
     uint8_t byte[UTF8_COUNT], len;
     utf8_encode(in->val, byte, &len);
-    if (strncmp((char *) in->utf8, (char *) byte, len) || len != in->utf8_len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_ENCODE);
+    if (strncmp((char *) in->utf8, (char *) byte, len) || len != in->utf8_len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_ENCODE);
     else return 1;
     return 0;
 }
@@ -98,9 +101,9 @@ bool test_utf8_decode(void *In, struct log *log)
     uint32_t val;
     for (; ind < in->utf8_len; ind++)
         if (!utf8_decode(in->utf8[ind], &val, byte, &len, &context)) break;
-    if (ind < in->utf8_len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_INTERNAL);
+    if (ind < in->utf8_len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_INTERNAL);
     else
-        if (strncmp((char *) in->utf8, (char *) byte, len) || in->val != val || len != in->utf8_len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_DECODE);
+        if (strncmp((char *) in->utf8, (char *) byte, len) || in->val != val || len != in->utf8_len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF8_DECODE);
         else return 1;
     return 0;
 }
@@ -113,13 +116,13 @@ bool test_utf16_encode(void *In, struct log *log)
         uint16_t word[UTF16_COUNT];
         uint8_t len;
         utf16_encode(in->val, word, &len);
-        if (len != in->utf16_len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_LEN);
+        if (len != in->utf16_len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_LEN);
         else
         {
             uint8_t ind = 0;
             for (ind = 0; ind < len; ind++)
                 if (in->utf16[ind] != word[ind]) break;
-            if (ind < len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_ENCODE);
+            if (ind < len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_ENCODE);
             else return 1;
         }
     }
@@ -137,16 +140,16 @@ bool test_utf16_decode(void *In, struct log *log)
         uint32_t val;
         for (; ind < in->utf16_len; ind++)
             if (!utf16_decode(in->utf16[ind], &val, word, &len, &context)) break;
-        if (ind < in->utf16_len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_INTERNAL);
+        if (ind < in->utf16_len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_INTERNAL);
         else
         {
-            if (len != in->utf16_len || in->val != val) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_DECODE);
+            if (len != in->utf16_len || in->val != val) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_DECODE);
             else
             {
                 uint8_t ind = 0;
                 for (ind = 0; ind < len; ind++)
                     if (in->utf16[ind] != word[ind]) break;
-                if (ind < len) log_message_error_utf8_test(log, &CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_DECODE);
+                if (ind < len) log_message_error_utf8_test(log, CODE_METRIC, UTF8_TEST_OBITUARY_UTF16_DECODE);
                 else return 1;
             }
         }

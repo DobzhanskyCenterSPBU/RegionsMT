@@ -140,7 +140,7 @@ void ranks_from_pointers_inplace_impl(uintptr_t *restrict ptr, uintptr_t base, s
 
 bool ranks_from_pointers_inplace(uintptr_t *restrict ptr, uintptr_t base, size_t cnt, size_t sz)
 {
-    uint8_t *restrict bits = NULL;
+    uint8_t *bits = NULL;
     if (!array_init(&bits, NULL, UINT8_CNT(cnt), sizeof(*bits), 0, ARRAY_STRICT | ARRAY_CLEAR)) return 0;
     ranks_from_pointers_inplace_impl(ptr, base, cnt, sz, bits);
     free(bits);

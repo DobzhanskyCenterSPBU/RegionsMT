@@ -266,11 +266,11 @@ static int Main(int argc, char **argv)
             if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
                 // Help code
-                log_message_generic(&log, &CODE_METRIC, MESSAGE_TYPE_INFO, "Help mode triggered!\n");
+                log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_INFO, "Help mode triggered!\n");
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
-                log_message_generic(&log, &CODE_METRIC, MESSAGE_TYPE_INFO, "Test mode triggered!\n");
+                log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_INFO, "Test mode triggered!\n");
                 test(&log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
@@ -279,7 +279,7 @@ static int Main(int argc, char **argv)
             }
             else
             {
-                if (!input_cnt) log_message_generic(&log, &CODE_METRIC, MESSAGE_TYPE_NOTE, "No input data specified.\n");
+                if (!input_cnt) log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_NOTE, "No input data specified.\n");
                 else
                 {
                     
