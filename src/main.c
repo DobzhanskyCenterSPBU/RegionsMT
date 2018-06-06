@@ -275,7 +275,7 @@ static int Main(int argc, char **argv)
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
-                if (input_cnt >= 2) categorical_run(input[0], input[1], &log);
+                if (input_cnt >= 3) categorical_run(input[0], input[1], input[2], &log);
             }
             else
             {
