@@ -1,3 +1,4 @@
+#include "np.h"
 #include "ll.h"
 #include "memory.h"
 #include "tblproc.h"
@@ -50,7 +51,20 @@ static void gsl_error_a(const char *reason, const char * file, int line, int gsl
     return;
 }
 
-bool categorical_run(const char *path_phen, const char *path_gen, struct log *log)
+bool append_out(const char *path_out, double val, size_t off, size_t cnt)
+{
+    bool succ = 0;
+    FILE *f = fopen(path_out, "a");
+    if (!f) return 0;
+    int tmp = fprintf(f, "%zu, %zu, %f\n", off, off + cnt, val);
+    if (tmp < 0) goto error;
+    succ = 1;
+error:
+    fclose(f);
+    return 1;
+}
+
+bool categorical_run(const char *path_phen, const char *path_gen, const char *path_out, struct log *log)
 {
     uint8_t *gen = NULL;
     gsl_rng *rng = NULL;    
@@ -79,6 +93,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, struct log *lo
  
     log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_INFO, "Adjusted P-value for density: %f; count of replications: %zu / %zu.\n", x, rpl, ini_rpl);
     log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "Adjusted P-value computation");
+    if (path_out) append_out(path_out, x, 0, snp_cnt);
 
 error:
     gsl_rng_free(rng);
