@@ -183,53 +183,50 @@ enum categorical_flags {
     CATEGORICAL_CHISQ = 32,
 };
 
-struct categorical_res {
-    size_t *phen_mar, *p_gen_phen_mar;
-    double *pv;
+struct categorical_input {
+    uint8_t *gen, *phen;
 };
 
-struct categorical_supp {
+struct categorical_output {
     uint8_t *gen_bits, *phen_bits;
-    size_t *filter, *table, *table_tmp, *gen_mar, *p_cnt, *p_gen_pop_cnt;
+    size_t *filter, *table, *table_tmp, *gen_mar, *phen_mar, cnt, gen_pop_cnt, gen_phen_mar;
+    double pv;
 };
 
 #if 0
 
-bool categorical_impl(uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, 
-    size_t *filter, 
-    size_t *table, 
-    size_t *table_tmp, 
-    size_t *gen_mar, 
-    size_t *phen_mar, 
-    size_t *p_gen_phen_mar, 
-    size_t *p_cnt, 
-    size_t *p_gen_pop_cnt)
+size_t filter_impl(uint8_t *gen, size_t phen_cnt, size_t *filter)
 {
-    // Initializing genotype filter
     size_t cnt = 0;
     for (size_t i = 0; i < phen_cnt; i++) if (gen[i] < GEN_MAX) filter[cnt++] = i;
+    return cnt;
+}
 
-    if (cnt < 2) return 0; // There is nothing to do if the count is zero
-    *p_cnt = cnt;
-
-    // Counting unique genotypes
-    size_t gen_pop_cnt = gen_bits_init(gen_bits, cnt, GEN_MAX, filter, gen);
-    gen_pop_cnt = gen_pop_cnt_impl(gen_bits, gen_pop_cnt);
-    if (gen_pop_cnt < 2) return 0;
-    *p_gen_pop_cnt = gen_pop_cnt;
-
+bool contingency_table_impl(uint8_t *gen, uint8_t *phen, size_t *filter, size_t phen_cnt, size_t phen_ucnt, size_t cnt, uint8_t *phen_bits, size_t *table, size_t *p_phen_pop_cnt)
+{
     // Counting unique phenotypes
     memset(phen_bits, 0, UINT8_CNT(phen_ucnt));
     size_t phen_pop_cnt = phen_bits_init(phen_bits, cnt, phen_ucnt, filter, phen);
     if (phen_pop_cnt < 2) return 0;
+    *p_phen_pop_cnt = phen_pop_cnt;
 
     // Building contingency table
-    memset(table_tmp, 0, GEN_MAX * phen_ucnt * sizeof(*table_tmp));
+    memset(table, 0, GEN_MAX * phen_ucnt * sizeof(*table));
     for (size_t i = 0; i < cnt; i++)
     {
         size_t ind = filter[i];
         table[gen[ind] + GEN_MAX * phen[ind]]++;
     }
+}
+
+bool categorical_impl(uint8_t *gen, size_t *filter, size_t cnt, uint8_t *gen_bits, uint8_t *phen_bits, size_t *table, size_t phen_ucnt, size_t phen_pop_cnt, size_t *p_gen_pop_cnt)
+{
+    // Counting unique genotypes
+    size_t gen_pop_cnt = gen_bits_init(gen_bits, cnt, GEN_MAX, filter, gen);
+    gen_pop_cnt = gen_pop_cnt_impl(gen_bits, gen_pop_cnt);
+    if (gen_pop_cnt < 2) return 0;
+    *p_gen_pop_cnt = gen_pop_cnt;
+    
     table_shuffle(table, gen_bits, gen_pop_cnt, phen_bits, phen_pop_cnt, gen_shuffle_impl);
 
     // Computing sums
