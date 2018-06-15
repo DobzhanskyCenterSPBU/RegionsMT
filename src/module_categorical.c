@@ -56,7 +56,7 @@ bool append_out(const char *path_out, double val, size_t off, size_t cnt)
     bool succ = 0;
     FILE *f = fopen(path_out, "a");
     if (!f) return 0;
-    int tmp = fprintf(f, "%zu, %zu, %.15f\n", off, off + cnt, val);
+    int tmp = fprintf(f, "%.15f\n", val);
     if (tmp < 0) goto error;
     succ = 1;
 error:
