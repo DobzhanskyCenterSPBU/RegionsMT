@@ -3,3 +3,5 @@ language: cpp
 os:
   - linux
   - osx
+
+script: make # ./configure && make && make test
