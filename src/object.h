@@ -21,6 +21,13 @@ struct xml_attribute {
     read_callback handler;
 };
 
+struct xml_att {
+    struct strl name;
+    ptrdiff_t offset;
+    void *context;
+    read_callback handler;
+};
+
 struct xml_node {
     struct strl name;
     size_t sz;
@@ -28,12 +35,7 @@ struct xml_node {
     epilogue_callback epilogue;
     disposer_callback dispose;    
     struct {
-        struct att {
-            struct strl name;
-            ptrdiff_t offset;
-            void *context;
-            read_callback handler;
-        } *att;
+         *att;
         size_t att_cnt;
     };
     struct {

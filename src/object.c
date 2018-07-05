@@ -845,7 +845,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     return res;
 }
 
-bool xml_node_selector()
+bool xml_node_selector(  void *context)
 {
     return 1;
 }

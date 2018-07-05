@@ -7,6 +7,7 @@
 #include <immintrin.h>
 
 #if defined __GNUC__ || defined __clang__
+
 #   define DECLARE_LOAD_ACQUIRE(TYPE, PREFIX) \
         TYPE PREFIX ## _load_acquire(volatile TYPE *src) \
         { \
@@ -107,6 +108,7 @@ size_t size_pop_cnt(size_t x)
 #   endif 
 #elif defined _MSC_BUILD
 #   include <intrin.h>
+
 #   define DECLARE_LOAD_ACQUIRE(TYPE, PREFIX) \
         TYPE PREFIX ## _load_acquire(volatile TYPE *src) \
         { \
@@ -114,6 +116,7 @@ size_t size_pop_cnt(size_t x)
             _ReadBarrier(); \
             return res; \
         }
+
 #   define DECLARE_STORE_RELEASE(TYPE, PREFIX) \
         void PREFIX ## _store_release(volatile TYPE *dst, TYPE val) \
         { \
