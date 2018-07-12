@@ -92,6 +92,7 @@ _Static_assert(sizeof(double) == sizeof(uint64_t), "The size of 'double' should 
 int flt64_stable_cmp_dsc(const void *, const void *, void *);
 int flt64_stable_cmp_dsc_abs(const void *, const void *, void *);
 int flt64_stable_cmp_dsc_nan(const void *, const void *, void *);
+int flt64_sign(double x);
 
 uint32_t uint32_fused_mul_add(uint32_t *, uint32_t, uint32_t);
 

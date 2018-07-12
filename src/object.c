@@ -843,7 +843,7 @@ bool xml_node_selector(struct xml_node *node, char *str, size_t len, void *conte
     return 1;
 }
 
-bool xml_att_selector(struct xml_node *node, char *str, size_t len, void *context)
+bool xml_att_selector(struct xml_node *node, char *str, size_t len, void *context, size_t *p_ind)
 {
     //ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_stable_cmp_len, &len);
     //att = stack.frame[dep].node->att + ind;
