@@ -1,0 +1,230 @@
+<?xml version="1.0" ?>
+<RegionsMT log="stderr" threads="8">
+    <Data.Load header="True" logarithm="False" path.chr="f:/data/npc/tbl/chr.csv" path.row="f:/data/npc/tbl/row.csv" path.test="f:/data/npc/tbl/test.csv" path.val="f:/data/npc/tbl/val.csv">
+        <Density pos="False" radius="10" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_3_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_3_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_3_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_3_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_3_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_3_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_3_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_3_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_3_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_3_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_3_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_3_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_3_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_3_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_3_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_3_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_3_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_3_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+        <Density pos="False" radius="20" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_4_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_4_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_4_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_4_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_4_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_4_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_4_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_4_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_4_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_4_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_4_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_4_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_4_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_4_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_4_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_4_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_4_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_4_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+        <Density pos="False" radius="35" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_5_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_5_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_5_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_5_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_5_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_5_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_5_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_5_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_5_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_5_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_5_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_5_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_5_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_5_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_5_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_5_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_5_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_5_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+        <Density pos="False" radius="50" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_6_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_6_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_6_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_6_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_6_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_6_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_6_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_6_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_6_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_6_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_6_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_6_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_6_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_6_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_6_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_6_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_6_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_6_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+        <Density pos="False" radius="100" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_7_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_7_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_7_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_7_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_7_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_7_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_7_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_7_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_7_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_7_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_7_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_7_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_7_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_7_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_7_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_7_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_7_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_7_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+        <Density pos="True" radius="50000" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_1_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_1_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_1_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_1_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_1_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_1_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_1_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_1_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_1_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_1_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_1_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_1_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_1_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_1_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_1_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_1_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_1_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_1_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+        <Density pos="True" radius="100000" type="average">
+            <Fold group="PCA GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_2_1.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_2_1.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_2_1.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_2_2.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_2_2.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_2_2.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="max">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_2_3.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_2_3.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_2_3.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_2_4.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_2_4.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_2_4.csv" type="qas"/>
+            </Fold>
+            <Fold group="PCA" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_2_5.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_2_5.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_2_5.csv" type="qas"/>
+            </Fold>
+            <Fold group="GLM" type="average">
+                <Report header="True" limit="5000" path="f:/data/npc/rep/density_2_6.csv" type="density"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/pval_2_6.csv" type="nlpv"/>
+                <Report header="True" limit="5000" path="f:/data/npc/rep/qas_2_6.csv" type="qas"/>
+            </Fold>
+        </Density>
+    </Data.Load>
+</RegionsMT>
+

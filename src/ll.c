@@ -234,8 +234,13 @@ size_t size_sub(size_t *p_bor, size_t x, size_t y)
 
 size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
 {
-    unsigned __int64 lo = 0, hi = 0;
-    for (size_t i = 0; i < args_cnt; _addcarry_u64(_addcarry_u64(0, lo, args[i++], &lo), hi, 0, &hi));
+    if (!args_cnt)
+    {
+        *p_hi = 0;
+        return 0;
+    }
+    unsigned __int64 lo = args[0], hi = 0;
+    for (size_t i = 1; i < args_cnt; _addcarry_u64(_addcarry_u64(0, lo, args[i++], &lo), hi, 0, &hi));
     *p_hi = (size_t) hi;
     return (size_t) lo;
 }
@@ -302,8 +307,13 @@ size_t size_sub(size_t *p_bor, size_t x, size_t y)
 
 size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
 {
-    union { dsize_t val; struct { size_t lo, hi; }; } res = { .val = 0 };
-    for (size_t i = 0; i < args_cnt; res.val += args[i++]);
+    if (!args_cnt)
+    {
+        *p_hi = 0;
+        return 0;
+    }
+    union { dsize_t val; struct { size_t lo, hi; }; } res = { .val = (dsize_t) args[0] };
+    for (size_t i = 1; i < args_cnt; res.val += args[i++]);
     *p_hi = res.hi;
     return res.lo;
 }

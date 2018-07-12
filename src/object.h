@@ -22,26 +22,25 @@ struct xml_attribute {
 };
 
 struct xml_att {
-    struct strl name;
+    //struct strl name;
     ptrdiff_t offset;
     void *context;
     read_callback handler;
 };
 
 struct xml_node {
-    struct strl name;
+    //struct strl name;
     size_t sz;
     prologue_callback prologue;
     epilogue_callback epilogue;
     disposer_callback dispose;    
-    struct {
-         *att;
-        size_t att_cnt;
-    };
     struct {
         struct xml_node *dsc;
         size_t dsc_cnt;
     };
 };
 
-struct program_object *program_object_from_xml(struct xml_node *, const char *, struct log *);
+typedef bool (*xml_node_selector_callback)(struct xml_node *, char *, size_t, void *);
+typedef bool (*xml_att_selector_callback)(struct xml_att *, char *, size_t, void *, size_t *);
+
+struct program_object *program_object_from_xml(const char *, xml_node_selector_callback, xml_att_selector_callback, void *, struct log *);

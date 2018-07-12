@@ -1,0 +1,7 @@
+﻿<?xml version="1.0"  encoding="UTF-8" ?> 
+<!-- Main definitions --> 
+<RegionsMT log="stderr">
+    <Data.Load logarithm="false" path.chr="F:/data/npc/tbl/chr.csv" path.test="F:/data/npc/tbl/test.csv" path.row="F:/data/npc/tbl/row.csv" path.val="F:/data/npc/tbl/val.csv" header="true">
+        <MySQL.Dispatch login="root" password="root" schema="Module_Z" host="localhost" temp.prefix="F:/data/temp/tmp-"/>
+    </Data.Load> 
+</RegionsMT>

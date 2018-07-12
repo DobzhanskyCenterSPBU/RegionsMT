@@ -180,7 +180,13 @@ _Static_assert(BLOCK_READ > 2, "'BLOCK_READ' constant is assumed to be greater t
 #define STR_D_VLS "no"
 #define STR_D_PRE "?>"
 
-struct program_object *program_object_from_xml(struct xml_node *sch, const char *path, struct log *log)
+#define ERROR_CRT(LABEL) \
+    do { \
+        log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno); \
+        goto LABEL; \
+    } while (0)
+
+struct program_object *program_object_from_xml(const char *path, xml_node_selector_callback xml_node_selector, xml_att_selector_callback xml_att_selector, void *context, struct log *log)
 {
     FILE *f = NULL;
     if (path)
@@ -204,16 +210,23 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     };
     
     enum xml_status errm;
-    struct { struct strl name; char ch; } ctrseq[] = { { STRI("amp"), '&' }, { STRI("apos"), '\'' }, { STRI("gt"), '>' }, { STRI("lt"), '<' }, { STRI("quot"), '\"' } };
         
     // Parser errors
     char buff[BLOCK_READ];
     uint8_t utf8_byte[UTF8_COUNT];
 
-    struct { char *buff; size_t cap; } temp = { 0 }, ctrl = { 0 };
+    struct { char *buff; size_t cap; } temp = { 0 }, ctrl = { 0 }, name = { 0 };
     struct { uint8_t *buff; size_t cap; } attb = { 0 };
-    struct { struct frame { struct program_object *obj; struct xml_node *node; struct frame *anc; } *frame; size_t cap; } stack = { 0 };
-            
+    struct { struct frame { struct program_object *obj; size_t off, len; } *frame; size_t cap; } stack = { 0 };
+    
+    struct { struct strl name; struct strl subs; } ctrl_subs[] = {
+        { STRI("amp"), STRI("&") },
+        { STRI("apos"), STRI("\'") },
+        { STRI("gt"), STRI(">") },
+        { STRI("lt"), STRI("<") },
+        { STRI("quot"), STRI("\"") }
+    };
+
     bool halt = 0;
     uint8_t quot = 0;
     size_t len = 0, ind = 0, dep = 0;
@@ -221,7 +234,8 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     uint8_t utf8_len = 0, utf8_context = 0;
     uint32_t utf8_val = 0;
     struct text_metric txt = { 0 }, str = { 0 }, ctr = { 0 }; // Text metrics        
-    struct att *att = NULL;
+    struct xml_att xml_att;
+    struct xml_node xml_node;
     
     size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;    
     if (rd >= 3 && !strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, txt.byte += 3; // (*) Reading UTF-8 BOM if it is present
@@ -430,7 +444,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     break;
 
                 default:
-                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len, 1))) goto error;
+                    if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, utf8_len, 1))) ERROR_CRT(error);
                     strncpy(temp.buff + len, (char *) utf8_byte, utf8_len), len += utf8_len;
                 }
                 break;
@@ -521,42 +535,37 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
                 
             case STP_ST0: case STP_ST1: case STP_ST2: case STP_ST3:
-                if (!len)
+                if ((len ? utf8_is_xml_name_char : utf8_is_xml_name_start_char)(utf8_val, utf8_len))
                 {
-                    if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
-                    {
-                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(utf8_len, 1))) goto error;
-                        strncpy(temp.buff, (char *) utf8_byte, utf8_len), len += utf8_len;
-                    }
-                    else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
+                    if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(utf8_len, 1))) ERROR_CRT(error);
+                    strncpy(temp.buff, (char *) utf8_byte, utf8_len), len += utf8_len;
                 }
-                else if (utf8_is_xml_name_char(utf8_val, utf8_len))
-                {
-                    if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, utf8_len, 1))) goto error;
-                    strncpy(temp.buff + len, (char *) utf8_byte, utf8_len), len += utf8_len;
-                }
+                else if (!len) errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 else stp++, upd = 0;
                 break;
                 
                 ///////////////////////////////////////////////////////////////
                 //
-                //  Tag name handling for the first time
+                //  Tag name handling
                 //
 
             case STP_TG0:
-                if (len == sch->name.len && !strncmp(temp.buff, sch->name.str, len))
+                if (xml_node_selector(&xml_node, temp.buff, len, context))
                 {
-                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(stack.cap, 1))) goto error;
-                    
-                    stack.frame[0] = (struct frame) { .obj = malloc(sizeof *stack.frame[0].obj), .node = sch }; ;
+                    if (!array_init(&stack.frame, &stack.cap, 1, sizeof(*stack.frame), 0, 0)) ERROR_CRT(error);
+                          
+                    stack.frame[0] = (struct frame) { .obj = malloc(sizeof(*stack.frame[0].obj)), .len = len }; ;
                     if (!stack.frame[0].obj) goto error;
 
-                    *stack.frame[0].obj = (struct program_object) { .prologue = sch->prologue, .epilogue = sch->epilogue, .dispose = sch->dispose, .context = calloc(1, sch->sz) };
+                    if (!array_init(&name.buff, &name.cap, len + 1, sizeof(*name.buff), 0, 0)) ERROR_CRT(error);
+                    strcpy(name.buff, temp.buff);
+
+                    *stack.frame[0].obj = (struct program_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
                     if (!stack.frame[0].obj->context) goto error;
                                      
-                    size_t attb_cnt = UINT8_CNT(sch->att_cnt);
-                    if (!array_test(&attb.buff, &attb.cap, 1, 0, 0, ARG_SIZE(attb_cnt))) goto error;
-                    memset(attb.buff, 0, attb_cnt);
+                    //size_t attb_cnt = UINT8_CNT(sch->att_cnt);
+                    //if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(attb_cnt))) goto error;
+                    //memset(attb.buff, 0, attb_cnt);
 
                     stp++, upd = 0;
                 }
@@ -569,40 +578,26 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
                 
             case STP_TG1:
-                for (struct frame *anc = &stack.frame[dep - 1];;)
+                if (xml_node_selector(&xml_node, temp.buff, len, context))
                 {
-                    ind = binary_search(temp.buff, anc->node->dsc, sizeof(*anc->node->dsc), anc->node->dsc_cnt, str_strl_stable_cmp_len, &len);
+                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep))) ERROR_CRT(error);
+                    
+                    struct program_object *obj = stack.frame[dep - 1].obj;
+                    if (!array_test(&obj->dsc, &obj->dsc_cnt, sizeof(*obj->dsc), 0, ARRAY_STRICT, ARG_SIZE(obj->dsc_cnt, 1))) ERROR_CRT(error);
+                    
+                    obj->dsc[obj->dsc_cnt] = (struct program_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
+                    if (!obj->dsc[obj->dsc_cnt].context) goto error;
 
-                    if (ind + 1)
-                    {
-                        struct xml_node *nod = &anc->node->dsc[ind];
+                    if (!array_test(&name.buff, &name.cap, sizeof(*name.buff), 0, 0, ARG_SIZE(stack.frame[dep - 1].off, stack.frame[dep - 1].len, 1))) ERROR_CRT(error);
+                    strcpy(name.buff, temp.buff);
 
-                        if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep, 1))) goto error;
+                    stack.frame[dep] = (struct frame) { .obj = &obj->dsc[obj->dsc_cnt], .len = len, .off = stack.frame[dep - 1].off + stack.frame[dep - 1].len + 1 };                    
+                    obj->dsc_cnt++;
 
-                        stack.frame[dep - 1].obj->dsc = realloc(stack.frame[dep - 1].obj->dsc, (stack.frame[dep - 1].obj->dsc_cnt + 1) * sizeof *stack.frame[dep - 1].obj->dsc);
-                        if (!stack.frame[dep - 1].obj->dsc) goto error;
-
-                        stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt] = (struct program_object) { .prologue = nod->prologue, .epilogue = nod->epilogue, .dispose = nod->dispose, .context = calloc(1, nod->sz) };
-                        if (!stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt].context) goto error;
-
-                        stack.frame[dep] = (struct frame) { .obj = &stack.frame[dep - 1].obj->dsc[stack.frame[dep - 1].obj->dsc_cnt], .node = nod, .anc = anc };
-                        stack.frame[dep - 1].obj->dsc_cnt++;
-
-                        size_t attb_cnt = UINT8_CNT(nod->att_cnt);
-                        if (!array_test(&attb.buff, &attb.cap, 1, 0, 0, ARG_SIZE(attb_cnt))) goto error;
-                        memset(attb.buff, 0, attb_cnt), stp = OFF_LB, upd = 0;
-                    }
-                    else
-                    {
-                        anc = anc->anc;
-                        if (anc) continue;
-
-                        halt = 1, errm = ERR_TAG;
-                    }
-
-                    break;
-                }               
-
+                    //size_t attb_cnt = UINT8_CNT(nod->att_cnt);
+                    //if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(attb_cnt))) goto error;
+                    //memset(attb.buff, 0, attb_cnt), stp = OFF_LB, upd = 0;
+                }
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -627,12 +622,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_CT0:
-                if (!--dep)
-                {
-                    if (len == sch->name.len && !strncmp(temp.buff, sch->name.str, len)) stp = STP_EB1, upd = 0;
-                    else halt = 1, errm = ERR_END;
-                }
-                else if (len == stack.frame[dep].node->name.len && !strncmp(temp.buff, stack.frame[dep].node->name.str, len)) stp = STP_EB0, upd = 0;
+                if (len == stack.frame[dep].len && !strncmp(temp.buff, name.buff + stack.frame[dep].off, len)) stp = STP_EB0, upd = 0;
                 else halt = 1, errm = ERR_END;
                 break;
 
@@ -642,12 +632,15 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 //
 
             case STP_AH0:
-                ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_stable_cmp_len, &len);
-                att = stack.frame[dep].node->att + ind;
-
-                if (ind + 1)
+                if (xml_att_selector(&xml_att, temp.buff, len, context, &ind))
                 {
-                    if (!uint8_bit_test_set(attb.buff, ind)) stp++, upd = 0;
+                    if (ind >= attb.cap)
+                    {
+                        if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(UINT8_CNT(ind + 1)))) ERROR_CRT(error);
+                        uint8_bit_set(attb.buff, ind);
+                        stp++, upd = 0;
+                    }
+                    else if (!uint8_bit_test_set(attb.buff, ind)) stp++, upd = 0;
                     else errm = ERR_DUP, halt = 1;
                 }
                 else errm = ERR_ATT, halt = 1;
@@ -656,11 +649,12 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 ///////////////////////////////////////////////////////////////
                 //
                 //  Executing attribute handler
+                //  Executing attribute handler
                 //
 
             case STP_AV0:
                 temp.buff[len] = '\0'; // There is always room for the zero-terminator
-                if (!att->handler(temp.buff, len, (char *) stack.frame[dep].obj->context + att->offset, att->context)) errm = ERR_HAN, halt = 1;
+                if (!xml_att.handler(temp.buff, len, (char *) stack.frame[dep].obj->context + xml_att.offset, xml_att.context)) errm = ERR_HAN, halt = 1;
                 else upd = 0, stp = OFF_LB;
                 break;
                 
@@ -711,7 +705,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                     {
                         uint8_t ctrl_byte[6], ctrl_len;
                         utf8_encode(ctrl_val, ctrl_byte, &ctrl_len);
-                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, ctrl_len, 1))) goto error;
+                        if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, ctrl_len, 1))) ERROR_CRT(error);
                         strncpy(temp.buff + len, (char *) ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
                     }
                 }
@@ -719,31 +713,26 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
                 break;
 
             case STP_SA6:
-                if (!ind)
+                if ((ind ? utf8_is_xml_name_char : utf8_is_xml_name_start_char)(utf8_val, utf8_len))
                 {
-                    if (utf8_is_xml_name_start_char(utf8_val, utf8_len))
-                    {
-                        if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(utf8_len))) goto error;
-                        strncpy(ctrl.buff, (char *) utf8_byte, utf8_len), ind += utf8_len;
-                    }
-                    else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
+                    if (!array_test(&ctrl.buff, &ctrl.cap, sizeof(*ctrl.buff), 0, 0, ARG_SIZE(utf8_len))) ERROR_CRT(error);
+                    strncpy(ctrl.buff, (char *) utf8_byte, utf8_len), ind += utf8_len;
                 }
-                else if (utf8_is_xml_name_char(utf8_val, utf8_len))
-                {
-                    if (!array_test(&ctrl.buff, &ctrl.cap, 1, 0, 0, ARG_SIZE(ind, utf8_len))) goto error;
-                    strncpy(ctrl.buff + ind, (char *) utf8_byte, utf8_len), ind += utf8_len;
-                }
+                else if (!ind) errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 else stp++, upd = 0;
                 break;
 
             case STP_SA7:
                 if (utf8_val == ';')
                 {
-                    size_t ctrind = binary_search(ctrl.buff, ctrseq, sizeof ctrseq[0], countof(ctrseq), str_strl_stable_cmp_len, &ind);
-                    if (ctrind + 1)
+                    size_t ctrl_ind = binary_search(ctrl.buff, ctrl_subs, sizeof(*ctrl_subs), countof(ctrl_subs), str_strl_stable_cmp_len, &ind);
+                    if (ctrl_ind + 1)
                     {
-                        if (!array_test(&temp.buff, &temp.cap, 1, 0, 0, ARG_SIZE(len, 2))) goto error;
-                        temp.buff[len++] = ctrseq[ctrind].ch, stp = STP_QC3;
+                        struct strl subs = ctrl_subs[ctrl_ind].subs;
+                        if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, subs.len + 1))) ERROR_CRT(error);
+                        strncpy(temp.buff + len, subs.str, subs.len);
+                        len += subs.len;
+                        stp = STP_QC3;
                     }
                     else errm = ERR_CTR, halt = 1;
                 }
@@ -828,6 +817,7 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
             break;
 
         error:
+            
             //strerror_s(error, sizeof error, errno);
             //logMsg(inf, strings[STR_FR_EG], strings[STR_FN], error);
             break;
@@ -839,18 +829,24 @@ struct program_object *program_object_from_xml(struct xml_node *sch, const char 
     if (f != stdin) fclose(f);    
     struct program_object *res = stack.frame ? stack.frame[0].obj : NULL;
     free(stack.frame);
+    free(name.buff);
     free(attb.buff);
     free(ctrl.buff);
     free(temp.buff);
     return res;
 }
 
-bool xml_node_selector(  void *context)
+bool xml_node_selector(struct xml_node *node, char *str, size_t len, void *context)
 {
+    
+    
     return 1;
 }
 
-bool xml_att_selector()
+bool xml_att_selector(struct xml_node *node, char *str, size_t len, void *context)
 {
+    //ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_stable_cmp_len, &len);
+    //att = stack.frame[dep].node->att + ind;
+   
     return 1;
 }

@@ -264,7 +264,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                 }
                 break;            
             }
-            if (!array_test(&temp_buff, &cap, 1, 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+            if (!array_test(&temp_buff, &cap, siseof(*temp_buff), 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
             else
             {
                 temp_buff[len++] = buff[ind];

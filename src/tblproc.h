@@ -12,7 +12,6 @@ struct tbl_col {
 
 typedef bool (*tbl_selector_callback)(struct tbl_col *, size_t, size_t, void *, void *);
 typedef bool (*tbl_eol_callback)(size_t, void *, void *);
-typedef bool (*tbl_row_finalizer_callback)(size_t, void *, void *);
 
 size_t row_count(FILE *, int64_t, size_t);
 uint64_t row_align(FILE *, int64_t);
