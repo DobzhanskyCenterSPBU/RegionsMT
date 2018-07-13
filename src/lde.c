@@ -25,8 +25,10 @@ double lde_impl(uint8_t *gen_pos, uint8_t *gen_neg, size_t phen_cnt)
         ((double) t[8] + .5 * ((double) t[5] + (double) t[7]) + .25 * (double) t[4]) / ts
     };
     double mar_pos[] = { fr[0] + fr[1], fr[2] + fr[3] }, mar_neg[] = { fr[0] + fr[2], fr[1] + fr[3] }, cov = (double) fr[0] - mar_pos[0] * mar_neg[0];
-    int sgn = flt64_sign(cov);
-    if (!sgn) return 0.;
-    return cov / (sgn > 0 ? MIN(mar_pos[0] * mar_pos[1], mar_neg[0] * mar_neg[1]) : MIN(mar_pos[0] * mar_neg[1], mar_neg[0] * mar_pos[1]));
+    if (cov == 0.) return 0.;
+    double pr0, pr1;
+    if (cov > 0) pr0 = mar_pos[0] * mar_pos[1], pr1 = mar_neg[0] * mar_neg[1];
+    else pr0 = mar_pos[0] * mar_neg[1], pr1 = mar_neg[0] * mar_pos[1];
+    return cov / MIN(pr0, pr1);
 }
 
