@@ -507,10 +507,11 @@ int flt64_stable_cmp_dsc_nan(const void *a, const void *b, void *thunk)
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
 
-//int flt64_sign(double x)
-//{
-//    return _mm_cvtsi128_si32(_mm_srli_epi64(_mm_castpd_si128(_mm_set_sd(x)), 63));
-//}
+int flt64_sign(double x)
+{
+    __m128i res = _mm_castpd_si128(_mm_cmpgt_pd(_mm_set_sd(x), _mm_set_pd(x, 0)));
+    return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
+}
 
 uint32_t uint32_fused_mul_add(uint32_t *p_res, uint32_t m, uint32_t a)
 {
