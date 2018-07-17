@@ -44,7 +44,6 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
         " the command-line parameter %c%.*s%c no. %zu!\n",
         " %c%.*s%c in the command-line parameter no. %zu!\n"
     };
-    const char *str[] = { "the command-line parameter ", "" };
     struct argv_context *context = Context;
     if (context->status >= ARGV_MAX) return 0;
     size_t cnt = 0, len = *p_buff_cnt;
@@ -67,7 +66,7 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
             case ARGV_WARNING_INVALID_PAR_SHRT:
                 ind = context->status - ARGV_WARNING_INVALID_PAR_LONG / 2;
             default:
-                tmp = snprintf(buff + cnt, len, fmt0[ind]);
+                tmp = snprintf(buff + cnt, len, "%s", fmt0[ind]);
             }
             break;
         case 1:
@@ -78,6 +77,7 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
             case ARGV_WARNING_INVALID_PAR_LONG:
             case ARGV_WARNING_INVALID_PAR_SHRT:
                 ind = 1;
+            default:;
             }
             tmp = snprintf(buff + cnt, len, fmt1[ind], quote, (int) context->len, context->str, quote, context->ind);
             break;

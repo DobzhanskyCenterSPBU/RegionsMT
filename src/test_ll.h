@@ -18,3 +18,5 @@ struct test_ll_b {
 
 bool test_ll_generator_b(void *, size_t *, struct log *);
 bool test_ll_b(void *, struct log *);
+
+void test_ll_perf(struct log *);

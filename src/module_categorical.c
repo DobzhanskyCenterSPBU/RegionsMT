@@ -16,7 +16,7 @@ struct phen_context {
     size_t cap;
 };
 
-bool tbl_phen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
+static bool tbl_phen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
     if (col != 2)
     {
@@ -30,10 +30,10 @@ bool tbl_phen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, vo
 }
 
 struct gen_context {
-    size_t gen_cap, snp_cnt, phen_cnt;
+    size_t gen_cap, gen_cnt, phen_cnt;
 };
 
-bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
+static bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
     struct gen_context *context = Context;
     if (!col || col > context->phen_cnt)
@@ -41,8 +41,8 @@ bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, voi
         cl->handler.read = NULL;
         return 1;
     }
-    if (!array_test(tbl, &context->gen_cap, 1, 0, 0, ARG_SIZE(context->snp_cnt, 1))) return 0;
-    *cl = (struct tbl_col) { .handler = { .read = uint8_handler }, .ptr = *(uint8_t **) tbl + context->snp_cnt++ };
+    if (!array_test(tbl, &context->gen_cap, 1, 0, 0, ARG_SIZE(context->gen_cnt, 1))) return 0;
+    *cl = (struct tbl_col) { .handler = { .read = uint8_handler }, .ptr = *(uint8_t **) tbl + context->gen_cnt++ };
     return 1;
 }
 

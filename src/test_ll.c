@@ -116,44 +116,51 @@ bool test_ll_b(void *In, struct log *log)
     return 1;
 }
 
-#if 0
-void test_ll_2_perf(struct log *log)
+#include <immintrin.h>
+
+static int sign(double x) 
+{
+    return (0. < x) - (x < 0.);
+}
+
+void test_ll_perf(struct log *log)
 {
     struct { double a, b; int res; } in[] = {
         { 1. , -1, -1 },
-    { -1., 1, 1 },
-    { 1., 0., -1 },
-    { 0., 1., 1 },
-    { -1., 0., 1 },
-    { 0., -1., -1 },
-    { 0., 0., 0 },
-    { 1., 1., 0 },
-    { -1., -1., 0 },
-    { NaN, 0., 1 },
-    { 0., NaN, -1 },
-    { NaN, NaN, 0 },
-    { NaN, nan("zzz"), 0 },
-    { NaN, DBL_MAX, 1 },
-    { nan("zzz"), NaN, 0 },
-    { DBL_MAX, NaN, -1 },
-    { nan("zzz"), nan("zzz"), 0 },
-    { DBL_MIN, DBL_MAX, 1 },
-    { DBL_MAX, DBL_MIN, -1 },
-    { 0, DBL_EPSILON, 1 },
-    { DBL_EPSILON, 0, -1 },
+        { -1., 1, 1 },
+        { 1., 0., -1 },
+        { 0., 1., 1 },
+        { -1., 0., 1 },
+        { 0., -1., -1 },
+        { 0., 0., 0 },
+        { 1., 1., 0 },
+        { -1., -1., 0 },
+        { NaN, 0., 1 },
+        { 0., NaN, -1 },
+        { NaN, NaN, 0 },
+        { NaN, nan("zzz"), 0 },
+        { NaN, DBL_MAX, 1 },
+        { nan("zzz"), NaN, 0 },
+        { DBL_MAX, NaN, -1 },
+        { nan("zzz"), nan("zzz"), 0 },
+        { DBL_MIN, DBL_MAX, 1 },
+        { DBL_MAX, DBL_MIN, -1 },
+        { 0, DBL_EPSILON, 1 },
+        { DBL_EPSILON, 0, -1 },
     };
 
-    int cnt = 0;
+    volatile int cnt = 0;
     uint64_t start = get_time();
     for (size_t j = 0; j < 4096 * (USHRT_MAX + 1); j++)
     {
         for (size_t i = 0; i < countof(in); i++)
         {
-            cnt += flt64_stable_cmp_dsc_nan_test(&in[i].a, &in[i].b, NULL);
+            cnt += sign(in[i].a);
+            //cnt += flt64_stable_cmp_dsc_nan_test(&in[i].a, &in[i].b, NULL);
         }
     }
     printf("Sum: %d\n", cnt);
-    log_message(log, &MESSAGE_INFO_TIME_DIFF(start, get_time(), "Branched comparison").base);
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "Branched comparison");
 
     cnt = 0;
     start = get_time();
@@ -161,12 +168,15 @@ void test_ll_2_perf(struct log *log)
     {
         for (size_t i = 0; i < countof(in); i++)
         {
-            cnt += flt64_stable_cmp_dsc_nan(&in[i].a, &in[i].b, NULL);
+            cnt += flt64_sign(in[i].a);
+            //cnt += flt64_stable_cmp_dsc_nan(&in[i].a, &in[i].b, NULL);
         }
     }
     printf("Sum: %d\n", cnt);
-    log_message(log, &MESSAGE_INFO_TIME_DIFF(start, get_time(), "SIMD comparison").base);
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "SIMD comparison");
 }
+
+#if 0
 
 struct memory_chunk {
     void *ptr;

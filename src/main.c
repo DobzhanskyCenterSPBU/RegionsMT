@@ -6,6 +6,7 @@
 #include "utf8.h"
 
 #include "module_categorical.h"
+#include "test_ll.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -272,6 +273,7 @@ static int Main(int argc, char **argv)
             {
                 log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_INFO, "Test mode triggered!\n");
                 test(&log);
+                //test_ll_perf(&log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
