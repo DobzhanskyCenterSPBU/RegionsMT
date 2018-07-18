@@ -22,6 +22,13 @@ static bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *t
     return 1;
 }
 
+static bool 
+
+static bool tbl_gen_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
+{
+    
+}
+
 bool lde_run(const char *path_gen, const char *path_out, struct log *log)
 {
     
