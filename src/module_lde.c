@@ -61,14 +61,13 @@ bool lde_run(const char *path_gen, const char *path_out, struct log *log)
     FILE *f = fopen(path_out, "w");
     if (!f) goto error;
 
-    for (size_t i = 0; i < size_sub_sat(gen_context.gen_cnt, 30); i++)
+    for (size_t i = 0; i < snp_cnt; i++)
     {
-        for (size_t j = 0; j < 30; j++)
+        for (size_t j = size_sub_sat(i, 80); j < i; j++)
         {
-            double lde = lde_impl(gen + gen_context.phen_cnt * i, gen + gen_context.phen_cnt * (i + j), gen_context.phen_cnt);
+            double lde = lde_impl(gen + gen_context.phen_cnt * i, gen + gen_context.phen_cnt * j, gen_context.phen_cnt);
             //unsigned res = -lde > .9;
-            if (j) fprintf(f ,"%zu,%zu,%.15f\n%zu,%zu,%.15f\n", i, i + j, lde, i + j, i, lde);
-            else fprintf(f, "%zu,%zu,%.15f\n", i, i, lde);
+            fprintf(f ,"%zu,%zu,%.15f\n%zu,%zu,%.15f\n", j + 1, i + 1, lde, i, j, lde);
         }
     }
 

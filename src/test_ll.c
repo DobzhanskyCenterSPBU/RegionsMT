@@ -45,8 +45,7 @@ static int flt64_stable_cmp_dsc_test(double *p_a, double *p_b, void *context)
 
 static int flt64_stable_cmp_dsc_abs_test(double *p_a, double *p_b, void *context)
 {
-    double a = fabs(*p_a), b = fabs(*p_b);
-    return flt64_stable_cmp_dsc_test(&a, &b, context);
+    return flt64_stable_cmp_dsc_test(&(double) { fabs(*p_a) }, &(double) { fabs(*p_b) }, context);
 }
 
 static int flt64_stable_cmp_dsc_nan_test(double *p_a, double *p_b, void *context)
