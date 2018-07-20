@@ -6,6 +6,7 @@
 #include "utf8.h"
 
 #include "module_categorical.h"
+#include "module_lde.h"
 #include "test_ll.h"
 
 #include <stdlib.h>
@@ -65,7 +66,7 @@ static int Main(int argc, char **argv)
     struct argv_par_sch argv_par_sch =
     {
         CLII((struct tag[]) { { STRI("help"), 0 }, { STRI("log"), 1 }, { STRI("test"), 2 }, { STRI("threads"), 3 }}),
-        CLII((struct tag[]) { { STRI("C"), 4 }, { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 } }),
+        CLII((struct tag[]) { { STRI("C"), 4 }, { STRI("L"), 5 }, { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 } }),
         CLII((struct par[])
         {
             { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, 1 },
@@ -73,6 +74,7 @@ static int Main(int argc, char **argv)
             { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_TEST }, empty_handler, 1 },
             { offsetof(struct main_args, thread_cnt), &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_THREAD_CNT }, size_handler, 0 },
             { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_CAT }, empty_handler, 1 },
+            { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_LDE }, empty_handler, 1 },
         })
     };
 
@@ -278,6 +280,10 @@ static int Main(int argc, char **argv)
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
                 if (input_cnt >= 3) categorical_run(input[0], input[1], input[2], &log);
+            }
+            else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_LDE))
+            {
+                if (input_cnt >= 2) lde_run(input[0], input[1], &log);
             }
             else
             {

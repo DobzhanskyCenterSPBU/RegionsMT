@@ -2,4 +2,4 @@
 
 #include "common.h"
 
-bool run_lde();
+bool lde_run(const char *, const char *, struct log *);

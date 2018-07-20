@@ -9,7 +9,7 @@
 int char_cmp(const void *a, const void *b, void *context)
 {
     (void) context;
-    return *(const char *) a - *(const char *) b;
+    return (int) *(const char *) a - (int) *(const char *) b;
 }
 
 int str_strl_stable_cmp_len(const void *Str, const void *Entry, void *p_Len)
