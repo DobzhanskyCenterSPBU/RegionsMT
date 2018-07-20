@@ -237,7 +237,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                                 goto error;
                             }
                         }
-                        if (eol && !eol(row, res, context))
+                        if (eol && !eol(row, col, res, context))
                             log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_EOL, NULL, 0);
                         quote = 0;
                         len = col = 0;
