@@ -17,7 +17,8 @@ double lde_impl(uint8_t *gen_pos, uint8_t *gen_neg, size_t phen_cnt)
 {
     size_t t[9] = { 0 };
     for (size_t i = 0; i < phen_cnt; i++) if (gen_pos[i] < 3 && gen_neg[i] < 3) t[gen_pos[i] + 3 * gen_neg[i]]++;
-    double ts = (double) t[0] + (double) t[1] + (double) t[2] + (double) t[3] + (double) t[4] + (double) t[5] + (double) t[6] + (double) t[7] + (double) t[8];
+    double ts = (double) t[0];
+    for (size_t i = 1; i < 9; ts += (double) t[i++]);
     double fr[] = { 
         ((double) t[0] + .5 * ((double) t[1] + (double) t[3]) + .25 * (double) t[4]) / ts,
         ((double) t[2] + .5 * ((double) t[1] + (double) t[5]) + .25 * (double) t[4]) / ts,
