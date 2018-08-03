@@ -6,6 +6,8 @@
 
 #include "module_lde.h"
 
+#include <stdlib.h>
+
 struct gen_context {
     size_t gen_cap, gen_cnt, phen_cnt;
 };
@@ -50,11 +52,12 @@ static bool tbl_gen_head_callback(const char *str, size_t len, void *dst, void *
         // if (!array_test(&context->gen_bits, , sizeof(*context->gen_bits), 0, 0, ARG_SIZE(UINT8_CNT(ind)))) return 0;
         // if (uint8_bit_test_set(context->gen_bits, ind))
     }
+    return 1;
 }
 
 static bool tbl_gen_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
-    
+    return 1;
 }
 
 bool lde_run(const char *path_gen, const char *path_out, struct log *log)

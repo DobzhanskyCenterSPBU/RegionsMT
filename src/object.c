@@ -70,14 +70,15 @@ bool program_object_execute(struct program_object *obj, void *in)
 ///////////////////////////////////////////////////////////////////////////////
 
 enum xml_status {
-    //XML_ERROR_UNEXPECTED_EOF = 0,
-    
     XML_ERROR_UNEXPECTED_EOF = 0,
     XML_ERROR_UTF,
     XML_ERROR_INVALID_SYMBOL,
     XML_ERROR_PROLOGUE,
     ERR_TAG, ERR_ATT, ERR_END, ERR_DUP,
-    ERR_HAN, ERR_CTR, ERR_CMP, ERR_RAN
+    ERR_HAN, 
+    XML_ERROR_CONTROL, 
+    XML_ERROR_COMPILER, 
+    XML_ERROR_RANGE
 };
 
 struct text_metric {
@@ -90,34 +91,66 @@ struct xml_context {
     const char *path;
     char *str;    
     uint32_t val;
+    size_t len;
     enum xml_status status;
 };
 
 static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
 {
-    int tmp = 0;
-    size_t col_disp = 0, byte_disp = 0, buff_cnt = *p_buff_cnt;
     struct xml_context *restrict context = Context;
     const char *str[] = {
-        "",
+        "Unexpected end of file",
         "Incorrect UTF-8 byte sequence",
         "Invalid symbol '%.*s'",
-        "Invalid XML prologue"
+        "Invalid XML prologue",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "Invalid control sequence \"%.*s\"",
+        "Compiler malfunction",
+        "Numeric value %" PRIu32 " is out of range"
     };
-    switch (context->status)
+    size_t cnt = 0, len = *p_buff_cnt, col_disp = 0, byte_disp = 0, buff_cnt = *p_buff_cnt;
+    for (unsigned i = 0; i < 2; i++)
     {
-    case XML_ERROR_UTF:
-    case XML_ERROR_PROLOGUE:
-        tmp = snprintf(buff, buff_cnt, str[context->status]);
-        break;
-    case XML_ERROR_INVALID_SYMBOL:
-        tmp = snprintf(buff, buff_cnt, str[context->status], context->str);
-        break;
+        int tmp;
+        switch (i)
+        {
+        case 0:
+            switch (context->status)
+            {
+            case XML_ERROR_UTF:
+            case XML_ERROR_PROLOGUE:
+            case XML_ERROR_UNEXPECTED_EOF:
+            case XML_ERROR_COMPILER:
+                tmp = snprintf(buff, buff_cnt, "%s", str[context->status]);
+                break;
+            case XML_ERROR_INVALID_SYMBOL:
+                byte_disp = context->len, col_disp = 1;
+            case XML_ERROR_CONTROL:
+                tmp = snprintf(buff, buff_cnt, str[context->status], context->str, context->len);
+                break;
+            case XML_ERROR_RANGE:
+                tmp = snprintf(buff, buff_cnt, str[context->status], context->val);
+                break;
 
-    default:;
-
-    } 
-    if (tmp < 0) return 0;
+            }
+        case 1:
+            tmp = snprintf(buff + len, buff_cnt - len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n",
+                context->path,
+                context->text_metric->line + 1,
+                context->text_metric->col - col_disp + 1,
+                context->text_metric->byte - byte_disp + 1
+            );
+        }
+        if (tmp < 0) return 0;
+        len = size_sub_sat(len, (size_t) tmp);
+        cnt = size_add_sat(cnt, (size_t) tmp);
+    }
+    *p_buff_cnt = cnt;
+    return 1;
     
     /*const char *str[] = {
         __FUNCTION__,
@@ -139,26 +172,11 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
         "Compiler malfunction" // Not intended to happen
     };
     int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;*/
-
-    size_t len = (size_t) tmp;
-    if (len < buff_cnt)
-    {
-        tmp = snprintf(buff + len, buff_cnt - len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n", 
-            context->path, 
-            context->text_metric->line + 1, 
-            context->text_metric->col - col_disp + 1,
-            context->text_metric->byte - byte_disp + 1
-        );
-        if (tmp < 0) return 0;
-        return size_add_sat(len, + (size_t) tmp);
-    }
-    *p_buff_cnt = len;
-    return 1;
 }
 
-static bool log_message_error_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, char *str, uint32_t val, enum xml_status status)
+static bool log_message_error_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, char *str, uint32_t val, size_t len, enum xml_status status)
 {
-    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_xml, &(struct xml_context) { .text_metric = text_metric, .path = path, .str = str, .val = val, .status = status });
+    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_xml, &(struct xml_context) { .text_metric = text_metric, .path = path, .str = str, .val = val, .len = len, .status = status });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,11 +198,12 @@ _Static_assert(BLOCK_READ > 2, "'BLOCK_READ' constant is assumed to be greater t
 #define STR_D_VLS "no"
 #define STR_D_PRE "?>"
 
-#define ERROR_CRT(LABEL) \
+/*#define ERROR_CRT(LABEL) \
     do { \
         log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno); \
         goto LABEL; \
     } while (0)
+    */
 
 struct program_object *program_object_from_xml(const char *path, xml_node_selector_callback xml_node_selector, xml_att_selector_callback xml_att_selector, void *context, struct log *log)
 {
@@ -320,23 +339,15 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 {
                     pos++, txt.byte++;
                     if (utf8_context) continue;
-                    if (utf8_is_invalid(utf8_val, utf8_len))
-                    {
-                        log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
-                        halt = 1;
-                        break;
-                    }
-                    if (utf8_val == '\n') txt.line++, txt.col = 0; // Updating text metrics
+                    if (utf8_is_invalid(utf8_val, utf8_len)) halt = 1, log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
+                    else if (utf8_val == '\n') txt.line++, txt.col = 0; // Updating text metrics
                     else txt.col++;                 
                 }
-                else
-                {
-                    log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
-                    halt = 1;
-                    break;
-                }
+                else halt = 1, log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_UTF);
             }
             else upd = 1;
+
+            if (halt) break;
 
             switch (stp)
             {
@@ -444,8 +455,8 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                     break;
 
                 default:
-                    if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, utf8_len, 1))) ERROR_CRT(error);
-                    strncpy(temp.buff + len, (char *) utf8_byte, utf8_len), len += utf8_len;
+                    if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, utf8_len, 1))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                    else strncpy(temp.buff + len, (char *) utf8_byte, utf8_len), len += utf8_len;
                 }
                 break;
 
@@ -486,11 +497,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
 
             case STP_HE0: case STP_HE1:
                 if (utf8_val == (uint32_t) (STR_D_PRE)[ind]) ind++, stp++;
-                else
-                {
-                    log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
-                    halt = 1;
-                }
+                else halt = 1, log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
                 break;
 
                 ///////////////////////////////////////////////////////////////
@@ -537,8 +544,8 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             case STP_ST0: case STP_ST1: case STP_ST2: case STP_ST3:
                 if ((len ? utf8_is_xml_name_char : utf8_is_xml_name_start_char)(utf8_val, utf8_len))
                 {
-                    if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(utf8_len, 1))) ERROR_CRT(error);
-                    strncpy(temp.buff, (char *) utf8_byte, utf8_len), len += utf8_len;
+                    if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(utf8_len, 1))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                    else strncpy(temp.buff, (char *) utf8_byte, utf8_len), len += utf8_len;
                 }
                 else if (!len) errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 else stp++, upd = 0;
@@ -546,28 +553,30 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 
                 ///////////////////////////////////////////////////////////////
                 //
-                //  Tag name handling
+                //  Tag name handling for the first time
                 //
 
             case STP_TG0:
                 if (xml_node_selector(&xml_node, temp.buff, len, context))
                 {
-                    if (!array_init(&stack.frame, &stack.cap, 1, sizeof(*stack.frame), 0, 0)) ERROR_CRT(error);
-                          
-                    stack.frame[0] = (struct frame) { .obj = malloc(sizeof(*stack.frame[0].obj)), .len = len }; ;
-                    if (!stack.frame[0].obj) goto error;
+                    if (!array_init(&stack.frame, &stack.cap, 1, sizeof(*stack.frame), 0, 0)) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                    else
+                    {
+                        stack.frame[0] = (struct frame) { .obj = malloc(sizeof(*stack.frame[0].obj)), .len = len };
+                        if (!stack.frame[0].obj) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                        else
+                        {
+                            if (!array_init(&name.buff, &name.cap, len + 1, sizeof(*name.buff), 0, 0)) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                            else
+                            {
+                                strcpy(name.buff, temp.buff);
 
-                    if (!array_init(&name.buff, &name.cap, len + 1, sizeof(*name.buff), 0, 0)) ERROR_CRT(error);
-                    strcpy(name.buff, temp.buff);
-
-                    *stack.frame[0].obj = (struct program_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
-                    if (!stack.frame[0].obj->context) goto error;
-                                     
-                    //size_t attb_cnt = UINT8_CNT(sch->att_cnt);
-                    //if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(attb_cnt))) goto error;
-                    //memset(attb.buff, 0, attb_cnt);
-
-                    stp++, upd = 0;
+                                *stack.frame[0].obj = (struct program_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
+                                if (!stack.frame[0].obj->context) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                                else stp++, upd = 0;
+                            }
+                        }
+                    }
                 }
                 else errm = ERR_TAG, halt = 1;
                 break;
@@ -580,23 +589,28 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             case STP_TG1:
                 if (xml_node_selector(&xml_node, temp.buff, len, context))
                 {
-                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep))) ERROR_CRT(error);
-                    
-                    struct program_object *obj = stack.frame[dep - 1].obj;
-                    if (!array_test(&obj->dsc, &obj->dsc_cnt, sizeof(*obj->dsc), 0, ARRAY_STRICT, ARG_SIZE(obj->dsc_cnt, 1))) ERROR_CRT(error);
-                    
-                    obj->dsc[obj->dsc_cnt] = (struct program_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
-                    if (!obj->dsc[obj->dsc_cnt].context) goto error;
+                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                    else
+                    {
+                        struct program_object *obj = stack.frame[dep - 1].obj;
+                        if (!array_test(&obj->dsc, &obj->dsc_cnt, sizeof(*obj->dsc), 0, ARRAY_STRICT, ARG_SIZE(obj->dsc_cnt, 1))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                        {
 
-                    if (!array_test(&name.buff, &name.cap, sizeof(*name.buff), 0, 0, ARG_SIZE(stack.frame[dep - 1].off, stack.frame[dep - 1].len, 1))) ERROR_CRT(error);
-                    strcpy(name.buff, temp.buff);
-
-                    stack.frame[dep] = (struct frame) { .obj = &obj->dsc[obj->dsc_cnt], .len = len, .off = stack.frame[dep - 1].off + stack.frame[dep - 1].len + 1 };                    
-                    obj->dsc_cnt++;
-
-                    //size_t attb_cnt = UINT8_CNT(nod->att_cnt);
-                    //if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(attb_cnt))) goto error;
-                    //memset(attb.buff, 0, attb_cnt), stp = OFF_LB, upd = 0;
+                            obj->dsc[obj->dsc_cnt] = (struct program_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
+                            if (!obj->dsc[obj->dsc_cnt].context) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                            else
+                            {
+                                if (!array_test(&name.buff, &name.cap, sizeof(*name.buff), 0, 0, ARG_SIZE(stack.frame[dep - 1].off, stack.frame[dep - 1].len, 1))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                                else
+                                {
+                                    strcpy(name.buff, temp.buff);
+                                    stack.frame[dep] = (struct frame) { .obj = &obj->dsc[obj->dsc_cnt], .len = len, .off = stack.frame[dep - 1].off + stack.frame[dep - 1].len + 1 };
+                                    obj->dsc_cnt++;
+                                    stp = OFF_LB, upd = 0;
+                                }
+                            }
+                        }
+                    }
                 }
                 break;
 
@@ -636,9 +650,12 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 {
                     if (ind >= attb.cap)
                     {
-                        if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(UINT8_CNT(ind + 1)))) ERROR_CRT(error);
-                        uint8_bit_set(attb.buff, ind);
-                        stp++, upd = 0;
+                        if (!array_test(&attb.buff, &attb.cap, sizeof(*attb.buff), 0, 0, ARG_SIZE(UINT8_CNT(ind + 1)))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                        else
+                        {
+                            uint8_bit_set(attb.buff, ind);
+                            stp++, upd = 0;
+                        }
                     }
                     else if (!uint8_bit_test_set(attb.buff, ind)) stp++, upd = 0;
                     else errm = ERR_DUP, halt = 1;
@@ -648,7 +665,6 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
 
                 ///////////////////////////////////////////////////////////////
                 //
-                //  Executing attribute handler
                 //  Executing attribute handler
                 //
 
@@ -681,9 +697,9 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 break;
 
             case STP_SA2:
-                if ('0' <= utf8_val && utf8_val <= '9') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - '0')) errm = ERR_RAN, halt = 1; }
-                else if ('A' <= utf8_val && utf8_val <= 'F') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'A' + 10)) errm = ERR_RAN, halt = 1; }
-                else if ('a' <= utf8_val && utf8_val <= 'f') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'a' + 10)) errm = ERR_RAN, halt = 1; }
+                if ('0' <= utf8_val && utf8_val <= '9') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - '0')) errm = XML_ERROR_RANGE, halt = 1; }
+                else if ('A' <= utf8_val && utf8_val <= 'F') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'A' + 10)) errm = XML_ERROR_RANGE, halt = 1; }
+                else if ('a' <= utf8_val && utf8_val <= 'f') { if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'a' + 10)) errm = XML_ERROR_RANGE, halt = 1; }
                 else stp += 3, upd = 0;
                 break;
 
@@ -693,20 +709,20 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 break;
 
             case STP_SA4:
-                if ('0' <= utf8_val && utf8_val <= '9') { if (uint32_fused_mul_add(&ctrl_val, 10, utf8_val - '0')) errm = ERR_RAN, halt = 1; }
+                if ('0' <= utf8_val && utf8_val <= '9') { if (uint32_fused_mul_add(&ctrl_val, 10, utf8_val - '0')) errm = XML_ERROR_RANGE, halt = 1; }
                 else stp++, upd = 0;
                 break;
 
             case STP_SA5:
                 if (utf8_val == ';')
                 {
-                    if (ctrl_val >= UTF8_BOUND) errm = ERR_RAN, halt = 1;
+                    if (ctrl_val >= UTF8_BOUND) errm = XML_ERROR_RANGE, halt = 1;
                     else
                     {
                         uint8_t ctrl_byte[6], ctrl_len;
                         utf8_encode(ctrl_val, ctrl_byte, &ctrl_len);
-                        if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, ctrl_len, 1))) ERROR_CRT(error);
-                        strncpy(temp.buff + len, (char *) ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
+                        if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, ctrl_len, 1))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                        else strncpy(temp.buff + len, (char *) ctrl_byte, ctrl_len), len += ctrl_len, stp = STP_QC3;
                     }
                 }
                 else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
@@ -715,8 +731,8 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             case STP_SA6:
                 if ((ind ? utf8_is_xml_name_char : utf8_is_xml_name_start_char)(utf8_val, utf8_len))
                 {
-                    if (!array_test(&ctrl.buff, &ctrl.cap, sizeof(*ctrl.buff), 0, 0, ARG_SIZE(utf8_len))) ERROR_CRT(error);
-                    strncpy(ctrl.buff, (char *) utf8_byte, utf8_len), ind += utf8_len;
+                    if (!array_test(&ctrl.buff, &ctrl.cap, sizeof(*ctrl.buff), 0, 0, ARG_SIZE(utf8_len))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                    else strncpy(ctrl.buff, (char *) utf8_byte, utf8_len), ind += utf8_len;
                 }
                 else if (!ind) errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 else stp++, upd = 0;
@@ -729,12 +745,15 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                     if (ctrl_ind + 1)
                     {
                         struct strl subs = ctrl_subs[ctrl_ind].subs;
-                        if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, subs.len + 1))) ERROR_CRT(error);
-                        strncpy(temp.buff + len, subs.str, subs.len);
-                        len += subs.len;
-                        stp = STP_QC3;
+                        if (!array_test(&temp.buff, &temp.cap, sizeof(*temp.buff), 0, 0, ARG_SIZE(len, subs.len + 1))) halt = 1, log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                        else
+                        {
+                            strncpy(temp.buff + len, subs.str, subs.len);
+                            len += subs.len;
+                            stp = STP_QC3;
+                        }
                     }
-                    else errm = ERR_CTR, halt = 1;
+                    else errm = XML_ERROR_CONTROL, halt = 1;
                 }
                 else errm = XML_ERROR_INVALID_SYMBOL, halt = 1;
                 break;
@@ -767,8 +786,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 //
 
             case STP_SQ0: case STP_SQ1: case STP_SQ2:
-                log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
-                halt = 1;
+                halt = 1, log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, XML_ERROR_PROLOGUE);
                 break;
 
             case STP_ST4:
@@ -776,7 +794,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 break;
 
             default:
-                errm = ERR_CMP, halt = 1;
+                errm = XML_ERROR_COMPILER, halt = 1;
             }          
         } while (!halt);
     }
@@ -785,10 +803,10 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
     {
         switch (errm)
         {
-        case XML_ERROR_INVALID_SYMBOL:
-            txt.byte -= utf8_len, txt.col--;
+        //case XML_ERROR_INVALID_SYMBOL:
+        //    txt.byte -= utf8_len, txt.col--;
 
-        case XML_ERROR_UNEXPECTED_EOF: case XML_ERROR_UTF: case XML_ERROR_PROLOGUE: case ERR_CMP:
+        case XML_ERROR_UNEXPECTED_EOF: case XML_ERROR_UTF: case XML_ERROR_PROLOGUE: case XML_ERROR_COMPILER:
             //logMsg(inf, strings[STR_FR_EX], strings[STR_FN], strings[errm], input, txt.line + 1, txt.col + 1, txt.byte + 1);
             break;
         
@@ -800,27 +818,16 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             //logMsg(inf, strings[STR_FR_ET], strings[STR_FN], strings[errm], temp.buff, len > MAX_PRINT ? "..." : "", input, str.line + 1, str.col + 1, str.byte + 1);
             break;
 
-        case ERR_CTR:
+        case XML_ERROR_CONTROL:
             //if (!dynamicArrayTest((void **) &ctrl.buff, &ctrl.cap, 1, ind + 1)) goto error;
             //ctrl.buff[ind] = '\0';
 
             //logMsg(inf, strings[STR_FR_ET], strings[STR_FN], strings[errm], ctrl.buff, ind > MAX_PRINT ? "..." : "", input, ctr.line + 1, ctr.col + 1, ctr.byte + 1);
             break;
 
-        case ERR_RAN:
+        //case XML_ERROR_RANGE:
             //logMsg(inf, strings[STR_FR_RN], strings[STR_FN], ctrl_val, input, ctr.line + 1, ctr.col + 1, ctr.byte + 1);
-            break;
-        }
-
-        for (;;) // System errors
-        {
-            break;
-
-        error:
-            
-            //strerror_s(error, sizeof error, errno);
-            //logMsg(inf, strings[STR_FR_EG], strings[STR_FN], error);
-            break;
+        //    break;
         }
 
         if (stack.frame) program_object_dispose(stack.frame[0].obj), stack.frame[0].obj = NULL;

@@ -105,7 +105,7 @@ static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context
                 tmp = snprintf(buff + cnt, len, fmt[context->status], (int) context->len, context->str);
                 break;
             default:
-                tmp = snprintf(buff + cnt, len, fmt[context->status]);
+                tmp = snprintf(buff + cnt, len, "%s", fmt[context->status]);
             }
             break;
         case 1:
