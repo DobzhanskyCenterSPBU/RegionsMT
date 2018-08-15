@@ -36,7 +36,7 @@ static bool densityFoldThreadProc(densityFoldOut *args, densityFoldContext *cont
     
     if (!(
         arrayInit((void **) &res->fdns, ldres->snpcnt, sizeof *res->fdns) &&
-        arrayInit((void **) &tbits, BYTE_CNT(ldres->testcnt), sizeof *tbits) &&
+        arrayInitClear((void **) &tbits, BYTE_CNT(ldres->testcnt), sizeof *tbits) &&
         arrayInit((void **) &res->tmap, ldres->testcnt, sizeof *res->tmap))) goto ERR();
     
     for (char *gr = context->group, *ch = gr;; ch++) // Selecting test groups
