@@ -132,13 +132,13 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
                 break;
             case XML_ERROR_INVALID_SYMBOL:
                 byte_disp = context->len, col_disp = 1;
-                tmp = snprintf(buff, buff_cnt, "%s \'%.*s\'", str[context->status], context->str, (int) context->len);
+                tmp = snprintf(buff, buff_cnt, "%s \'%.*s\'", str[context->status], (int) context->len, context->str);
                 break;
             case XML_ERROR_UNEXPECTED_TAG:
             case XML_ERROR_ENDING:
             case XML_ERROR_UNHANDLED_VALUE:
             case XML_ERROR_CONTROL:
-                tmp = snprintf(buff, buff_cnt, "%s \"%.*s\"", str[context->status], context->str, (int) context->len);
+                tmp = snprintf(buff, buff_cnt, "%s \"%.*s\"", str[context->status], (int) context->len, context->str);
                 break;
             case XML_ERROR_RANGE:
                 tmp = snprintf(buff, buff_cnt, str[context->status], context->val);
@@ -235,7 +235,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
         STR_M_CMP
     };
     
-    //enum xml_status errm;
+    enum xml_status errm;
     
     struct { char *buff; size_t cap; } temp = { 0 }, ctrl = { 0 }, name = { 0 };
     struct { uint8_t *buff; size_t cap; } attb = { 0 };
