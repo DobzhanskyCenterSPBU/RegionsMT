@@ -74,33 +74,58 @@ static size_t gen_pop_cnt_allelic(uint8_t *bits, size_t pop_cnt)
     return MIN(pop_cnt, 2);
 }
 
-static void gen_shuffle_codominant(size_t *row, uint8_t *bits, size_t pop_cnt)
+static void gen_copy_codominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
 {
-    if (pop_cnt > 2) return;
+    (void) pop_cnt;
     switch (bits[0])
     {
+    case (1 | 2 | 4):
+        dst[2] = src[2];
+    case (1 | 2):
+        dst[0] = src[0];
+        dst[1] = src[1];
+        break;
     case (1 | 4):
-        row[1] = row[2];
+        dst[0] = src[0];
+        dst[1] = src[2];
         break;
     case (2 | 4):
-        row[0] = row[1];
-        row[1] = row[2];
+        dst[0] = src[1];
+        dst[1] = src[2];
+        break;
+    }
+}
+
+static void gen_shuffle_codominant(size_t *row, uint8_t *bits, size_t pop_cnt)
+{
+    gen_copy_codominant(row, row, bits, pop_cnt);
+}
+
+static void gen_copy_recessive(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
+{
+    (void) pop_cnt;
+    switch (bits[0])
+    {
+    case (1 | 2 | 4):
+        dst[0] = src[0] + src[1];
+        dst[1] = src[2];
+        break;
+    case (2 | 4):
+        dst[0] = src[1];
+        dst[1] = src[2];
+    case (1 | 4):
+        dst[0] = src[0];
+        dst[1] = src[2];
+        break;
+    case (1 | 2):
+        dst[0] = src[0] + src[1];
         break;
     }
 }
 
 static void gen_shuffle_recessive(size_t *row, uint8_t *bits, size_t pop_cnt)
 {
-    (void) pop_cnt;
-    switch (bits[0])
-    {
-    case (1 | 2 | 4):
-    case (2 | 4):
-        row[0] += row[1];
-    case (1 | 4):
-        row[1] = row[2];
-        break;
-    }
+    gen_copy_recessive(row, row, bits, pop_cnt);
 }
 
 static void gen_shuffle_dominant(size_t *row, uint8_t *bits, size_t pop_cnt)
