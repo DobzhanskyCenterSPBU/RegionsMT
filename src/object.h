@@ -34,10 +34,10 @@ struct xml_node {
     prologue_callback prologue;
     epilogue_callback epilogue;
     disposer_callback dispose;    
-    struct {
-        struct xml_node *dsc;
-        size_t dsc_cnt;
-    };
+    //struct {
+    //    struct xml_node *dsc;
+    //    size_t dsc_cnt;
+    //};
 };
 
 typedef bool (*xml_node_selector_callback)(struct xml_node *, char *, size_t, void *);

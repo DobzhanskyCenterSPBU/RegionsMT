@@ -131,7 +131,7 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
                 tmp = snprintf(buff, buff_cnt, "%s", str[context->status]);
                 break;
             case XML_ERROR_INVALID_SYMBOL:
-                byte_disp = context->len, col_disp = 1;
+                byte_disp = context->len, col_disp = 1; // Returning to the previous symbol
                 tmp = snprintf(buff, buff_cnt, "%s \'%.*s\'", str[context->status], (int) context->len, context->str);
                 break;
             case XML_ERROR_UNEXPECTED_TAG:
@@ -158,27 +158,6 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
     }
     *p_buff_cnt = cnt;
     return 1;
-    
-    /*const char *str[] = {
-        __FUNCTION__,
-        "ERROR (%s): %s!\n",
-        "ERROR (%s): Cannot open specified XML document \"%s\". %s!\n",
-        "ERRPR (%s): Numeric value %" PRIu32 " is out of range (file \"%s\", line %zu, character %zu, byte %zu)!\n",
-        "ERROR (%s): %s (file \"%s\", line %zu, character %zu, byte %zu)!\n",
-        "ERROR (%s): %s \"%.s%s\" (file \"%s\", line %zu, character %zu, byte %zu)!\n",
-        "Unexpected end of file",
-        "Incorrect UTF-8 byte sequence",
-        "Invalid symbol",
-        "Invalid XML prologue",
-        "Invalid tag",
-        "Invalid attribute",
-        "Unexpected close tag",
-        "Duplicated attribute",
-        "Unable to handle value",
-        "Invalid control sequence",
-        "Compiler malfunction" // Not intended to happen
-    };
-    int res = context->status < countof(str) ? snprintf(buff, buff_cnt, "%s!\n", str[context->status]) : 0;*/
 }
 
 static bool log_message_error_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, char *str, uint32_t val, size_t len, enum xml_status status)

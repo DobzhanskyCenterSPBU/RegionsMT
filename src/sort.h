@@ -23,5 +23,6 @@ void orders_apply_impl(uintptr_t *restrict, size_t, size_t, void *restrict, uint
 bool orders_apply(uintptr_t *restrict, size_t, size_t, void *restrict);
 
 #define QUICK_SORT_CUTOFF 20 // The actual quick sort is applied only for arrays of counts, greater than this value
+#define QUICK_SORT_CACHED // Enables the more optimal utilization of the CPU caches
 void quick_sort(void *restrict, size_t, size_t, cmp_callback, void *);
 size_t binary_search(const void *restrict, const void *restrict, size_t, size_t, stable_cmp_callback, void *);

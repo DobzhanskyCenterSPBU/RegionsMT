@@ -52,7 +52,7 @@ double gamma_inc_Q(double a, double x)
 
 double cdf_gamma_Q(double x, double a, double b)
 {
-    if (x <= 0.) return 1.0;
+    if (x <= 0.) return 1.;
     double y = x / b;
     return y < a ? 1. - gamma_inc_P(a, y) : gamma_inc_Q(a, y);
 }

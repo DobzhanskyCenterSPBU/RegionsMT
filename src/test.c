@@ -38,7 +38,7 @@ bool test(struct log *log)
                 test_ll_b,
             })
         },
-#if 0
+#if 1
         {
             test_sort_disposer_a,
             sizeof(struct test_sort_a),
@@ -96,8 +96,7 @@ bool test(struct log *log)
                     else
                     {
                         for (size_t k = 0; k < group->test_cnt; k++)
-                            if (!group->test[k](test_data, log)) 
-                                log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_WARNING, "Test no. %zu of the group no. %zu failed under the input data instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
+                            if (!group->test[k](test_data, log)) log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_WARNING, "Test no. %zu of the group no. %zu failed under the input data instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
                         if (group->test_disposer) group->test_disposer(test_data);
                     }
                 } while (context);

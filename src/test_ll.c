@@ -115,8 +115,6 @@ bool test_ll_b(void *In, struct log *log)
     return 1;
 }
 
-#include <immintrin.h>
-
 static int sign(double x) 
 {
     return (0. < x) - (x < 0.);

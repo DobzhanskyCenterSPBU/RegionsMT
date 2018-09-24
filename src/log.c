@@ -111,7 +111,7 @@ static bool log_prefix(char *buff, size_t *p_buff_cnt, struct code_metric code_m
     time(&t);
     struct tm ts;
     Localtime_s(&ts, &t);
-    char *title[] = { "MESSAGE", "ERROR", "WARNING", "NOTE", "INFO" };
+    const char *title[] = { "MESSAGE", "ERROR", "WARNING", "NOTE", "INFO" };
     size_t buff_cnt = *p_buff_cnt, len = strftime(buff, buff_cnt, "[%Y-%m-%d %H:%M:%S UTC%z] ", &ts);
     if (len)
     {

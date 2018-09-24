@@ -79,7 +79,7 @@ size_t *ranks_from_orders(const uintptr_t *ord, size_t cnt)
     return ranks_from_pointers(ord, 0, cnt, 1);
 }
 
-// Warning! 'ptr' may contain pointers to the 'rnk' array (i.e. 'rnk' = 'base').
+// Warning! 'ptr' may contain pointers to the 'rnk' array (i. e. 'rnk' = 'base').
 void ranks_unique_from_pointers_impl(size_t *rnk, const uintptr_t *ptr, uintptr_t base, size_t *p_cnt, size_t sz, cmp_callback cmp, void *context)
 {
     size_t cnt = *p_cnt;
@@ -227,7 +227,9 @@ static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_c
     }
 }
 
-static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff)
+typedef void (*sort_callback)(void *restrict, size_t, size_t, cmp_callback, void *, void *restrict, size_t);
+
+static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff, sort_callback cutoff_sort)
 {
     uint8_t frm = 0;
     struct { size_t a, b; } stk[SIZE_BIT];
@@ -261,15 +263,21 @@ static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callb
         } while (left <= right);
         if (right - a < cutoff)
         {
+            if (cutoff_sort) cutoff_sort((char *) arr + a, right - a + sz, sz, cmp, context, swp, right - a + sz);
             if (b - left < cutoff)
             {
+                if (cutoff_sort) cutoff_sort((char *) arr + left, b - left + sz, sz, cmp, context, swp, b - left + sz);
                 if (!frm--) break;
                 a = stk[frm].a;
                 b = stk[frm].b;
             }
             else a = left;
         }
-        else if (b - left < cutoff) b = right;
+        else if (b - left < cutoff)
+        {
+            if (cutoff_sort) cutoff_sort((char *) arr + left, b - left + sz, sz, cmp, context, swp, b - left + sz);
+            b = right;
+        }
         else
         {
             if (right - a > b - left)
@@ -296,8 +304,12 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
     const size_t cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz;
     if (tot > cutoff)
     {
-        quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
+#       ifdef QUICK_SORT_CACHED
+        quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, insertion_sort_impl);
+#       else
+        quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, NULL);
         insertion_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
+#       endif 
     }
     else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
 }
