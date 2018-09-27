@@ -158,11 +158,17 @@ static void gen_shuffle_allelic(size_t *dst, size_t *src, uint8_t *bits, size_t 
     }
 }
 
+typedef size_t (*gen_pop_cnt_alt_callback)(uint8_t *, size_t);
 typedef void (*gen_copy_callback)(size_t *, size_t *, uint8_t *, size_t);
 
-gen_copy_callback get_gen_copy(enum categorical_test_type type)
+gen_pop_cnt_alt_callback get_gen_pop_cnt_alt(size_t ind)
 {
-    return (gen_copy_callback[]) { gen_shuffle_codominant, gen_shuffle_recessive, gen_shuffle_dominant, gen_shuffle_allelic }[type];
+    return (gen_pop_cnt_alt_callback[]) { gen_pop_cnt_codominant, gen_pop_cnt_recessive, gen_pop_cnt_dominant, gen_pop_cnt_allelic }[ind];
+}
+
+gen_copy_callback get_gen_shuffle_alt(size_t ind)
+{
+    return (gen_copy_callback[]) { gen_shuffle_codominant, gen_shuffle_recessive, gen_shuffle_dominant, gen_shuffle_allelic }[ind];
 }
 
 #define DECLARE_BITS_INIT(TYPE, PREFIX) \
@@ -276,10 +282,9 @@ static size_t filter_init(size_t *filter, uint8_t *gen, size_t phen_cnt)
 static size_t gen_pop_cnt_alt_init(size_t *gen_pop_cnt_alt, uint8_t *gen_bits, size_t gen_pop_cnt, enum categorical_flags flags)
 {
     size_t res = 0;
-    size_t (*const gen_pop_cnt_alt_impl[])(uint8_t *, size_t) = { gen_pop_cnt_codominant, gen_pop_cnt_recessive, gen_pop_cnt_dominant, gen_pop_cnt_allelic };
-    for (size_t i = 0; i < MIN(ALT_CNT, countof(gen_pop_cnt_alt_impl)); i++, flags >>= 1) if (flags & 1)
+    for (size_t i = 0; i < ALT_CNT; i++, flags >>= 1) if (flags & 1)
     {
-        size_t tmp = gen_pop_cnt_alt_impl[i](gen_bits, gen_pop_cnt);
+        size_t tmp = get_gen_pop_cnt_alt(i)(gen_bits, gen_pop_cnt);
         if (tmp < 2) continue;
         gen_pop_cnt_alt[i] = tmp;
         res++;
@@ -347,18 +352,21 @@ double maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, s
         if (phen_pop_cnt < 2) continue;
 
         // Building contingency table
-        memset(supp->table, 0, GEN_CNT * phen_ucnt * sizeof(*supp->table));
-        contingency_table_init(supp->table, gen + off, phen, cnt, supp->filter);
+        size_t disp = GEN_CNT * phen_ucnt;
+        memset(supp->table + disp, 0, disp * sizeof(*supp->table));
+        contingency_table_init(supp->table + disp, gen + off, phen, cnt, supp->filter);
 
-        for (size_t k = 0; k < ALT_CNT; k++) if (supp->snp_data[j].gen_pop_cnt_alt[k])
+        for (size_t k = 0; k < ALT_CNT; k++) 
         {
-            size_t disp;
-            if (flags_pop_cnt--)
+            gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[k];
+            if (gen_pop_cnt)
             {
-                disp = GEN_CNT * phen_ucnt;
-                memcpy(table + disp, table, disp )
+                if (flags_pop_cnt--)
+                {
+                    table_shuffle(supp->table, supp->table + disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(k));
+                }
+                else disp = 0;
             }
-            else disp = 0;
 
         }
 
