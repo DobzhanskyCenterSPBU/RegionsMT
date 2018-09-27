@@ -74,7 +74,7 @@ static size_t gen_pop_cnt_allelic(uint8_t *bits, size_t pop_cnt)
     return MIN(pop_cnt, 2);
 }
 
-static void gen_copy_codominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
+static void gen_shuffle_codominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
 {
     (void) pop_cnt;
     switch (bits[0])
@@ -96,7 +96,7 @@ static void gen_copy_codominant(size_t *dst, size_t *src, uint8_t *bits, size_t 
     }
 }
 
-static void gen_copy_recessive(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
+static void gen_shuffle_recessive(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
 {
     (void) pop_cnt;
     switch (bits[0])
@@ -115,7 +115,7 @@ static void gen_copy_recessive(size_t *dst, size_t *src, uint8_t *bits, size_t p
     }
 }
 
-static void gen_copy_dominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
+static void gen_shuffle_dominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
 {
     (void) pop_cnt;
     switch (bits[0])
@@ -135,7 +135,7 @@ static void gen_copy_dominant(size_t *dst, size_t *src, uint8_t *bits, size_t po
     }
 }
 
-static void gen_copy_allelic(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
+static void gen_shuffle_allelic(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
 {
     (void) pop_cnt;
     switch (bits[0])
@@ -158,17 +158,11 @@ static void gen_copy_allelic(size_t *dst, size_t *src, uint8_t *bits, size_t pop
     }
 }
 
-typedef size_t (*gen_pop_cnt_callback)(uint8_t *, size_t);
 typedef void (*gen_copy_callback)(size_t *, size_t *, uint8_t *, size_t);
-
-gen_pop_cnt_callback get_gen_pop_cnt(enum categorical_test_type type)
-{
-    return (gen_pop_cnt_callback[]) { gen_pop_cnt_codominant, gen_pop_cnt_recessive, gen_pop_cnt_dominant, gen_pop_cnt_allelic }[type];
-}
 
 gen_copy_callback get_gen_copy(enum categorical_test_type type)
 {
-    return (gen_copy_callback[]) { gen_copy_codominant, gen_copy_dominant, gen_copy_recessive, gen_copy_allelic }[type];
+    return (gen_copy_callback[]) { gen_shuffle_codominant, gen_shuffle_recessive, gen_shuffle_dominant, gen_shuffle_allelic }[type];
 }
 
 #define DECLARE_BITS_INIT(TYPE, PREFIX) \
@@ -186,36 +180,41 @@ gen_copy_callback get_gen_copy(enum categorical_test_type type)
 DECLARE_BITS_INIT(uint8_t, gen)
 DECLARE_BITS_INIT(size_t, phen)
 
-#define GEN_MAX 3
+#define GEN_CNT 3
+#define ALT_CNT 4
 
-void table_shuffle(size_t *table, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_copy_callback gen_copy)
+void table_shuffle(size_t *dst, size_t *src, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_copy_callback gen_copy)
 {
     size_t off = 0;
-    for (size_t i = 0, j = 0; i < phen_pop_cnt; i++, j += GEN_MAX)
+    for (size_t i = 0, j = 0; i < phen_pop_cnt; i++, j += GEN_CNT)
     {
         if (!uint8_bit_test(phen_bits, i)) continue;
-        gen_copy(table + j, table + j, gen_bits, gen_pop_cnt);
-        if (off < j) memcpy(table + off, table + j, gen_pop_cnt * sizeof(*table));
+        gen_copy(dst + j, src + j, gen_bits, gen_pop_cnt);
+        if (off < j) memcpy(dst + off, src + j, gen_pop_cnt * sizeof(*dst));
         off += gen_pop_cnt;
     }
 }
 
-enum categorical_flags {
-    CATEGORICAL_CODOMINANT = 1,
-    CATEGORICAL_RECESSIVE = 2,
-    CATEGORICAL_DOMINANT = 4,
-    CATEGORICAL_ALLELIC = 8,
-};
-
 struct categorical_supp {
     uint8_t *phen_bits;
     size_t *filter, *table, *phen_mar;
+    double *outer;
 };
 
-struct categorical_expl {
-    size_t gen_mar[GEN_MAX], gen_phen_mar, cnt, gen_pop_cnt;
-    uint8_t gen_bits[UINT8_CNT(GEN_MAX)];
+struct categorical_snp_data {
+    size_t gen_mar[GEN_CNT], gen_phen_mar, cnt, gen_pop_cnt_alt[ALT_CNT];
+    uint8_t gen_bits[UINT8_CNT(GEN_CNT)];
 };
+
+struct maver_adj_supp {
+    uint8_t *phen_bits;
+    size_t *filter, *table, *phen_mar, *phen_perm;
+    double *outer;
+    struct categorical_snp_data *snp_data;
+};
+
+_Static_assert((2 * GEN_CNT * sizeof(size_t)) / (2 * GEN_CNT) == sizeof(size_t), "Multiplication overflow!");
+_Static_assert((GEN_CNT * sizeof(double)) / GEN_CNT == sizeof(double), "Multiplication overflow!");
 
 bool categorical_init(struct categorical_supp *supp, size_t phen_cnt, size_t phen_ucnt)
 {
@@ -223,48 +222,84 @@ bool categorical_init(struct categorical_supp *supp, size_t phen_cnt, size_t phe
     supp->phen_bits = malloc(UINT8_CNT(phen_ucnt) * sizeof(*supp->phen_bits));
     supp->filter = malloc(phen_cnt * sizeof(*supp->filter));
 
+    if ((phen_ucnt && !supp->phen_mar && !supp->phen_bits) ||
+        (phen_cnt && !supp->filter) ||
+        !array_init(&supp->outer, NULL, phen_ucnt, GEN_CNT * sizeof(*supp->outer), 0, ARRAY_STRICT) ||
+        !array_init(&supp->table, NULL, phen_ucnt, 2 * GEN_CNT * sizeof(*supp->table), 0, ARRAY_STRICT)) return 0;
 
+    return 1;
 }
 
-size_t filter_impl(uint8_t *gen, size_t phen_cnt, size_t *filter)
+void categorical_close(struct categorical_supp *supp)
+{
+    free(supp->phen_mar);
+    free(supp->phen_bits);
+    free(supp->filter);
+    free(supp->outer);
+    free(supp->table);
+}
+
+bool maver_adj_init(struct maver_adj_supp *supp, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt)
+{
+    supp->phen_perm = malloc(phen_cnt * sizeof(*supp->phen_perm));
+    supp->phen_mar = malloc(phen_ucnt * sizeof(*supp->phen_mar));
+    supp->phen_bits = malloc(UINT8_CNT(phen_ucnt) * sizeof(*supp->phen_bits));
+
+    if ((phen_ucnt && !supp->phen_mar && !supp->phen_bits) ||
+        (phen_cnt && !supp->phen_perm) ||
+        !array_init(&supp->snp_data, NULL, snp_cnt, sizeof(*supp->snp_data), 0, ARRAY_CLEAR | ARRAY_STRICT) ||
+        !array_init(&supp->filter, NULL, snp_cnt * phen_cnt, sizeof(*supp->filter), 0, ARRAY_STRICT) || // Result of 'snp_cnt * phen_cnt' is assumed not to be wrapped due to the validness of the 'gen' array
+        !array_init(&supp->outer, NULL, phen_ucnt, GEN_CNT * sizeof(*supp->outer), 0, ARRAY_STRICT) ||
+        !array_init(&supp->table, NULL, phen_ucnt, 2 * GEN_CNT * sizeof(*supp->table), 0, ARRAY_STRICT)) return 0;
+
+    return 1;
+}
+
+void maver_adj_close(struct maver_adj_supp *supp)
+{
+    free(supp->phen_perm);
+    free(supp->phen_mar);
+    free(supp->phen_bits);
+    free(supp->snp_data);
+    free(supp->filter);
+    free(supp->outer);
+    free(supp->table);
+}
+
+static size_t filter_init(size_t *filter, uint8_t *gen, size_t phen_cnt)
 {
     size_t cnt = 0;
-    for (size_t i = 0; i < phen_cnt; i++) if (gen[i] < GEN_MAX) filter[cnt++] = i;
+    for (size_t i = 0; i < phen_cnt; i++) if (gen[i] < GEN_CNT) filter[cnt++] = i;
     return cnt;
 }
 
-bool contingency_table_impl(uint8_t *gen, size_t *phen, size_t *filter, size_t phen_cnt, size_t phen_ucnt, size_t cnt, uint8_t *phen_bits, size_t *table, size_t *p_phen_pop_cnt)
+static size_t gen_pop_cnt_alt_init(size_t *gen_pop_cnt_alt, uint8_t *gen_bits, size_t gen_pop_cnt, enum categorical_flags flags)
 {
-    // Counting unique phenotypes
-    memset(phen_bits, 0, UINT8_CNT(phen_ucnt));
-    size_t phen_pop_cnt = phen_bits_init(phen_bits, cnt, phen_ucnt, filter, phen);
-    if (phen_pop_cnt < 2) return 0;
-    *p_phen_pop_cnt = phen_pop_cnt;
+    size_t res = 0;
+    size_t (*const gen_pop_cnt_alt_impl[])(uint8_t *, size_t) = { gen_pop_cnt_codominant, gen_pop_cnt_recessive, gen_pop_cnt_dominant, gen_pop_cnt_allelic };
+    for (size_t i = 0; i < MIN(ALT_CNT, countof(gen_pop_cnt_alt_impl)); i++, flags >>= 1) if (flags & 1)
+    {
+        size_t tmp = gen_pop_cnt_alt_impl[i](gen_bits, gen_pop_cnt);
+        if (tmp < 2) continue;
+        gen_pop_cnt_alt[i] = tmp;
+        res++;
+    }
+    return res;
+}
 
-    // Building contingency table
-    memset(table, 0, GEN_MAX * phen_ucnt * sizeof(*table));
+static void contingency_table_init(size_t *table, uint8_t *gen, size_t *phen, size_t cnt, size_t *filter)
+{
     for (size_t i = 0; i < cnt; i++)
     {
         size_t ind = filter[i];
-        table[gen[ind] + GEN_MAX * phen[ind]]++;
+        table[gen[ind] + GEN_CNT * phen[ind]]++;
     }
 }
 
 #if 0
 
-bool categorical_impl(struct categorical_supp *supp, struct categorical_expl *expl, uint8_t *gen, size_t phen_cnt, size_t phen_ucnt)
-{
-    uint8_t gen_bits[UINT8_CNT(GEN_MAX)];
-    size_t gen_mar[GEN_MAX];
-
-    size_t cnt = filter_impl(gen, phen_cnt, supp->filter);
-    
-    // Counting unique genotypes
-    size_t gen_pop_cnt = gen_bits_init(gen_bits, cnt, GEN_MAX, supp->filter, gen);
-    gen_pop_cnt = gen_pop_cnt_impl(gen_bits, gen_pop_cnt);
-    if (gen_pop_cnt < 2) return 0;
-    *p_gen_pop_cnt = gen_pop_cnt;
-    
+bool categorical_c_impl(struct categorical_supp *supp, uint8_t *gen, size_t phen_cnt, size_t phen_ucnt)
+{    
     table_shuffle(table, gen_bits, gen_pop_cnt, phen_bits, phen_pop_cnt, gen_shuffle_impl);
 
     // Computing sums
@@ -281,62 +316,52 @@ bool categorical_impl(struct categorical_supp *supp, struct categorical_expl *ex
 
 #endif
 
-_Static_assert((GEN_MAX * sizeof(size_t)) / GEN_MAX == sizeof(size_t), "Multiplication overflow!");
-_Static_assert((GEN_MAX * sizeof(double)) / GEN_MAX == sizeof(double), "Multiplication overflow!");
-
-double maver_adj(uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, double rel_err, gsl_rng *rng, enum categorical_test_type type)
+double maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, double rel_err, gsl_rng *rng, enum categorical_flags flags)
 {
     if (phen_ucnt > phen_cnt) return 0; // Wrong parameter
 
-    double res = nan(__func__), *outer = NULL;
-    size_t *phen_perm = malloc(phen_cnt * sizeof(*phen_perm)), *filter = NULL, *table = NULL, *phen_mar = malloc(phen_ucnt * sizeof(*phen_mar));
-    uint8_t *phen_bits = malloc(UINT8_CNT(phen_ucnt) * sizeof(*phen_bits));
-    struct {
-        size_t gen_mar[GEN_MAX], gen_phen_mar, cnt, gen_pop_cnt;
-        uint8_t gen_bits[UINT8_CNT(GEN_MAX)];
-    } *snp_data = NULL;
+    double res = nan(__func__);
     
-    if ((phen_ucnt && !phen_mar && !phen_bits) ||
-        (phen_cnt && !phen_perm) ||
-        !array_init(&snp_data, NULL, snp_cnt, sizeof(*snp_data), 0, ARRAY_CLEAR | ARRAY_STRICT) ||
-        !array_init(&filter, NULL, snp_cnt * phen_cnt, sizeof(*filter), 0, ARRAY_STRICT) || // Result of 'snp_cnt * phen_cnt' is assumed not to be wrapped due to the validness of the 'gen' array
-        !array_init(&outer, NULL, phen_ucnt, GEN_MAX * sizeof(*outer), 0, ARRAY_STRICT) ||
-        !array_init(&table, NULL, phen_ucnt, GEN_MAX * sizeof(*table), 0, ARRAY_STRICT)) goto error;
-
+    //gen_pop_cnt_callback gen_pop_cnt_impl = get_gen_pop_cnt(type);
+    //gen_copy_callback gen_copy_impl = get_gen_copy(type);
+    
     //  Initialization
-    gen_pop_cnt_callback gen_pop_cnt_impl = get_gen_pop_cnt(type);
-    gen_copy_callback gen_copy_impl = get_gen_copy(type);
-    
     double density = 0.;
     size_t density_cnt = 0;
 
     for (size_t j = 0, off = 0; j < snp_cnt; j++, off += phen_cnt)
     {
         // Initializing genotype filter
-        size_t cnt = 0;
-        for (size_t i = 0; i < phen_cnt; i++) if (gen[i + off] < GEN_MAX) filter[cnt++ + off] = i;
-
-        if (!cnt) continue; // There is nothing to do if the count is zero
-        snp_data[j].cnt = cnt;
+        size_t cnt = filter_init(supp->filter + off, gen + off, phen_cnt);
+        if (!cnt) continue;
+        supp->snp_data[j].cnt = cnt;
 
         // Counting unique genotypes
-        size_t gen_pop_cnt = gen_bits_init(snp_data[j].gen_bits, cnt, GEN_MAX, filter + off, gen + off);
-        gen_pop_cnt = gen_pop_cnt_impl(snp_data[j].gen_bits, gen_pop_cnt);
-        if (gen_pop_cnt < 2) continue;
-        snp_data[j].gen_pop_cnt = gen_pop_cnt;
-        
+        size_t gen_pop_cnt = gen_bits_init(supp->snp_data[j].gen_bits, cnt, GEN_CNT, supp->filter + off, gen + off);
+        size_t flags_pop_cnt = gen_pop_cnt_alt_init(supp->snp_data[j].gen_pop_cnt_alt, supp->snp_data[j].gen_bits, gen_pop_cnt, flags);
+        if (!flags_pop_cnt) continue;
+
         // Counting unique phenotypes
-        memset(phen_bits, 0, UINT8_CNT(phen_ucnt));
-        size_t phen_pop_cnt = phen_bits_init(phen_bits, cnt, phen_ucnt, filter + off, phen);
+        memset(supp->phen_bits, 0, UINT8_CNT(phen_ucnt));
+        size_t phen_pop_cnt = phen_bits_init(supp->phen_bits, cnt, phen_ucnt, supp->filter + off, phen);
         if (phen_pop_cnt < 2) continue;
 
         // Building contingency table
-        memset(table, 0, GEN_MAX * phen_ucnt * sizeof(*table));
-        for (size_t i = 0; i < cnt; i++)
+        memset(supp->table, 0, GEN_CNT * phen_ucnt * sizeof(*supp->table));
+        contingency_table_init(supp->table, gen + off, phen, cnt, supp->filter);
+
+        for (size_t k = 0; k < ALT_CNT; k++) if (supp->snp_data[j].gen_pop_cnt_alt[k])
         {
-            size_t ind = filter[i + off];
-            table[gen[ind + off] + GEN_MAX * phen[ind]]++;
+            size_t disp;
+            if (flags_pop_cnt--)
+            {
+                disp = GEN_CNT * phen_ucnt;
+                memcpy(table + disp, table, disp )
+            }
+            else disp = 0;
+
         }
+
         table_shuffle(table, snp_data[j].gen_bits, gen_pop_cnt, phen_bits, phen_pop_cnt, gen_copy_impl);
 
         // Computing sums
@@ -387,11 +412,11 @@ double maver_adj(uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, si
             if (phen_pop_cnt < 2) continue;
             
             // Building contingency table
-            memset(table, 0, GEN_MAX * phen_ucnt * sizeof(*table));
+            memset(table, 0, GEN_CNT * phen_ucnt * sizeof(*table));
             for (size_t i = 0; i < cnt; i++)
             {
                 size_t ind = filter[i + off];
-                table[gen[ind + off] + GEN_MAX * phen_perm[ind]]++;
+                table[gen[ind + off] + GEN_CNT * phen_perm[ind]]++;
             }
             table_shuffle(table, snp_data[j].gen_bits, gen_pop_cnt, phen_bits, phen_pop_cnt, gen_copy_impl);
 
@@ -413,12 +438,5 @@ double maver_adj(uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, si
     *p_rpl = rpl;
 
 error:
-    free(phen_perm);
-    free(phen_mar);
-    free(phen_bits);
-    free(snp_data);
-    free(filter);        
-    free(outer);
-    free(table);
     return res;
 }
