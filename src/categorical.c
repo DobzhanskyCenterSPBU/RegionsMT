@@ -26,7 +26,6 @@ DECLARE_BITS_INIT(uint8_t, gen)
 DECLARE_BITS_INIT(size_t, phen)
 
 #define GEN_CNT 3
-#define ALT_CNT 4
 
 static size_t gen_pop_cnt_codominant(uint8_t *bits, size_t pop_cnt)
 {
@@ -147,37 +146,9 @@ gen_shuffle_alt_callback get_gen_shuffle_alt(size_t ind)
     return (gen_shuffle_alt_callback[]) { gen_shuffle_codominant, gen_shuffle_recessive, gen_shuffle_dominant, gen_shuffle_allelic }[ind];
 }
 
-void table_shuffle(size_t *dst, size_t *src, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_shuffle_alt_callback gen_shuffle_alt)
-{
-    size_t off = 0;
-    for (size_t i = 0, j = 0; i < phen_pop_cnt; i++, j += GEN_CNT)
-    {
-        if (!uint8_bit_test(phen_bits, i)) continue;
-        gen_shuffle_alt(dst + off, src + j, gen_bits, gen_pop_cnt);
-        off += gen_pop_cnt;
-    }
-}
-
-struct categorical_supp {
-    uint8_t *phen_bits;
-    size_t *filter, *table, *phen_mar;
-    double *outer;
-    double nlpv[ALT_CNT], qas[ALT_CNT];
-    size_t rpl[ALT_CNT];
-};
-
 struct categorical_snp_data {
     size_t gen_mar[GEN_CNT * ALT_CNT], gen_phen_mar[ALT_CNT], cnt, gen_pop_cnt_alt[ALT_CNT], flags_pop_cnt;
     uint8_t gen_bits[UINT8_CNT(GEN_CNT)];
-};
-
-struct maver_adj_supp {
-    uint8_t *phen_bits;
-    size_t *filter, *table, *phen_mar, *phen_perm;
-    double *outer;
-    struct categorical_snp_data *snp_data;
-    double nlpv[ALT_CNT];
-    size_t rpl[ALT_CNT];
 };
 
 _Static_assert((2 * GEN_CNT * sizeof(size_t)) / (2 * GEN_CNT) == sizeof(size_t), "Multiplication overflow!");
@@ -264,6 +235,17 @@ static void contingency_table_init(size_t *table, uint8_t *gen, size_t *phen, si
     }
 }
 
+void contingency_table_shuffle(size_t *dst, size_t *src, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_shuffle_alt_callback gen_shuffle_alt)
+{
+    size_t off = 0;
+    for (size_t i = 0, j = 0; i < phen_pop_cnt; i++, j += GEN_CNT)
+    {
+        if (!uint8_bit_test(phen_bits, i)) continue;
+        gen_shuffle_alt(dst + off, src + j, gen_bits, gen_pop_cnt);
+        off += gen_pop_cnt;
+    }
+}
+
 static void gen_phen_mar_init(size_t *table, size_t *gen_mar, size_t *phen_mar, size_t *p_gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     size_t gen_phen_mar = 0;
@@ -335,19 +317,19 @@ static double stat_chisq(size_t *table, double *outer, size_t gen_pop_cnt, size_
 
 static double qas_chisq(size_t *table, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
-    double s = 0., t = 0., s2 = 0., t2 = 0., st = 0.;
+    size_t s = 0, t = 0, s2 = 0, t2 = 0, st = 0;
     for (size_t i = 1; i < phen_pop_cnt; i++)
     {
-        for (size_t j = 1; j < gen_pop_cnt; j++) st += (double) i * (double) j * (double) table[j + gen_pop_cnt * i];
-        double m = (double) i * (double) phen_mar[i];
-        t += m, t2 += (double) i * m;
+        for (size_t j = 1; j < gen_pop_cnt; j++) st += i * j * table[j + gen_pop_cnt * i];
+        size_t m = i * phen_mar[i];
+        t += m, t2 += i * m;
     }
     for (size_t i = 1; i < gen_pop_cnt; i++)
     {
-        double m = (double) i * (double) gen_mar[i];
-        s += m, s2 += (double) i * m;
+        size_t m = i * gen_mar[i];
+        s += m, s2 += i * m;
     }
-    double corr = (st * (double) gen_phen_mar - s * t) / sqrt((s2 * (double) gen_phen_mar - s * s) * (t2 * (double) gen_phen_mar - t * t));
+    double corr = (double) (st * gen_phen_mar - s * t) / sqrt((double) (s2 * gen_phen_mar - s * s) * (double) (t2 * gen_phen_mar - t * t));
     return .5 * (log10(1. + corr) - log10(1. - corr));
 }
 
@@ -390,7 +372,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         size_t gen_pop_cnt = gen_pop_cnt_alt[i];
         if (!gen_pop_cnt) continue;
 
-        table_shuffle(supp->table, supp->table + table_disp, gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
+        contingency_table_shuffle(supp->table, supp->table + table_disp, gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
 
         // Computing sums
         size_t gen_mar[GEN_CNT] = { 0 }, gen_phen_mar = 0;
@@ -447,7 +429,7 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
             size_t gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[i];
             if (!gen_pop_cnt) continue;
 
-            table_shuffle(supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
+            contingency_table_shuffle(supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
 
             // Computing sums
             memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
@@ -463,10 +445,10 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
 
     // Simulations
     size_t qc[ALT_CNT] = { 0 }, qt[ALT_CNT] = { 0 }, rpl_max = *p_rpl;
-    for (size_t rpl = 0; rpl < rpl_max; rpl++) // Entering 'fixed' mode if 'k' is 0
+    for (size_t rpl = 0; rpl < rpl_max; rpl++)
     {
         bool alt_rpl[ALT_CNT], alt_any = 0;
-        for (size_t i = 0; i < ALT_CNT; i++) alt_any |= (alt_rpl[i] = alt[i] && (!k || qc[i] < k));
+        for (size_t i = 0; i < ALT_CNT; i++) alt_any |= (alt_rpl[i] = alt[i] && (!k || qc[i] < k)); // Adaptive mode for positive parameter 'k'
         if (!alt_any) break;
 
         // Generating random permutation
@@ -497,7 +479,7 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
                 size_t gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[i];
                 if (!gen_pop_cnt) continue;
 
-                table_shuffle(supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
+                contingency_table_shuffle(supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
 
                 // Computing sums
                 memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));

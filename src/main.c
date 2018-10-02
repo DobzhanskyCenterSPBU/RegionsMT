@@ -2,26 +2,98 @@
 #include "main.h"
 #include "argv.h"
 #include "memory.h"
-#include "test.h"
 #include "utf8.h"
 
 #include "module_categorical.h"
 #include "module_lde.h"
+
+#include "test.h"
 #include "test_ll.h"
+#include "test_sort.h"
+#include "test_utf8.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 DECLARE_PATH
 
-struct main_args main_args_default()
+#include <gsl/gsl_sf.h>
+#include "gslsupp.h"
+
+static bool test_main(struct log *log)
+{
+    struct test_group group_arr[] = {
+        {
+            NULL,
+            sizeof(struct test_ll_a),
+            CLII((test_generator_callback[]) {
+                test_ll_generator_a,
+            }),
+            CLII((test_callback[]) {
+                test_ll_a_1,
+                test_ll_a_2,
+                test_ll_a_3
+            })
+        },
+        {
+            NULL,
+            sizeof(struct test_ll_a),
+            CLII((test_generator_callback[]) {
+                test_ll_generator_b,
+            }),
+            CLII((test_callback[]) {
+                test_ll_b,
+            })
+        },
+        {
+            test_sort_disposer_a,
+            sizeof(struct test_sort_a),
+            CLII((test_generator_callback[]) {
+                test_sort_generator_a_1,
+                test_sort_generator_a_2
+            }),
+            CLII((test_callback[]) {
+                test_sort_a,
+            })
+        },
+        {
+            test_sort_disposer_b,
+            sizeof(struct test_sort_b),
+            CLII((test_generator_callback[]) {
+                test_sort_generator_b_1
+            }),
+            CLII((test_callback[]) {
+                test_sort_b_1,
+                test_sort_b_2
+            })
+        },
+        {
+            NULL,
+            sizeof(struct test_utf8),
+            CLII((test_generator_callback[]) {
+                test_utf8_generator,
+            }),
+            CLII((test_callback[]) {
+                test_utf8_len,
+                test_utf8_encode,
+                test_utf8_decode,
+                test_utf16_encode,
+                test_utf16_decode
+            })
+        }
+    };
+    return test(group_arr, log);
+}
+
+// Main routine arguments management
+static struct main_args main_args_default()
 {
     struct main_args res = { .thread_cnt = get_processor_count() };
     uint8_bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
     return res;
 }
 
-struct main_args main_args_override(struct main_args args_hi, struct main_args args_lo)
+static struct main_args main_args_override(struct main_args args_hi, struct main_args args_lo)
 {
     struct main_args res = { .log_path = args_hi.log_path ? args_hi.log_path : args_lo.log_path };
     memcpy(res.bits, args_hi.bits, UINT8_CNT(MAIN_ARGS_BIT_CNT));
@@ -35,11 +107,7 @@ struct main_args main_args_override(struct main_args args_hi, struct main_args a
     return res;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//
-//  Main routine (see below for actual entry point)
-//
-
+// Main routine (see below for actual entry point)
 static int Main(int argc, char **argv) 
 {
     /*const char *strings[] = {
@@ -274,8 +342,7 @@ static int Main(int argc, char **argv)
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
                 log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_INFO, "Test mode triggered!\n");
-                test(&log);
-                //test_ll_perf(&log);
+                test_main(&log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {

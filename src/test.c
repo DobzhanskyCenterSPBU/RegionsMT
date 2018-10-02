@@ -5,79 +5,12 @@
 #include "utf8.h"
 #include "test.h"
 
-#include "test_ll.h"
-#include "test_sort.h"
-#include "test_utf8.h"
-
 #include <stdlib.h>
 
 DECLARE_PATH
 
-bool test(struct log *log)
+bool test(struct test_group *group_arr, struct log *log)
 {
-    struct test_group group_arr[] = {
-        {
-            NULL,
-            sizeof(struct test_ll_a),
-            CLII((test_generator_callback[]) {
-                test_ll_generator_a,
-            }),
-            CLII((test_callback[]) {
-                test_ll_a_1,
-                test_ll_a_2,
-                test_ll_a_3
-            })
-        },
-        {
-            NULL,
-            sizeof(struct test_ll_a),
-            CLII((test_generator_callback[]) {
-                test_ll_generator_b,
-            }),
-            CLII((test_callback[]) {
-                test_ll_b,
-            })
-        },
-#if 1
-        {
-            test_sort_disposer_a,
-            sizeof(struct test_sort_a),
-            CLII((test_generator_callback[]) {
-                test_sort_generator_a_1,
-                test_sort_generator_a_2
-            }),
-            CLII((test_callback[]) {
-                test_sort_a,
-            })
-        },
-#endif
-        {
-            test_sort_disposer_b,
-            sizeof(struct test_sort_b),
-            CLII((test_generator_callback[]) {
-                test_sort_generator_b_1
-            }),
-            CLII((test_callback[]) {
-                test_sort_b_1,
-                test_sort_b_2
-            })
-        },
-        {
-            NULL,
-            sizeof(struct test_utf8),
-            CLII((test_generator_callback[]) {
-                test_utf8_generator,
-            }),            
-            CLII((test_callback[]) { 
-                test_utf8_len,  
-                test_utf8_encode,
-                test_utf8_decode,
-                test_utf16_encode,
-                test_utf16_decode
-            })
-        }
-    };
-    
     uint64_t start = get_time();
     size_t test_data_sz = 0;
     for (size_t i = 0; i < countof(group_arr); i++) if (test_data_sz < group_arr[i].test_sz) test_data_sz = group_arr[i].test_sz;    

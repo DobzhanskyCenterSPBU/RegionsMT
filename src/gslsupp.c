@@ -7,7 +7,7 @@
 double log_fact(size_t n)
 {
     gsl_sf_result res;
-    if (n < UINT_MAX) 
+    if (n <= UINT_MAX) 
     {
         if (gsl_sf_lnfact_e((unsigned) n, &res) == GSL_SUCCESS) return res.val;
     }
