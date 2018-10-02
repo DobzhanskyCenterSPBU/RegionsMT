@@ -49,8 +49,10 @@ bool message_var_crt(char *, size_t *, void *, const char *, va_list);
         .line = __LINE__, \
     }
 
-bool log_init(struct log *restrict, char *restrict, size_t);
+bool log_init(struct log *restrict, char *restrict, size_t, bool);
 void log_close(struct log *restrict);
+bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t);
+void log_multiple_close(struct log *restrict, size_t);
 bool log_flush(struct log *restrict);
 bool log_message(struct log *restrict, struct code_metric, enum message_type, message_callback, void *);
 bool log_message_var(struct log *restrict, struct code_metric, enum message_type, message_callback_var, void *, const char *restrict, ...);

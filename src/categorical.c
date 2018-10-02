@@ -11,7 +11,7 @@
 #include <string.h>
 
 #define DECLARE_BITS_INIT(TYPE, PREFIX) \
-    static size_t PREFIX ## _bits_init(uint8_t *bits, size_t cnt, size_t ucnt, size_t *filter, TYPE *data) \
+    size_t PREFIX ## _bits_init(uint8_t *bits, size_t cnt, size_t ucnt, size_t *filter, TYPE *data) \
     { \
         size_t res = 0; \
         for (size_t i = 0; i < cnt; i++) \
@@ -22,8 +22,8 @@
         return res; \
     }
 
-DECLARE_BITS_INIT(uint8_t, gen)
-DECLARE_BITS_INIT(size_t, phen)
+static DECLARE_BITS_INIT(uint8_t, gen)
+static DECLARE_BITS_INIT(size_t, phen)
 
 #define GEN_CNT 3
 

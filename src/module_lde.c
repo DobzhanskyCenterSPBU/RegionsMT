@@ -80,7 +80,7 @@ bool lde_run(const char *path_gen, const char *path_out, struct log *log)
         }
     }
 
-    fclose(f);
+    Fclose(f);
 
 error:
     free(gen);

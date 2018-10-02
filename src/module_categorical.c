@@ -60,7 +60,7 @@ bool append_out(const char *path_out, double val, size_t off, size_t cnt)
     if (tmp < 0) goto error;
     succ = 1;
 error:
-    fclose(f);
+    Fclose(f);
     return 1;
 }
 

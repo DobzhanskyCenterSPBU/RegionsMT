@@ -3,13 +3,17 @@
 #include "main.h"
 #include "log.h"
 
-enum {
-    FRAMEWORKOUT_BIT_POS_FOPEN = 0,
-    FRAMEWORKOUT_BIT_CNT,
+struct module_root_in {
+    struct main_args *main_args;
+    struct log *main_log;
+};
+
+struct module_root_context {
+    struct main_args base;
 };
 
 struct module_root_out {
-    struct log log;
+    struct log *thread_log;
     struct thread_pool *thread_pool;
     //tasksInfo tasksInfo;
     //outInfo outInfo;

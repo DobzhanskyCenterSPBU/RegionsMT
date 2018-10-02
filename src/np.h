@@ -43,7 +43,8 @@ typedef int Errno_t;
 void *Aligned_alloc(size_t, size_t);
 void Aligned_free(void *);
 
-// Long file operations
+// File operations
+int Fclose(FILE *); // Properly handles null pointers 
 int Fseeki64(FILE *, int64_t, int);
 int64_t Ftelli64(FILE *);
 

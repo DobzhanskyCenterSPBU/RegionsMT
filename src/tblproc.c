@@ -148,7 +148,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
         log_message_fopen(log, CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno);
         return 0;
     }
-       
+
     bool succ = 0;
     char buff[BLOCK_READ] = { '\0' }, *temp_buff = NULL;
     size_t rd = fread(buff, 1, sizeof(buff), f), ind = 0, skip = row_skip;
@@ -179,8 +179,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
             {
                 if (quote != 2)
                 {
-                    if (!selector(&cl, row, col, res, context))
-                        log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_EXPECTED_EOL, NULL, 0);
+                    if (!selector(&cl, row, col, res, context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_EXPECTED_EOL, NULL, 0);
                     else
                     {
                         if (cl.handler.read)
@@ -216,7 +215,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                 case 1:
                     log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES, NULL, 0);
                     goto error;
-                case 2: 
+                case 2:
                     break;
                 }
                 break;
@@ -224,8 +223,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                 if (quote == 2) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_BAD_QUOTES, NULL, 0);
                 else
                 {
-                    if (!selector(&cl, row, col, res, context))
-                        log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNEXPECTED_EOL, NULL, 0);
+                    if (!selector(&cl, row, col, res, context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNEXPECTED_EOL, NULL, 0);
                     else
                     {
                         if (cl.handler.read)
@@ -237,8 +235,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                                 goto error;
                             }
                         }
-                        if (eol && !eol(row, col, res, context))
-                            log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_EOL, NULL, 0);
+                        if (eol && !eol(row, col, res, context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_EOL, NULL, 0);
                         quote = 0;
                         len = col = 0;
                         row++;
@@ -262,7 +259,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                     quote--;
                     continue;
                 }
-                break;            
+                break;
             }
             if (!array_test(&temp_buff, &cap, sizeof(*temp_buff), 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
             else
@@ -289,7 +286,6 @@ error:
     return succ;
 }
 
-#if 0
 
 //struct tbl_sch {
 //
@@ -319,140 +315,8 @@ bool tbl_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, vo
     return 0;
 }
 
-struct tbl_sch *tbl_sch_from_text(FILE *f, tbl_selector sel, tbl_finalizer finalizer, char delim, void *context)
-{
-    char buff[BLOCK_READ] = { '\0' }, *temp_buff = NULL;
-    size_t ind = 0, byte = 0, col = 0, len = 0, cap = 0;
-    bool row = 0;
-    uint8_t quote = 0;
-    rowReadErr err = ROWREAD_SUCC;
-    
-    tblsch *ressch = calloc(1, sizeof *ressch);
-    size_t resschcap = 0;
-    
-    if (!ressch) { err = ROWREAD_ERR_MEM; goto ERR(); }
-    
-    for (size_t rd = fread(buff, 1, sizeof buff, f); rd && !row; byte += rd, rd = fread(buff, 1, sizeof buff, f), ind = 0)
-    {
-        for (; ind < rd && !row; ind++)
-        {
-            if (buff[ind] == delim)
-            {
-                if (quote != 2)
-                {
-                    if (!dynamicArrayTest((void **) &temp_buff, &cap, 1, len + 1)) { err = ROWREAD_ERR_MEM; goto ERR(); }
-                    temp_buff[len] = '\0';
-            
-                    size_t colpos = SIZE_MAX, colind = sel(temp_buff, len, &colpos, context);
-                    
-                    if (colind < sch->colschcnt)
-                    {
-                        if (!dynamicArrayTest((void **) &ressch->colsch, &resschcap, sizeof *ressch->colsch, ressch->colschcnt + 1)) { err = ROWREAD_ERR_MEM; goto ERR(); }
-                        sch->colsch[ressch->colschcnt] = sch->colsch[colind];
-                        if (colpos + 1) sch->colsch[ressch->colschcnt].ind = colpos;
-                        
-                        ressch->colschcnt++;
-                        quote = 0;
-                        len = 0;
-                        col++;
-                    }
-                    else { err = ROWREAD_ERR_FORM; goto ERR(); }
-                    
-                    continue;
-                }
-            }
-            else switch (buff[ind])
-            {
-            default:
-                if (quote == 1) { err = ROWREAD_ERR_QUOT; goto ERR(); }
-                break;
-                    
-            case ' ':
-            case '\t': // In 'tab separated value' mode this is overridden
-                switch (quote)
-                {
-                case 0:
-                    if (len) break;
-                    continue;
-                        
-                case 1:
-                    err = ROWREAD_ERR_QUOT;
-                    goto ERR();
-                        
-                case 2: break;
-                }
-                break;
-                    
-            case '\n':
-                if (quote != 2)
-                {
-                    if (!dynamicArrayTest((void **) &temp_buff, &cap, 1, len + 1)) { err = ROWREAD_ERR_MEM; goto ERR(); }
-                    temp_buff[len] = '\0';
-
-                    size_t colpos = SIZE_MAX, colind = sel(temp_buff, len, &colpos, context);
-                   
-                    if (colind < sch->colschcnt)
-                    {
-                        if (!dynamicArrayTest((void **) &ressch->colsch, &resschcap, sizeof *ressch->colsch, ressch->colschcnt + 1)) { err = ROWREAD_ERR_MEM; goto ERR(); }
-                        sch->colsch[ressch->colschcnt] = sch->colsch[colind];
-                        if (colpos + 1) sch->colsch[ressch->colschcnt].ind = colpos;
-                        
-                        quote = 0;
-                        len = col = 0;
-                        row = 1;
-                    }
-                    else { err = ROWREAD_ERR_FORM; goto ERR(); }
-
-                    continue;
-                }
-                else { err = ROWREAD_ERR_QUOT; goto ERR(); }               
-                    
-            case '\"':
-                switch (quote)
-                {
-                case 0:
-                    if (len) break;
-                    quote = 2;
-                    continue;
-                        
-                case 1:
-                    quote++;
-                    break;
-                        
-                case 2:
-                    quote--;
-                    continue;
-                }
-                break;
-            }
-            
-            if (!dynamicArrayTest((void **) &temp_buff, &cap, 1, len + 1)) { err = ROWREAD_ERR_MEM; goto ERR(); }
-            temp_buff[len++] = buff[ind];
-        }
-    }
-    
-    if (!dynamicArrayFinalize((void **) &ressch->colsch, &resschcap, sizeof *ressch->colsch, ressch->colschcnt)) goto ERR();
-    
-    for (;;)
-    {
-        break;
-    
-    ERR():
-        tblschDispose(ressch);
-        ressch = NULL;
-        break;
-    }
-    
-    free(temp_buff);
-    if (res) *res = (rowReadRes) { .read = 1, .col = col, .byte = byte + ind, .err = err };
-    
-    return ressch;
-}
-
-
-bool rowWrite(FILE *f, tblsch *sch, void **tbl, void **context, size_t rowskip, size_t rowread, size_t byteread, rowReadRes *res)
+bool row_write(const char *path, int64_t offset, tbl_selector_callback selector, tbl_eol_callback eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
 {
     return 0;
 }
 
-#endif

@@ -326,7 +326,7 @@ static int Main(int argc, char **argv)
     //fclose(f);
 
     struct log log;
-    if (log_init(&log, NULL, BLOCK_WRITE))
+    if (log_init(&log, NULL, BLOCK_WRITE, 0))
     {
         size_t input_cnt = 0;
         char **input = NULL;

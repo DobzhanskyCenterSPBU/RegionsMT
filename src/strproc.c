@@ -98,23 +98,16 @@ uint64_t str_to_uint64(const char *str, char **ptr)
     return (uint64_t) strtoull(str, ptr, 10);
 }
 
-uint32_t str_to_uint32(const char *str, char **ptr)
-{
-    unsigned long res = strtoul(str, ptr, 10);
-    return (uint32_t) MIN(res, UINT32_MAX); // In the case of 'unsigned long' is the 64 bit integer
-}
+#define DECLARE_STR_TO_INTEGER(TYPE, SUFFIX, LIMIT) \
+    TYPE str_to_ ## SUFFIX(const char *str, char **ptr) \
+    { \
+        unsigned long res = strtoul(str, ptr, 10); \
+        return (TYPE) MIN(res, (LIMIT)); \
+    }
 
-uint16_t str_to_uint16(const char *str, char **ptr)
-{
-    unsigned long res = strtoul(str, ptr, 10);
-    return (uint16_t) MIN(res, UINT16_MAX);
-}
-
-uint8_t str_to_uint8(const char *str, char **ptr)
-{
-    unsigned long res = strtoul(str, ptr, 10);
-    return (uint8_t) MIN(res, UINT8_MAX);
-}
+DECLARE_STR_TO_INTEGER(uint32_t, uint32, UINT32_MAX)
+DECLARE_STR_TO_INTEGER(uint16_t, uint16, UINT16_MAX)
+DECLARE_STR_TO_INTEGER(uint8_t, uint8, UINT8_MAX)
 
 #define DECLARE_INTEGER_HANDLER(TYPE, PREFIX, CONV) \
     bool PREFIX ## _handler(const char *str, size_t len, void *Ptr, void *Context) \

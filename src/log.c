@@ -63,15 +63,15 @@ bool message_var_crt(char *buff, size_t *p_buff_cnt, void *context, const char *
     return 1;
 }
 
-bool log_init(struct log *restrict log, char *restrict path, size_t cnt)
+bool log_init(struct log *restrict log, char *restrict path, size_t buff_cap, bool append)
 {
-    if (array_init(&log->buff, &log->buff_cap, cnt, sizeof(*log->buff), 0, 0))
+    if (array_init(&log->buff, &log->buff_cap, buff_cap, sizeof(*log->buff), 0, 0))
     {
         log->buff_cnt = 0;
-        log->buff_lim = cnt;
+        log->buff_lim = buff_cap;
         if (path)
         {
-            log->file = fopen(path, "wt");
+            log->file = fopen(path, append ? "at" : "wt");
             if (log->file) return 1;
         }
         else
@@ -101,8 +101,22 @@ bool log_flush(struct log *restrict log)
 void log_close(struct log *restrict log)
 {
     log_flush(log);
-    if (log->file && log->file != stderr) fclose(log->file);
+    if (log->file != stderr) Fclose(log->file);
     free(log->buff);
+}
+
+bool log_multiple_init(struct log *restrict log_arr, size_t cnt, char *restrict path, size_t buff_cap)
+{
+    size_t i = 0;
+    for (; i < cnt && log_init(log_arr + i, path, buff_cap, 1); i++);
+    if (i == cnt) return 1;
+    for (size_t i = cnt; --i; log_close(log_arr + i));
+    return 0;
+}
+
+void log_multiple_close(struct log *restrict log_arr, size_t cnt)
+{
+    if (cnt) for (size_t i = cnt; --i; log_close(log_arr + i));
 }
 
 static bool log_prefix(char *buff, size_t *p_buff_cnt, struct code_metric code_metric, enum message_type type)
