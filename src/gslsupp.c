@@ -22,9 +22,7 @@ double log_choose(size_t n, size_t m)
 {
     if (m > n) return nan(__func__);
     if (m == n || !m) return 0.;
-    return m > (n >> 1) ? // Addition here may be not associative
-        log_fact(n) - log_fact(n - m) - log_fact(m) : 
-        log_fact(n) - log_fact(m) - log_fact(n - m);
+    return m > (n >> 1) ? log_fact(n) - log_fact(n - m) - log_fact(m) : log_fact(n) - log_fact(m) - log_fact(n - m); // Addition here may be not associative
 }
 
 double pdf_hypergeom(size_t k, size_t n1, size_t n2, size_t t)

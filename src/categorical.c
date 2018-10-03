@@ -27,123 +27,98 @@ static DECLARE_BITS_INIT(size_t, phen)
 
 #define GEN_CNT 3
 
-static size_t gen_pop_cnt_codominant(uint8_t *bits, size_t pop_cnt)
+static size_t gen_pop_cnt_alt_impl(size_t alt, uint8_t *bits, size_t pop_cnt)
 {
-    (void) bits;
-    return pop_cnt;
-}
-
-static size_t gen_pop_cnt_recessive(uint8_t *bits, size_t pop_cnt)
-{
-    return pop_cnt == 2 ? bits[0] == (1 | 4) || bits[0] == (2 | 4) ? 2 : 1 : MIN(pop_cnt, 2);
-}
-
-static size_t gen_pop_cnt_dominant(uint8_t *bits, size_t pop_cnt)
-{
-    return pop_cnt == 2 ? bits[0] == (1 | 2) || bits[0] == (1 | 4) ? 2 : 1 : MIN(pop_cnt, 2);
-}
-
-static size_t gen_pop_cnt_allelic(uint8_t *bits, size_t pop_cnt)
-{
-    (void) bits;
-    return MIN(pop_cnt, 2);
-}
-
-static void gen_shuffle_codominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
-{
-    (void) pop_cnt;
-    switch (bits[0])
+    switch (alt)
     {
-    case (1 | 2 | 4):
-        dst[2] = src[2];
-    case (1 | 2):
-        dst[0] = src[0];
-        dst[1] = src[1];
-        break;
-    case (1 | 4):
-        dst[0] = src[0];
-        dst[1] = src[2];
-        break;
-    case (2 | 4):
-        dst[0] = src[1];
-        dst[1] = src[2];
-        break;
+    case 0: // codominant
+        return pop_cnt;
+    case 1: // recessive
+        return pop_cnt == 2 ? bits[0] == (1 | 4) || bits[0] == (2 | 4) ? 2 : 1 : MIN(pop_cnt, 2);
+    case 2: // dominant
+        return pop_cnt == 2 ? bits[0] == (1 | 2) || bits[0] == (1 | 4) ? 2 : 1 : MIN(pop_cnt, 2);
+    default: // allelic
+        return MIN(pop_cnt, 2);
     }
 }
 
-static void gen_shuffle_recessive(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
+static void gen_shuffle_alt_impl(size_t alt, size_t *dst, size_t *src, uint8_t *bits)
 {
-    (void) pop_cnt;
-    switch (bits[0])
+    switch (alt)
     {
-    case (1 | 2 | 4):
-        dst[0] = src[0] + src[1];
-        dst[1] = src[2];
+    case 0: // codominant
+        switch (bits[0])
+        {
+        case (1 | 2 | 4):
+            dst[2] = src[2];
+        case (1 | 2):
+            dst[0] = src[0];
+            dst[1] = src[1];
+            break;
+        case (1 | 4):
+            dst[0] = src[0];
+            dst[1] = src[2];
+            break;
+        case (2 | 4):
+            dst[0] = src[1];
+            dst[1] = src[2];
+            break;
+        }
         break;
-    case (2 | 4):
-        dst[0] = src[1];
-        dst[1] = src[2];
-    case (1 | 4):
-        dst[0] = src[0];
-        dst[1] = src[2];
+    case 1: // recessive
+        switch (bits[0])
+        {
+        case (1 | 2 | 4):
+            dst[0] = src[0] + src[1];
+            dst[1] = src[2];
+            break;
+        case (2 | 4):
+            dst[0] = src[1];
+            dst[1] = src[2];
+        case (1 | 4):
+            dst[0] = src[0];
+            dst[1] = src[2];
+            break;
+        }
+        break;
+    case 2: // dominant
+        switch (bits[0])
+        {
+        case (1 | 2 | 4):
+            dst[0] = src[0];
+            dst[1] = src[1] + src[2];
+            break;
+        case (1 | 4):
+            dst[0] = src[0];
+            dst[1] = src[2];
+            break;
+        case (1 | 2):
+            dst[0] = src[0];
+            dst[1] = src[1];
+            break;
+        }
+        break;
+    case 3: // allelic
+        switch (bits[0])
+        {
+        case (1 | 2 | 4):
+            dst[0] = 2 * src[0] + src[1];
+            dst[1] = src[1] + 2 * src[2];
+            break;
+        case (2 | 4):
+            dst[0] = src[1];
+            dst[1] = src[1] + 2 * src[2];
+        case (1 | 4):
+            dst[0] = src[0];
+            dst[1] = src[1];
+            break;
+        case (1 | 2):
+            dst[0] = 2 * src[0] + src[1];
+            dst[1] = src[1];
+            break;
+        }
         break;
     }
-}
-
-static void gen_shuffle_dominant(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
-{
-    (void) pop_cnt;
-    switch (bits[0])
-    {
-    case (1 | 2 | 4):
-        dst[0] = src[0];
-        dst[1] = src[1] + src[2];
-        break;
-    case (1 | 4):
-        dst[0] = src[0];
-        dst[1] = src[2];
-        break;
-    case (1 | 2):
-        dst[0] = src[0];
-        dst[1] = src[1];
-        break;
-    }
-}
-
-static void gen_shuffle_allelic(size_t *dst, size_t *src, uint8_t *bits, size_t pop_cnt)
-{
-    (void) pop_cnt;
-    switch (bits[0])
-    {
-    case (1 | 2 | 4):
-        dst[0] = 2 * src[0] + src[1];
-        dst[1] = src[1] + 2 * src[2];
-        break;
-    case (2 | 4):
-        dst[0] = src[1];
-        dst[1] = src[1] + 2 * src[2];
-    case (1 | 4):
-        dst[0] = src[0];
-        dst[1] = src[1];
-        break;
-    case (1 | 2):
-        dst[0] = 2 * src[0] + src[1];
-        dst[1] = src[1];
-        break;
-    }
-}
-
-typedef size_t (*gen_pop_cnt_alt_callback)(uint8_t *, size_t);
-typedef void (*gen_shuffle_alt_callback)(size_t *, size_t *, uint8_t *, size_t);
-
-gen_pop_cnt_alt_callback get_gen_pop_cnt_alt(size_t ind)
-{
-    return (gen_pop_cnt_alt_callback[]) { gen_pop_cnt_codominant, gen_pop_cnt_recessive, gen_pop_cnt_dominant, gen_pop_cnt_allelic }[ind];
-}
-
-gen_shuffle_alt_callback get_gen_shuffle_alt(size_t ind)
-{
-    return (gen_shuffle_alt_callback[]) { gen_shuffle_codominant, gen_shuffle_recessive, gen_shuffle_dominant, gen_shuffle_allelic }[ind];
 }
 
 struct categorical_snp_data {
@@ -218,7 +193,7 @@ static size_t gen_pop_cnt_alt_init(size_t *gen_pop_cnt_alt, uint8_t *gen_bits, s
     size_t res = 0;
     for (size_t i = 0; i < ALT_CNT; i++, flags >>= 1) if (flags & 1)
     {
-        size_t tmp = get_gen_pop_cnt_alt(i)(gen_bits, gen_pop_cnt);
+        size_t tmp = gen_pop_cnt_alt_impl(i, gen_bits, gen_pop_cnt);
         if (tmp < 2) continue;
         gen_pop_cnt_alt[i] = tmp;
         res++;
@@ -235,13 +210,13 @@ static void contingency_table_init(size_t *table, uint8_t *gen, size_t *phen, si
     }
 }
 
-void contingency_table_shuffle(size_t *dst, size_t *src, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt, gen_shuffle_alt_callback gen_shuffle_alt)
+static void contingency_table_shuffle_alt_impl(size_t alt, size_t *dst, size_t *src, uint8_t *gen_bits, size_t gen_pop_cnt, uint8_t *phen_bits, size_t phen_pop_cnt)
 {
     size_t off = 0;
     for (size_t i = 0, j = 0; i < phen_pop_cnt; i++, j += GEN_CNT)
     {
         if (!uint8_bit_test(phen_bits, i)) continue;
-        gen_shuffle_alt(dst + off, src + j, gen_bits, gen_pop_cnt);
+        gen_shuffle_alt_impl(alt, dst + off, src + j, gen_bits);
         off += gen_pop_cnt;
     }
 }
@@ -263,17 +238,17 @@ static void phen_mar_init(size_t *table, size_t *phen_mar, size_t gen_pop_cnt, s
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; phen_mar[i] += table[j + gen_pop_cnt * i], j++);
 }
 
-static void outer_prod_chisq(size_t *table, double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static void outer_prod_chisq_impl(size_t *table, double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
         outer[j + gen_pop_cnt * i] = (double) gen_mar[j] * (double) phen_mar[i] / (double) gen_phen_mar;
 }
 
-static bool outer_prod_combined(size_t *table, double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static bool outer_prod_combined_impl(size_t *table, double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     if (gen_pop_cnt > 2 || phen_pop_cnt > 2)
     {
-        outer_prod_chisq(table, outer, gen_mar, phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
+        outer_prod_chisq_impl(table, outer, gen_mar, phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
         return 1;
     }
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
@@ -329,8 +304,9 @@ static double qas_chisq(size_t *table, size_t *gen_mar, size_t *phen_mar, size_t
         size_t m = i * gen_mar[i];
         s += m, s2 += i * m;
     }
-    double corr = (double) (st * gen_phen_mar - s * t) / sqrt((double) (s2 * gen_phen_mar - s * s) * (double) (t2 * gen_phen_mar - t * t));
-    return .5 * (log10(1. + corr) - log10(1. - corr));
+    size_t bor;
+    double a = (double) size_sub(&bor, st * gen_phen_mar, s * t), b = sqrt((double) ((s2 * gen_phen_mar - s * s) * (t2 * gen_phen_mar - t * t)));
+    return bor ? .5 * (log10(b + a) - log10(b - a)) : .5 * (log10(b - a) - log10(b + a));
 }
 
 static void perm_init(size_t *perm, size_t cnt, gsl_rng *rng)
@@ -372,7 +348,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         size_t gen_pop_cnt = gen_pop_cnt_alt[i];
         if (!gen_pop_cnt) continue;
 
-        contingency_table_shuffle(supp->table, supp->table + table_disp, gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
+        contingency_table_shuffle_alt_impl(i, supp->table, supp->table + table_disp, gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
 
         // Computing sums
         size_t gen_mar[GEN_CNT] = { 0 }, gen_phen_mar = 0;
@@ -380,7 +356,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         gen_phen_mar_init(supp->table, gen_mar, supp->phen_mar, &gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
 
         // Computing test statistic and qas
-        if (outer_prod_combined(supp->table, supp->outer, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt))
+        if (outer_prod_combined_impl(supp->table, supp->outer, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt))
         {
             supp->nlpv[i] = stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
             supp->qas[i] = qas_chisq(supp->table, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
@@ -429,12 +405,12 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
             size_t gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[i];
             if (!gen_pop_cnt) continue;
 
-            contingency_table_shuffle(supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
+            contingency_table_shuffle_alt_impl(i, supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
 
             // Computing sums
             memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
             gen_phen_mar_init(supp->table, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar + i, gen_pop_cnt, phen_pop_cnt);
-            outer_prod_chisq(supp->table, supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
+            outer_prod_chisq_impl(supp->table, supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
             density[i] += stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
             density_cnt[i]++;
         }
@@ -479,12 +455,12 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
                 size_t gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[i];
                 if (!gen_pop_cnt) continue;
 
-                contingency_table_shuffle(supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt, get_gen_shuffle_alt(i));
+                contingency_table_shuffle_alt_impl(i, supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
 
                 // Computing sums
                 memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
                 phen_mar_init(supp->table, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
-                outer_prod_chisq(supp->table, supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
+                outer_prod_chisq_impl(supp->table, supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
                 density_perm[i] += stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
                 density_perm_cnt[i]++;
             }

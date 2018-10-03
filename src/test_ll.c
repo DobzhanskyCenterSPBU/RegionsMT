@@ -157,7 +157,7 @@ void test_ll_perf(struct log *log)
         }
     }
     printf("Sum: %d\n", cnt);
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "Branched comparison");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Branched comparison");
 
     cnt = 0;
     start = get_time();
@@ -170,7 +170,7 @@ void test_ll_perf(struct log *log)
         }
     }
     printf("Sum: %d\n", cnt);
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "SIMD comparison");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "SIMD comparison");
 }
 
 #if 0

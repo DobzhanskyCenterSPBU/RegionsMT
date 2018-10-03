@@ -13,12 +13,12 @@ struct log {
 };
 
 enum message_type { 
-    MESSAGE_TYPE_DEFAULT = 0,
-    MESSAGE_TYPE_ERROR,
-    MESSAGE_TYPE_WARNING,
-    MESSAGE_TYPE_NOTE,
-    MESSAGE_TYPE_INFO,
-    MESSAGE_TYPE_RESERVED
+    MESSAGE_DEFAULT = 0,
+    MESSAGE_ERROR,
+    MESSAGE_WARNING,
+    MESSAGE_NOTE,
+    MESSAGE_INFO,
+    MESSAGE_RESERVED
 };
 
 typedef bool (*message_callback)(char *, size_t *, void *);
@@ -49,9 +49,9 @@ bool message_var_crt(char *, size_t *, void *, const char *, va_list);
         .line = __LINE__, \
     }
 
-bool log_init(struct log *restrict, char *restrict, size_t, bool);
+bool log_init(struct log *restrict, char *restrict, size_t, bool, struct log *restrict);
 void log_close(struct log *restrict);
-bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t);
+bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, struct log *restrict);
 void log_multiple_close(struct log *restrict, size_t);
 bool log_flush(struct log *restrict);
 bool log_message(struct log *restrict, struct code_metric, enum message_type, message_callback, void *);

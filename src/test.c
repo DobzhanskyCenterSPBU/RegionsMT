@@ -15,7 +15,7 @@ bool test(struct test_group *group_arr, struct log *log)
     size_t test_data_sz = 0;
     for (size_t i = 0; i < countof(group_arr); i++) if (test_data_sz < group_arr[i].test_sz) test_data_sz = group_arr[i].test_sz;    
     void *test_data = NULL;
-    if (!array_init(&test_data, NULL, test_data_sz, 1, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!array_init(&test_data, NULL, test_data_sz, 1, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     {
         for (size_t i = 0; i < countof(group_arr); i++)
         {
@@ -25,11 +25,11 @@ bool test(struct test_group *group_arr, struct log *log)
                 size_t context = 0;
                 do {
                     size_t ind = context;
-                    if (!group->test_generator[j](test_data, &context, log)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+                    if (!group->test_generator[j](test_data, &context, log)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
                     else
                     {
                         for (size_t k = 0; k < group->test_cnt; k++)
-                            if (!group->test[k](test_data, log)) log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_WARNING, "Test no. %zu of the group no. %zu failed under the input data instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
+                            if (!group->test[k](test_data, log)) log_message_generic(log, CODE_METRIC, MESSAGE_WARNING, "Test no. %zu of the group no. %zu failed under the input data instance no. %zu of the generator no. %zu!\n", k + 1, i + 1, ind + 1, j + 1);
                         if (group->test_disposer) group->test_disposer(test_data);
                     }
                 } while (context);
@@ -37,7 +37,7 @@ bool test(struct test_group *group_arr, struct log *log)
         }
         free(test_data);
     }
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "Tests execution");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Tests execution");
     return 1;
 }
 
@@ -47,6 +47,6 @@ bool perf(struct log *log)
 
     // Performance tests here
 
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_TYPE_INFO, start, get_time(), "Performance tests execution");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Performance tests execution");
     return 1;
 }

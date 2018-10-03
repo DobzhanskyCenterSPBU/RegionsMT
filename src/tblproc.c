@@ -128,38 +128,34 @@ static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context
 
 static bool log_message_error_row_read(struct log *restrict log, struct code_metric code_metric, const char *path, int64_t offset, uint64_t byte, size_t row, size_t col, enum row_read_status status, char *str, size_t len)
 {
-    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_error_row_read, &(struct row_read_context) { .byte = byte, .row = row, .col = col, .path = path, .offset = offset, .status = status, .str = str, .len = len });
+    return log_message(log, code_metric, MESSAGE_ERROR, message_error_row_read, &(struct row_read_context) { .byte = byte, .row = row, .col = col, .path = path, .offset = offset, .status = status, .str = str, .len = len });
 }
 
 bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, tbl_eol_callback eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
 {
+    bool succ = 0;
     size_t row_skip = p_row_skip ? *p_row_skip : 0, row_cnt = p_row_cnt ? *p_row_cnt : 0, length = p_length ? *p_length : 0;
 
     // This guarantees that all conditions of type 'byte + rd < length' will be eventually triggered.
-    if (length && length > SIZE_MAX - BLOCK_READ)
-    {
-        log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_ERROR, "Invalid value of the parameter!\n");
-        return 0;
-    }
+    if (length && length > SIZE_MAX - BLOCK_READ) log_message_generic(log, CODE_METRIC, MESSAGE_ERROR, "Invalid value of the parameter!\n");
+    else succ = 1;
 
+    if (!succ) return 0;
+    succ = 0;
     FILE *f = fopen(path, "rt");
-    if (!f)
-    {
-        log_message_fopen(log, CODE_METRIC, MESSAGE_TYPE_ERROR, path, errno);
-        return 0;
-    }
+    if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno);
+    else succ = 1;
 
-    bool succ = 0;
+    if (!succ) return 0;
+    succ = 0;
     char buff[BLOCK_READ] = { '\0' }, *temp_buff = NULL;
     size_t rd = fread(buff, 1, sizeof(buff), f), ind = 0, skip = row_skip;
     uint64_t byte = 0;
-
-    if (offset && Fseeki64(f, offset, SEEK_CUR))
-    {
-        log_message_fseek(log, CODE_METRIC, MESSAGE_TYPE_ERROR, offset, path);
-        goto error;
-    }
-
+    if (offset && Fseeki64(f, offset, SEEK_CUR)) log_message_fseek(log, CODE_METRIC, MESSAGE_ERROR, offset, path);
+    else succ = 1;
+        
+    if (!succ) goto error;
+    succ = 0;
     for (; rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
     {
         for (char *ptr = memchr(buff, '\n', rd); skip && ptr && (!length || (size_t) (ptr - buff) < (size_t) (length - byte)); skip--, ind = ptr - buff + 1, ptr = memchr(ptr + 1, '\n', buff + rd - ptr - 1));
@@ -185,16 +181,19 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                         if (cl.handler.read)
                         {
                             temp_buff[len] = '\0';
-                            if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
-                            {
-                                log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE, temp_buff, len);
-                                goto error;
-                            }
+                            if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE, temp_buff, len);
+                            else succ = 1;
                         }
-                        quote = 0;
-                        len = 0;
-                        col++;
-                        continue;
+                        else succ = 1;
+
+                        if (succ)
+                        {
+                            succ = 0;
+                            quote = 0;
+                            len = 0;
+                            col++;
+                            continue;
+                        }
                     }
                     goto error;
                 }
@@ -229,17 +228,23 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                         if (cl.handler.read)
                         {
                             temp_buff[len] = '\0';
-                            if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context))
+                            if (!cl.handler.read(temp_buff, len, cl.ptr, cl.context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE, temp_buff, len);
+                            else succ = 1;
+                        }
+                        else succ = 1;
+
+                        if (succ)
+                        {
+                            succ = 0;
+                            if (eol && !eol(row, col, res, context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_EOL, NULL, 0);
+                            else
                             {
-                                log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_VALUE, temp_buff, len);
-                                goto error;
+                                quote = 0;
+                                len = col = 0;
+                                row++;
+                                continue;
                             }
                         }
-                        if (eol && !eol(row, col, res, context)) log_message_error_row_read(log, CODE_METRIC, path, offset, byte + ind, row + row_skip, col, ROW_READ_STATUS_UNHANDLED_EOL, NULL, 0);
-                        quote = 0;
-                        len = col = 0;
-                        row++;
-                        continue;
                     }
                 }
                 goto error;
@@ -250,18 +255,16 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                     if (len) break;
                     quote = 2;
                     continue;
-
                 case 1:
                     quote++;
                     break;
-
                 case 2:
                     quote--;
                     continue;
                 }
                 break;
             }
-            if (!array_test(&temp_buff, &cap, sizeof(*temp_buff), 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+            if (!array_test(&temp_buff, &cap, sizeof(*temp_buff), 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
             else
             {
                 temp_buff[len++] = buff[ind];

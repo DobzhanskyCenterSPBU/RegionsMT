@@ -86,19 +86,19 @@ static bool test_main(struct log *log)
 }
 
 // Main routine arguments management
-static struct main_args main_args_default()
+struct main_args main_args_default()
 {
     struct main_args res = { .thread_cnt = get_processor_count() };
     uint8_bit_set(res.bits, MAIN_ARGS_BIT_POS_THREAD_CNT);
     return res;
 }
 
-static struct main_args main_args_override(struct main_args args_hi, struct main_args args_lo)
+struct main_args main_args_override(struct main_args args_hi, struct main_args args_lo)
 {
     struct main_args res = { .log_path = args_hi.log_path ? args_hi.log_path : args_lo.log_path };
+    if (res.log_path && !strcmp(res.log_path, "stderr")) res.log_path = NULL;
     memcpy(res.bits, args_hi.bits, UINT8_CNT(MAIN_ARGS_BIT_CNT));
-    if (uint8_bit_test(args_hi.bits, MAIN_ARGS_BIT_POS_THREAD_CNT))
-        res.thread_cnt = args_hi.thread_cnt;
+    if (uint8_bit_test(args_hi.bits, MAIN_ARGS_BIT_POS_THREAD_CNT)) res.thread_cnt = args_hi.thread_cnt;
     else
     {
         res.thread_cnt = args_lo.thread_cnt;
@@ -326,7 +326,7 @@ static int Main(int argc, char **argv)
     //fclose(f);
 
     struct log log;
-    if (log_init(&log, NULL, BLOCK_WRITE, 0))
+    if (log_init(&log, NULL, BLOCK_WRITE, 0, NULL))
     {
         size_t input_cnt = 0;
         char **input = NULL;
@@ -337,11 +337,11 @@ static int Main(int argc, char **argv)
             if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
                 // Help code
-                log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_INFO, "Help mode triggered!\n");
+                log_message_generic(&log, CODE_METRIC, MESSAGE_INFO, "Help mode triggered!\n");
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
-                log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_INFO, "Test mode triggered!\n");
+                log_message_generic(&log, CODE_METRIC, MESSAGE_INFO, "Test mode triggered!\n");
                 test_main(&log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
@@ -354,7 +354,7 @@ static int Main(int argc, char **argv)
             }
             else
             {
-                if (!input_cnt) log_message_generic(&log, CODE_METRIC, MESSAGE_TYPE_NOTE, "No input data specified.\n");
+                if (!input_cnt) log_message_generic(&log, CODE_METRIC, MESSAGE_NOTE, "No input data specified.\n");
                 else
                 {
                     

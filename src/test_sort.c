@@ -13,7 +13,7 @@ bool test_sort_generator_a_1(void *dst, size_t *p_context, struct log *log)
 {
     size_t context = *p_context, cnt = (size_t) 1 << context;
     double *arr;
-    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         for (size_t i = 0; i < cnt; i++) arr[i] = (double) (QUICK_SORT_CUTOFF * (i / QUICK_SORT_CUTOFF)) - (double) (i % QUICK_SORT_CUTOFF);
@@ -29,7 +29,7 @@ bool test_sort_generator_a_2(void *dst, size_t *p_context, struct log *log)
 {
     size_t cnt = ((QUICK_SORT_CUTOFF + 1) << 1) + 1, hcnt = cnt >> 1;
     double *arr;
-    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         for (size_t i = 0; i < hcnt; i++) arr[i] = -(double) (i + 1);
@@ -45,7 +45,7 @@ bool test_sort_generator_b_1(void *dst, size_t *p_context, struct log *log)
 {
     size_t context = *p_context, ucnt = context * context + 13, cnt = ((size_t) 1 << context) + ucnt;
     double *arr;
-    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         for (size_t i = 0; i < cnt; i++) arr[i] = (double) ((i + 13) % ucnt);
@@ -86,7 +86,7 @@ bool test_sort_a(void *In, struct log *log)
     bool succ = 0;
     struct test_sort_a *in = In;
     double *arr;
-    if (!array_init(&arr, NULL, in->cnt, in->sz, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!array_init(&arr, NULL, in->cnt, in->sz, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         memcpy(arr, in->arr, in->cnt * in->sz);
@@ -106,7 +106,7 @@ bool test_sort_b_1(void *In, struct log *log)
     struct test_sort_b *in = In;
     size_t ucnt = in->cnt;
     uintptr_t *ord = orders_stable_unique(in->arr, &ucnt, in->sz, flt64_stable_cmp_dsc, NULL);
-    if (!ord) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!ord) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         if (ucnt == in->ucnt)
@@ -126,15 +126,15 @@ bool test_sort_b_2(void *In, struct log *log)
     struct test_sort_b *in = In;
     size_t ucnt = in->cnt;
     uintptr_t *ord = orders_stable_unique(in->arr, &ucnt, in->sz, flt64_stable_cmp_dsc, NULL);
-    if (!ord) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!ord) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         double *arr;
-        if (!array_init(&arr, NULL, ucnt, in->sz, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+        if (!array_init(&arr, NULL, ucnt, in->sz, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
             memcpy(arr, in->arr, in->ucnt * in->sz);
-            if (!orders_apply(ord, ucnt, in->sz, arr)) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+            if (!orders_apply(ord, ucnt, in->sz, arr)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
             else
             {
                 size_t ind = 1;

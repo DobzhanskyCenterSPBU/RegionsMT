@@ -6,6 +6,8 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+DECLARE_PATH
+
 bool message_time_diff(char *buff, size_t *p_buff_cnt, void *Context)
 {
     struct time_diff *context = Context;
@@ -63,16 +65,19 @@ bool message_var_crt(char *buff, size_t *p_buff_cnt, void *context, const char *
     return 1;
 }
 
-bool log_init(struct log *restrict log, char *restrict path, size_t buff_cap, bool append)
+// Last argument may be 'NULL'
+bool log_init(struct log *restrict log, char *restrict path, size_t buff_cap, bool append, struct log *restrict log_error)
 {
-    if (array_init(&log->buff, &log->buff_cap, buff_cap, sizeof(*log->buff), 0, 0))
+    if (!array_init(&log->buff, &log->buff_cap, buff_cap, sizeof(*log->buff), 0, 0)) log_message_crt(log_error, CODE_METRIC, MESSAGE_ERROR, errno);
+    else
     {
         log->buff_cnt = 0;
         log->buff_lim = buff_cap;
         if (path)
         {
             log->file = fopen(path, append ? "at" : "wt");
-            if (log->file) return 1;
+            if (!log->file) log_message_fopen(log_error, CODE_METRIC, MESSAGE_ERROR, path, errno);
+            else return 1;
         }
         else
         {
@@ -98,6 +103,7 @@ bool log_flush(struct log *restrict log)
     return 1;
 }
 
+// May be used for 'log' allocated by 'calloc' (or filled with zeros statically)
 void log_close(struct log *restrict log)
 {
     log_flush(log);
@@ -105,10 +111,10 @@ void log_close(struct log *restrict log)
     free(log->buff);
 }
 
-bool log_multiple_init(struct log *restrict log_arr, size_t cnt, char *restrict path, size_t buff_cap)
+bool log_multiple_init(struct log *restrict log_arr, size_t cnt, char *restrict path, size_t buff_cap, struct log *restrict log_error)
 {
     size_t i = 0;
-    for (; i < cnt && log_init(log_arr + i, path, buff_cap, 1); i++);
+    for (; i < cnt && log_init(log_arr + i, path, buff_cap, 1, log_error); i++);
     if (i == cnt) return 1;
     for (size_t i = cnt; --i; log_close(log_arr + i));
     return 0;
@@ -125,7 +131,7 @@ static bool log_prefix(char *buff, size_t *p_buff_cnt, struct code_metric code_m
     time(&t);
     struct tm ts;
     Localtime_s(&ts, &t);
-    const char *title[] = { "MESSAGE", "ERROR", "WARNING", "NOTE", "INFO" };
+    const char *title[] = { "MESSAGE", "ERROR", "WARNING", "NOTE", "INFO", "DAMNATION" };
     size_t buff_cnt = *p_buff_cnt, len = strftime(buff, buff_cnt, "[%Y-%m-%d %H:%M:%S UTC%z] ", &ts);
     if (len)
     {

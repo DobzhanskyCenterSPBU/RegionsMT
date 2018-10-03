@@ -42,7 +42,7 @@ static bool message_utf8_test(char *buff, size_t *p_buff_cnt, void *Context)
 
 static bool log_message_error_utf8_test(struct log *restrict log, struct code_metric code_metric, enum utf8_test_obituary obituary)
 {
-    return log_message(log, code_metric, MESSAGE_TYPE_ERROR, message_utf8_test, &obituary);
+    return log_message(log, code_metric, MESSAGE_ERROR, message_utf8_test, &obituary);
 }
 
 bool test_utf8_generator(void *dst, size_t *p_context, struct log *log)

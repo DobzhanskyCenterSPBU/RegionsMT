@@ -14,7 +14,8 @@ void module_root_context_dispose(void *Context)
 
 void module_root_out_dispose(struct module_root_out *out)
 {
-    log_multiple_close(out->thread_log, );
+    log_multiple_close(out->thread_log, out->thread_cnt);
+    log_close(&out->log);
     free(out->thread_log);
     free(out);
 }
@@ -26,21 +27,24 @@ bool module_root_prologue(void *In, void **p_Out, void *Context)
     context->base = main_args_override(context->base, *in->main_args);
 
     struct module_root_out *out = *p_Out = calloc(1, sizeof(*out));
-    if (!out) log_message_crt(in->main_log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!out) log_message_crt(in->main_log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         out->initime = get_time();
-        if (!array_init(&out->thread_log, NULL, context->base.thread_cnt, sizeof(*out->thread_log), 0, ARRAY_STRICT)) log_message_crt(in->main_log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+        size_t thread_cnt = out->thread_cnt = context->base.thread_cnt;
+        if (!array_init(&out->thread_log, NULL, thread_cnt, sizeof(*out->thread_log), 0, ARRAY_STRICT | ARRAY_CLEAR)) log_message_crt(in->main_log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
-            if (!log_multiple_init(out->thread_log, context->base.thread_cnt, NULL, BLOCK_WRITE)) log_message_crt(in->main_log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+            if (log_init(&out->log, context->base.log_path, BLOCK_WRITE, 0, in->main_log) &&
+                log_multiple_init(out->thread_log, thread_cnt, NULL, BLOCK_WRITE, in->main_log))
             {
 
             }
-
+            log_multiple_close(out->thread_log, out->thread_cnt);
+            log_close(&out->log);
         }
         
-
+/*
             if (context->)
                 log_init(out->log, );
 
@@ -66,13 +70,14 @@ bool module_root_prologue(void *In, void **p_Out, void *Context)
 
         if (mysql_library_init(0, NULL, NULL)) goto ERR(MySQL); // This should be done only once
         else bitSet(out->bits, FRAMEWORKOUT_BIT_POS_MYSQL);
-
+*/
 
     }
 
     return 0;
 }
 
+/*
 bool frameworkEpilogue(void *In, void *Out, void *Context)
 {
     const char *strings[] =
@@ -123,4 +128,4 @@ bool frameworkEpilogue(void *In, void *Out, void *Context)
     return 1;
 }
 
-#endif
+*/

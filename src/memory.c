@@ -18,16 +18,14 @@ enum array_status array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, si
         size_t bor, tmp = size_sub(&bor, cnt, *p_cap);
         if (bor) // cnt < cap
         {
-            if (!(flags & ARRAY_REDUCE)) 
-                return ARRAY_NO_CHANGE;
+            if (!(flags & ARRAY_REDUCE)) return ARRAY_NO_CHANGE;
             size_t tot = cnt * sz + diff; // No checks for overflows
             void *res = realloc(src, tot);
             *p_src = res;
             *p_cap = cnt;
             return !(tot && !res);
         }
-        else if (!tmp) // cnt == cap
-            return ARRAY_NO_CHANGE;
+        else if (!tmp) return ARRAY_NO_CHANGE; // cnt == cap            
     }
     if (!(flags & ARRAY_STRICT))
     {
@@ -99,15 +97,15 @@ void queue_close(struct queue *restrict queue)
     free(queue->arr);
 }
 
-bool queue_test(struct queue *restrict queue, size_t diff)
+enum array_status queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;
     switch (array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff))) 
     {
     case ARRAY_FAILURE:
-        return 0;
+        return ARRAY_FAILURE;
     case ARRAY_NO_CHANGE:
-        return 1; // Queue has already enough space
+        return ARRAY_NO_CHANGE; // Queue has already enough space
     default:
         break;
     }
@@ -131,7 +129,7 @@ bool queue_test(struct queue *restrict queue, size_t diff)
         else memcpy((char *) queue->arr + queue->cap * queue->sz, queue->arr, left * queue->sz);
     }
     queue->cap = cap;
-    return 1;
+    return ARRAY_SUCCESS;
 }
 
 void *queue_peek(struct queue *restrict queue, size_t offset)
@@ -179,11 +177,12 @@ static void queue_enqueue_hi(struct queue *restrict queue, void *restrict arr, s
     queue->cnt += cnt;
 }
 
-bool queue_enqueue(struct queue *restrict queue, bool hi, void *restrict arr, size_t cnt)
+enum array_status queue_enqueue(struct queue *restrict queue, bool hi, void *restrict arr, size_t cnt)
 {
-    if (!queue_test(queue, cnt)) return 0;
+    enum array_status status = queue_test(queue, cnt);
+    if (!status) return 0;
     (hi ? queue_enqueue_hi : queue_enqueue_lo)(queue, arr, cnt);
-    return 1;
+    return status;
 }
 
 void queue_dequeue(struct queue *restrict queue, size_t offset)

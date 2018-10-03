@@ -30,9 +30,9 @@ struct queue {
 
 void queue_close(struct queue *restrict);
 bool queue_init(struct queue *restrict, size_t, size_t);
-bool queue_test(struct queue *restrict, size_t);
+enum array_status queue_test(struct queue *restrict, size_t);
 void *queue_peek(struct queue *restrict, size_t);
-bool queue_enqueue(struct queue *restrict, bool, void *restrict, size_t);
+enum array_status queue_enqueue(struct queue *restrict, bool, void *restrict, size_t);
 void queue_dequeue(struct queue *restrict, size_t);
 
 struct persistent_array {

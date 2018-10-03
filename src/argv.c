@@ -88,7 +88,7 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
 
 static bool log_message_warning_argv(struct log *restrict log, struct code_metric code_metric, char *str, size_t len, size_t ind, enum argv_status status, char *par)
 {
-    return log_message(log, code_metric, MESSAGE_TYPE_WARNING, message_argv, &(struct argv_context) { .status = status, .str = str, .len = len, .ind = ind, .par = par });
+    return log_message(log, code_metric, MESSAGE_WARNING, message_argv, &(struct argv_context) { .status = status, .str = str, .len = len, .ind = ind, .par = par });
 }
 
 bool argv_parse(par_selector_callback selector_long, par_selector_callback selector_shrt, void *context, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cnt, struct log *log)
@@ -145,7 +145,7 @@ bool argv_parse(par_selector_callback selector_long, par_selector_callback selec
                         str = argv[i] + k;
                         uint8_t utf8_len;
                         uint32_t utf8_val; // Never used
-                        if (!utf8_decode_once((uint8_t *) str, tot, &utf8_val, &utf8_len)) log_message_generic(log, CODE_METRIC, MESSAGE_TYPE_ERROR, "Incorrect UTF-8 byte sequence at the command-line parameter no. %zu (byte: %zu)!\n", i, k + utf8_len + 1);
+                        if (!utf8_decode_once((uint8_t *) str, tot, &utf8_val, &utf8_len)) log_message_generic(log, CODE_METRIC, MESSAGE_ERROR, "Incorrect UTF-8 byte sequence at the command-line parameter no. %zu (byte: %zu)!\n", i, k + utf8_len + 1);
                         else
                         {
                             len = utf8_len;
@@ -173,7 +173,7 @@ bool argv_parse(par_selector_callback selector_long, par_selector_callback selec
                 continue;
             }            
         }
-        if (!array_test(p_input, p_input_cnt, sizeof(**p_input), 0, 0, ARG_SIZE(input_cnt, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+        if (!array_test(p_input, p_input_cnt, sizeof(**p_input), 0, 0, ARG_SIZE(input_cnt, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
             (*p_input)[input_cnt++] = argv[i]; // Storing input file path
@@ -182,7 +182,7 @@ bool argv_parse(par_selector_callback selector_long, par_selector_callback selec
         goto error;
     }
     if (capture) log_message_warning_argv(log, CODE_METRIC, str, len, argv_cnt - 1, capture > 0 ? ARGV_WARNING_MISSING_VALUE_LONG : ARGV_WARNING_MISSING_VALUE_SHRT, NULL);
-    if (!array_test(p_input, p_input_cnt, sizeof(**p_input), 0, ARRAY_REDUCE, ARG_SIZE(input_cnt))) log_message_crt(log, CODE_METRIC, MESSAGE_TYPE_ERROR, errno);
+    if (!array_test(p_input, p_input_cnt, sizeof(**p_input), 0, ARRAY_REDUCE, ARG_SIZE(input_cnt))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else return 1;
 
 error:
