@@ -14,12 +14,6 @@ void Aligned_free(void *ptr)
     _aligned_free(ptr);
 }
 
-int Fclose(FILE *file)
-{
-    if (file) return fclose(file);
-    return 0;
-}
-
 int Fseeki64(FILE *file, int64_t offset, int origin)
 {
     return _fseeki64(file, offset, origin);
@@ -100,6 +94,12 @@ int Strnicmp(const char *a, const char *b, size_t len)
 }
 
 #endif
+
+int Fclose(FILE *file)
+{
+    if (file) return fclose(file);
+    return 0;
+}
 
 size_t Strnlen(const char *str, size_t len)
 {

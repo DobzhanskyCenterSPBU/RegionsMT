@@ -95,7 +95,7 @@ static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context
     size_t cnt = 0, len = *p_buff_cnt;
     for (unsigned i = 0; i < 2; i++)
     {
-        int tmp;
+        int tmp = -1;
         switch (i)
         {
         case 0:
@@ -153,7 +153,9 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
     uint64_t byte = 0;
     if (offset && Fseeki64(f, offset, SEEK_CUR)) log_message_fseek(log, CODE_METRIC, MESSAGE_ERROR, offset, path);
     else succ = 1;
-        
+    
+    size_t row = 0, col = 0, len = 0, cap = 0;
+    
     if (!succ) goto error;
     succ = 0;
     for (; rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f))
@@ -164,7 +166,6 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
     }
     if (p_row_skip) *p_row_skip = row_skip - skip;
 
-    size_t row = 0, col = 0, len = 0, cap = 0;
     uint8_t quote = 0;
     struct tbl_col cl;
     for (; rd; byte += rd, rd = fread(buff, 1, sizeof(buff), f), ind = 0)
@@ -312,7 +313,7 @@ bool tbl_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, vo
 {
     (void) row;
     *cl = (struct tbl_col) {
-        .handler = tbl_head_handler,
+        .handler = { . read = tbl_head_handler },
         .ptr = NULL,
     };
     return 0;

@@ -304,7 +304,7 @@ struct thread_pool *thread_pool_create(size_t cnt, size_t tasks_cnt, size_t stor
                                 if (ind == pool->cnt) return pool;                                
                                 while (ind--)
                                 {
-                                    thread_terminate(pool->thread_arr + ind);
+                                    //thread_terminate(pool->thread_arr + ind);
                                     thread_close(pool->thread_arr + ind);
                                 }
                                 ind = pool->cnt;

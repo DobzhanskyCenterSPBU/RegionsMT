@@ -7,10 +7,10 @@ bool thread_init(thread_handle *p_thread, thread_callback callback, void *args)
     return (*p_thread = (HANDLE) _beginthreadex(NULL, 0, callback, args, 0, NULL)) != INVALID_HANDLE_VALUE;
 }
 
-void thread_terminate(thread_handle *p_thread)
+/*void thread_terminate(thread_handle *p_thread)
 {
     (void) TerminateThread(*p_thread, 0);
-}
+}*/
 
 void thread_wait(thread_handle *p_thread, thread_return *p_out)
 {
@@ -97,11 +97,11 @@ bool thread_init(thread_handle *p_thread, thread_callback callback, void *args)
     return !pthread_create(p_thread, NULL, callback, args);
 }
 
-void thread_terminate(thread_handle *p_thread)
+/*void thread_terminate(thread_handle *p_thread)
 {
     (void) pthread_cancel(*p_thread);
     (void) pthread_join(*p_thread, NULL);
-}
+}*/
 
 void thread_wait(thread_handle *p_thread, thread_return *p_out)
 {

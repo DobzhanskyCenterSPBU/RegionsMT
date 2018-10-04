@@ -58,7 +58,7 @@ int Strnicmp(const char *, const char *, size_t);
 size_t Strnlen(const char *, size_t);
 
 int64_t file_get_size(FILE *);
-size_t get_processor_count();
-size_t get_page_size();
-size_t get_process_id();
-uint64_t get_time();
+size_t get_processor_count(void);
+size_t get_page_size(void);
+size_t get_process_id(void);
+uint64_t get_time(void);

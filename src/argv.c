@@ -44,7 +44,7 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
     size_t cnt = 0, len = *p_buff_cnt;
     for (unsigned i = 0; i < 2; i++)
     {
-        int tmp;
+        int tmp = -1;
         char quote;
         switch (i)
         {

@@ -40,7 +40,7 @@ typedef pthread_key_t tls_handle;
 #endif
 
 bool thread_init(thread_handle *, thread_callback, void *);
-void thread_terminate(thread_handle *);
+//void thread_terminate(thread_handle *);
 void thread_wait(thread_handle *, thread_return *);
 void thread_close(thread_handle *);
 

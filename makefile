@@ -1,6 +1,6 @@
 CC = gcc
-CC_INC_Release = /usr/include
-CC_INC_Debug = $(CC_INC_Release)
+CC_INC_Release = ../gsl-x86_64-Release
+CC_INC_Debug = ../gsl-x86_64-Debug
 CC_OPT_Release = -std=c11 -mavx -flto -O3 -Wall
 CC_OPT_Debug = -D_DEBUG -mavx -std=c11 -O0 -ggdb -Wall
 
@@ -15,8 +15,8 @@ ASM_OPT_Release =
 ASM_OPT_Debug = -D_DEBUG
 
 LD = $(CC)
-LD_INC_Release = /usr/lib
-LD_INC_Debug = $(LD_INC_Release)
+LD_INC_Release = ../gsl-x86_64-Release
+LD_INC_Debug = ../gsl-x86_64-Debug
 LD_LIB_Release = m pthread gsl gslcblas
 LD_LIB_Debug = $(LD_LIB_Release)
 LD_OPT_Release = -flto
