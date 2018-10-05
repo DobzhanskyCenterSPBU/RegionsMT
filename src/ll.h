@@ -47,8 +47,8 @@ bool size_test_acquire_p(volatile void *, const void *);
 // Gets two bits starting from the position specified by 2nd argument 
 uint8_t bit_get2_acquire(volatile uint8_t *, size_t);
 
-#define BIT_TEST2_MASK ((uint8_t) (0x5555555555555555ull))
-_Static_assert((uint8_t) (BIT_TEST2_MASK | (BIT_TEST2_MASK << 1)) == UINT8_MAX, "Wrong constant provided!");
+#define BIT_TEST2_MASK (0x5555555555555555ull & UINT8_MAX)
+_Static_assert((BIT_TEST2_MASK | (BIT_TEST2_MASK << 1) & UINT8_MAX) == UINT8_MAX, "Wrong constant provided!");
 
 // Tests if two bits starting from the position specified by 2nd argument are set 
 bool bit_test2_acquire(volatile uint8_t *, size_t);

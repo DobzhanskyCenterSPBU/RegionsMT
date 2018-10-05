@@ -116,7 +116,7 @@ bool log_multiple_init(struct log *restrict log_arr, size_t cnt, char *restrict 
     size_t i = 0;
     for (; i < cnt && log_init(log_arr + i, path, buff_cap, 1, log_error); i++);
     if (i == cnt) return 1;
-    for (size_t i = cnt; --i; log_close(log_arr + i));
+    for (; --i; log_close(log_arr + i));
     return 0;
 }
 

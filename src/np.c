@@ -24,6 +24,16 @@ int64_t Ftelli64(FILE *file)
     return _ftelli64(file);
 }
 
+size_t Fread_nolock(void *buff, size_t sz, size_t cnt, FILE *file)
+{
+    return _fread_nolock(buff, sz, cnt, file);
+}
+
+size_t Fseeki64_nolock(FILE *file, int64_t offset, int origin)
+{
+    return _fseeki64_nolock(file, offset, origin);
+}
+
 Errno_t Strerror_s(char *buff, size_t buff_sz, Errno_t code)
 {
     return strerror_s(buff, buff_sz, code);
@@ -97,8 +107,7 @@ int Strnicmp(const char *a, const char *b, size_t len)
 
 int Fclose(FILE *file)
 {
-    if (file) return fclose(file);
-    return 0;
+    return file ? fclose(file) : 0;
 }
 
 size_t Strnlen(const char *str, size_t len)
@@ -145,6 +154,7 @@ uint64_t get_time()
 }
 
 #elif defined __unix__ || defined __APPLE__
+
 #   include <sys/types.h>
 #   include <sys/time.h>
 #   include <sys/stat.h>
