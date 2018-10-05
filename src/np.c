@@ -71,7 +71,9 @@ void Aligned_free(void *ptr)
     free(ptr);
 }
 
-#include <sys/types.h>
+#   include <sys/types.h>
+#   include <sys/stat.h>
+#   include <fcntl.h>
 
 int Fseeki64(FILE *file, int64_t offset, int origin)
 {
@@ -81,6 +83,13 @@ int Fseeki64(FILE *file, int64_t offset, int origin)
 int64_t Ftelli64(FILE *file)
 {
     return (int64_t) ftello(file);
+}
+
+FILE *Fopen_noblock(const char *path, const char *mode)
+{
+    int md = 0, fd = open(path, md);
+    FILE *f = fdopen(fd, mode);
+    return f;
 }
 
 Errno_t Strerror_s(char *buff, size_t buff_sz, Errno_t code)
@@ -155,9 +164,7 @@ uint64_t get_time()
 
 #elif defined __unix__ || defined __APPLE__
 
-#   include <sys/types.h>
 #   include <sys/time.h>
-#   include <sys/stat.h>
 #   include <unistd.h>
 
 int64_t file_get_size(FILE *f)

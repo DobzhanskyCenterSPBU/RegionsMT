@@ -70,19 +70,19 @@ bool program_object_execute(struct program_object *obj, void *in)
 ///////////////////////////////////////////////////////////////////////////////
 
 enum xml_status {
-    XML_ERROR_CHAR_UNEXPECTED_EOF = 0,
     XML_ERROR_UTF,
-    XML_ERROR_CHAR_INVALID_SYMBOL,
     XML_ERROR_HEADER,
-    XML_ERROR_UNEXPECTED_TAG, 
-    XML_ERROR_UNEXPECTED_ATTRIBUTE, 
-    XML_ERROR_ENDING, 
-    XML_ERROR_DUPLICATED_ATTRIBUTE,
-    XML_ERROR_UNHANDLED_VALUE, 
-    XML_ERROR_CONTROL, 
-    XML_ERROR_COMPILER, 
     XML_ERROR_ROOT,
-    XML_ERROR_RANGE
+    XML_ERROR_COMPILER,
+    XML_ERROR_CHAR_UNEXPECTED_EOF,
+    XML_ERROR_CHAR_INVALID_SYMBOL,
+    XML_ERROR_STR_UNEXPECTED_TAG,
+    XML_ERROR_STR_UNEXPECTED_ATTRIBUTE,
+    XML_ERROR_STR_ENDING,
+    XML_ERROR_STR_DUPLICATED_ATTRIBUTE,
+    XML_ERROR_STR_UNHANDLED_VALUE,
+    XML_ERROR_STR_CONTROL,
+    XML_ERROR_VAL_RANGE
 };
 
 struct text_metric {
@@ -103,19 +103,19 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
 {
     struct xml_context *restrict context = Context;
     const char *str[] = {
-        "Unexpected end of file",
         "Incorrect UTF-8 byte sequence",
+        "Invalid XML header",
+        "No root element found",
+        "Compiler malfunction",
+        "Unexpected end of file",
         "Invalid character",
-        "Invalid XML prologue",
         "Unexpected tag",
         "Unexpected attribute",
         "Unexpected closing tag",
         "Duplicated attribute",
         "Unable to handle value",
         "Invalid control sequence",
-        "Compiler malfunction",
-        "No root element found",
-        "Numeric value %" PRIu32 " is out of range"        
+        "Numeric value %" PRIu32 " is out of range"
     };
     size_t cnt = 0, len = *p_buff_cnt, col_disp = 0, byte_disp = 0, buff_cnt = *p_buff_cnt;
     for (unsigned i = 0; i < 2; i++)
@@ -128,8 +128,8 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
             {
             case XML_ERROR_UTF:
             case XML_ERROR_HEADER:
-            case XML_ERROR_COMPILER:
             case XML_ERROR_ROOT:
+            case XML_ERROR_COMPILER:
                 tmp = snprintf(buff, buff_cnt, "%s", str[context->status]);
                 break;
             case XML_ERROR_CHAR_UNEXPECTED_EOF:
@@ -137,15 +137,15 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
                 byte_disp = context->len, col_disp = 1; // Returning to the previous symbol
                 tmp = snprintf(buff, buff_cnt, "%s \'%.*s\'", str[context->status], (int) context->len, context->str);
                 break;
-            case XML_ERROR_UNEXPECTED_TAG:
-            case XML_ERROR_UNEXPECTED_ATTRIBUTE:
-            case XML_ERROR_DUPLICATED_ATTRIBUTE:
-            case XML_ERROR_ENDING:
-            case XML_ERROR_UNHANDLED_VALUE:
-            case XML_ERROR_CONTROL:
+            case XML_ERROR_STR_UNEXPECTED_TAG:
+            case XML_ERROR_STR_UNEXPECTED_ATTRIBUTE:
+            case XML_ERROR_STR_DUPLICATED_ATTRIBUTE:
+            case XML_ERROR_STR_ENDING:
+            case XML_ERROR_STR_UNHANDLED_VALUE:
+            case XML_ERROR_STR_CONTROL:
                 tmp = snprintf(buff, buff_cnt, "%s \"%.*s\"", str[context->status], (int) context->len, context->str);
                 break;
-            case XML_ERROR_RANGE:
+            case XML_ERROR_VAL_RANGE:
                 tmp = snprintf(buff, buff_cnt, str[context->status], context->val);
                 break;
             }
@@ -175,9 +175,9 @@ static bool log_message_error_str_xml(struct log *restrict log, struct code_metr
     return log_message(log, code_metric, MESSAGE_ERROR, message_xml, &(struct xml_context) { .text_metric = text_metric, .path = path, .str = str, .len = len, .status = status });
 }
 
-static bool log_message_error_char_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, char *str, size_t len, enum xml_status status)
+static bool log_message_error_char_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, uint8_t *utf8_byte, size_t utf8_len, enum xml_status status)
 {
-    return log_message(log, code_metric, MESSAGE_ERROR, message_xml, &(struct xml_context) {.text_metric = text_metric, .path = path, .str = str, .len = len, .status = status });
+    return log_message(log, code_metric, MESSAGE_ERROR, message_xml, &(struct xml_context) {.text_metric = text_metric, .path = path, .str = (char *) utf8_byte, .len = utf8_len, .status = status });
 }
 
 static bool log_message_error_val_xml(struct log *restrict log, struct code_metric code_metric, struct text_metric *restrict text_metric, const char *path, uint32_t val, enum xml_status status)
@@ -432,7 +432,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++;
                 break;
             }
-            log_message_error_char_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -454,7 +454,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 str = txt, len = 0, st++;
                 break;
             default:
-                log_message_error_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+                log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
                 halt = 1;
             }
             break;
@@ -472,13 +472,13 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             else switch (utf8_val)
             {
             case '&':                
-                if (st == ST_QUOTE_CLOSING_D) // Special sequences should not appear in the prologue
+                if (st == ST_QUOTE_CLOSING_D) // Special sequences should not appear in the header
                 {
-                    ctr = txt, st = ST_SPECIAL_A;
+                    st = ST_SPECIAL_A;
                     break;
                 }                                
             case '<':
-                log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+                log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
                 halt = 1;
                 break;
             default:
@@ -504,7 +504,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++, upd = 0;
                 break;
             }
-            log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_UNHANDLED_VALUE);
+            log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_UNHANDLED_VALUE);
             halt = 1;
             break;
 
@@ -514,7 +514,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++, upd = 0;
                 break;
             }
-            log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_UNHANDLED_VALUE);
+            log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_UNHANDLED_VALUE);
             halt = 1;
             break;
 
@@ -524,7 +524,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++, upd = 0;
                 break;
             }
-            log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_UNHANDLED_VALUE);
+            log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_UNHANDLED_VALUE);
             halt = 1;
             break;
 
@@ -536,7 +536,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
         case ST_HEADER_ENDING_A: 
         case ST_HEADER_ENDING_B: 
         case ST_HEADER_ENDING_C:
-            ind = 0, st = ST_HEADER_ENDING_D, upd = 0;
+            st = ST_HEADER_ENDING_D, upd = 0;
             break;
         
         case ST_HEADER_ENDING_D:
@@ -546,7 +546,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 ind++, st++;
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, 0, XML_ERROR_HEADER);
+            log_message_error_xml(log, CODE_METRIC, &txt, path, XML_ERROR_HEADER);
             halt = 1;
             break;
 
@@ -563,7 +563,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++;
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -575,7 +575,6 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
         case ST_TAG_BEGINNING_A: case ST_TAG_BEGINNING_C:
             if (utf8_val == '!')
             {
-                ind = 0;
                 switch (st)
                 {
                 case ST_TAG_BEGINNING_A:
@@ -595,7 +594,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 str = txt, len = 0, st = ST_ST3;
                 break;
             case '!':
-                ind = 0, st = ST_COMMENT_E;
+                st = ST_COMMENT_E;
                 break;
             default:
                 str = txt, str.col--, str.byte -= utf8_len, len = 0, st++, upd = 0;
@@ -624,7 +623,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 upd = 0;
                 break;
             }
-            else log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            else log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -635,7 +634,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
 
         case ST_TAG_ROOT_A:
             root = 1;
-            if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_xml(log, CODE_METRIC, &txt, path, temp.buff, 0, len, XML_ERROR_UNEXPECTED_TAG);
+            if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_TAG);
             {
                 if (!array_init(&stack.frame, &stack.cap, 1, sizeof(*stack.frame), 0, 0)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
                 else
@@ -668,7 +667,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             //
 
         case ST_TAG_A:
-            if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_xml(log, CODE_METRIC, &txt, path, temp.buff, 0, len, XML_ERROR_UNEXPECTED_TAG);
+            if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_TAG);
             {
                 if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
                 else
@@ -721,7 +720,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 }
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -731,7 +730,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             //
 
         case ST_CT0:
-            if (len != stack.frame[dep].len || strncmp(temp.buff, name.buff + stack.frame[dep].off, len)) log_message_error_xml(log, CODE_METRIC, &txt, path, temp.buff, 0, len, XML_ERROR_ENDING);
+            if (len != stack.frame[dep].len || strncmp(temp.buff, name.buff + stack.frame[dep].off, len)) log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_ENDING);
             else
             {
                 st = ST_EB0;
@@ -747,7 +746,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             //
 
         case ST_AH0:
-            if (!xml_att_selector(&xml_att, temp.buff, len, context, &ind)) log_message_error_xml(log, CODE_METRIC, &txt, path, temp.buff, 0, len, XML_ERROR_UNEXPECTED_ATTRIBUTE);
+            if (!xml_att_selector(&xml_att, temp.buff, len, context, &ind)) log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_ATTRIBUTE);
             else
             {
                 if (ind >= attb.cap)
@@ -760,7 +759,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                         break;
                     }
                 }
-                else if (uint8_bit_test_set(attb.buff, ind)) log_message_error_xml(log, CODE_METRIC, &txt, path, temp.buff, 0, len, XML_ERROR_DUPLICATED_ATTRIBUTE);
+                else if (uint8_bit_test_set(attb.buff, ind)) log_message_error_str_xml(log, CODE_METRIC, &txt, path, temp.buff, len, XML_ERROR_STR_DUPLICATED_ATTRIBUTE);
                 else
                 {
                     st++, upd = 0;
@@ -777,7 +776,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
 
         case ST_AV0:
             temp.buff[len] = '\0'; // There is always room for the zero-terminator
-            if (!xml_att.handler(temp.buff, len, (char *) stack.frame[dep].obj->context + xml_att.offset, xml_att.context)) log_message_error_xml(log, CODE_METRIC, &str, path, temp.buff, 0, len, XML_ERROR_UNHANDLED_VALUE);
+            if (!xml_att.handler(temp.buff, len, (char *) stack.frame[dep].obj->context + xml_att.offset, xml_att.context)) log_message_error_str_xml(log, CODE_METRIC, &str, path, temp.buff, len, XML_ERROR_STR_UNHANDLED_VALUE);
             else
             {
                 upd = 0;
@@ -793,6 +792,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             //
 
         case ST_SPECIAL_A:
+            ctr = txt;
             if (utf8_val == '#') ctr.col++, ctr.byte++, st++;
             else ind = 0, st = ST_SPECIAL_H, upd = 0;
             break;
@@ -818,29 +818,29 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 ctrl_val = utf8_val - 'a' + 10, st++;
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &ctr, path, 0, utf8_val, 0, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &ctr, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
         case ST_SPECIAL_D:
             if ('0' <= utf8_val && utf8_val <= '9')
             {
-                if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - '0')) log_message_error_xml(log, CODE_METRIC, &ctr, path, NULL, utf8_val, 0, XML_ERROR_RANGE);
+                if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - '0')) log_message_error_val_xml(log, CODE_METRIC, &ctr, path, utf8_val, XML_ERROR_VAL_RANGE);
                 else break;
             }
             else if ('A' <= utf8_val && utf8_val <= 'F')
             {
-                if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'A' + 10)) log_message_error_xml(log, CODE_METRIC, &ctr, path, NULL, utf8_val, 0, XML_ERROR_RANGE);
+                if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'A' + 10)) log_message_error_val_xml(log, CODE_METRIC, &ctr, path, utf8_val, XML_ERROR_VAL_RANGE);
                 else break;
             }
             else if ('a' <= utf8_val && utf8_val <= 'f')
             {
-                if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'a' + 10)) log_message_error_xml(log, CODE_METRIC, &ctr, path, NULL, utf8_val, 0, XML_ERROR_RANGE);
+                if (uint32_fused_mul_add(&ctrl_val, 16, utf8_val - 'a' + 10)) log_message_error_val_xml(log, CODE_METRIC, &ctr, path, utf8_val, XML_ERROR_VAL_RANGE);
                 else break;
             }
             else
             {
-                st += 3, upd = 0;
+                st = ST_SPECIAL_H, upd = 0;
                 break;
             }
             halt = 1;
@@ -852,19 +852,19 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 ctrl_val = utf8_val - '0', st++;
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &ctr, path, 0, utf8_val, 0, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &ctr, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
         case ST_SPECIAL_F:
             if ('0' <= utf8_val && utf8_val <= '9')
             {
-                if (uint32_fused_mul_add(&ctrl_val, 10, utf8_val - '0')) log_message_error_xml(log, CODE_METRIC, &ctr, path, NULL, utf8_val, 0, XML_ERROR_RANGE);
+                if (uint32_fused_mul_add(&ctrl_val, 10, utf8_val - '0')) log_message_error_val_xml(log, CODE_METRIC, &ctr, path, utf8_val, XML_ERROR_VAL_RANGE);
                 else break;
             }
             else
             {
-                st++, upd = 0;
+                ind = 0, st++, upd = 0;
                 break;
             }
             halt = 1;
@@ -873,7 +873,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
         case ST_SPECIAL_G:
             if (utf8_val == ';')
             {
-                if (ctrl_val >= UTF8_BOUND) log_message_error_xml(log, CODE_METRIC, &ctr, path, NULL, utf8_val, 0, XML_ERROR_RANGE);
+                if (ctrl_val >= UTF8_BOUND) log_message_error_val_xml(log, CODE_METRIC, &ctr, path, utf8_val,  XML_ERROR_VAL_RANGE);
                 else
                 {
                     uint8_t ctrl_byte[6], ctrl_len;
@@ -887,7 +887,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                     }
                 }
             }
-            else log_message_error_xml(log, CODE_METRIC, &ctr, path, 0, utf8_val, 0, XML_ERROR_CHAR_INVALID_SYMBOL);
+            else log_message_error_char_xml(log, CODE_METRIC, &ctr, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -907,7 +907,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++, upd = 0;
                 break;
             }
-            else log_message_error_xml(log, CODE_METRIC, &ctr, path, 0, utf8_val, 0, XML_ERROR_CHAR_INVALID_SYMBOL);
+            else log_message_error_char_xml(log, CODE_METRIC, &ctr, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -915,7 +915,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             if (utf8_val == ';')
             {
                 size_t ctrl_ind = binary_search(ctrl.buff, ctrl_subs, sizeof(*ctrl_subs), countof(ctrl_subs), str_strl_stable_cmp_len, &ind);
-                if (!(ctrl_ind + 1)) log_message_error_xml(log, CODE_METRIC, &ctr, path, 0, utf8_val, 0, XML_ERROR_CONTROL);
+                if (!(ctrl_ind + 1)) log_message_error_str_xml(log, CODE_METRIC, &ctr, path, ctrl.buff, ind, XML_ERROR_STR_CONTROL);
                 else
                 {
                     struct strl subs = ctrl_subs[ctrl_ind].subs;
@@ -929,7 +929,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                     }
                 }
             }
-            else log_message_error_xml(log, CODE_METRIC, &ctr, path, 0, utf8_val, 0, XML_ERROR_CHAR_INVALID_SYMBOL);
+            else log_message_error_char_xml(log, CODE_METRIC, &ctr, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -941,7 +941,9 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
         case ST_COMMENT_A: // Comments before the root tag
         case ST_COMMENT_E: // Comments inside the root tag
         case ST_COMMENT_I: // Comments after the root tag
-        case ST_COMMENT_B: 
+            ind = 0;
+            
+        case ST_COMMENT_B:
         case ST_COMMENT_F: 
         case ST_COMMENT_J:
             if (utf8_val == '-')
@@ -949,14 +951,14 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 st++;
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
         case ST_COMMENT_C: 
         case ST_COMMENT_G: 
         case ST_COMMENT_K:
-            if (ind == 2) ind = 0, st++, upd = 0;
+            if (ind == 2) st++, upd = 0;
             else if (utf8_val == '-') ind++;
             else ind = 0;
             break;
@@ -979,7 +981,7 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
                 }
                 break;
             }
-            log_message_error_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
@@ -989,19 +991,19 @@ struct program_object *program_object_from_xml(const char *path, xml_node_select
             //
 
         case ST_ST4:
-            log_message_error_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+            log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             halt = 1;
             break;
 
         default:
-            log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, 0, XML_ERROR_COMPILER);
+            log_message_error_xml(log, CODE_METRIC, &txt, path, XML_ERROR_COMPILER);
             halt = 1;
         }
     }
     
     
-    if (dep) log_message_error_xml(log, CODE_METRIC, &txt, path, (char *) utf8_byte, utf8_val, utf8_len, XML_ERROR_CHAR_UNEXPECTED_EOF);
-    if (!root) log_message_error_xml(log, CODE_METRIC, &txt, path, NULL, 0, 0, XML_ERROR_ROOT);
+    if (dep) log_message_error_char_xml(log, CODE_METRIC, &txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_EOF);
+    if (!root) log_message_error_xml(log, CODE_METRIC, &txt, path, XML_ERROR_ROOT);
     if ((halt || dep) && stack.frame) program_object_dispose(stack.frame[0].obj), stack.frame[0].obj = NULL;
 
     if (f != stdin) fclose(f);
