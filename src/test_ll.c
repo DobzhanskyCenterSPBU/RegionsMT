@@ -80,6 +80,7 @@ bool test_ll_a_3(void *In, struct log *log)
 
 bool test_ll_generator_b(void *dst, size_t *p_context, struct log *log)
 {
+    (void) log;
     struct test_ll_b data[] = {
         { 0b0, UINT32_MAX, UINT32_MAX },
         { 0b1, 0, 0 },
@@ -109,6 +110,7 @@ bool test_ll_generator_b(void *dst, size_t *p_context, struct log *log)
 
 bool test_ll_b(void *In, struct log *log)
 {
+    (void) log;
     struct test_ll_b *in = In;
     uint32_t res_bsr = uint32_bit_scan_reverse(in->a), res_bsf = uint32_bit_scan_forward(in->a);
     if (res_bsr != in->res_bsr || res_bsf != in->res_bsf) return 0;
@@ -157,7 +159,7 @@ void test_ll_perf(struct log *log)
         }
     }
     printf("Sum: %d\n", cnt);
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Branched comparison");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Branched comparison took");
 
     cnt = 0;
     start = get_time();
@@ -170,7 +172,7 @@ void test_ll_perf(struct log *log)
         }
     }
     printf("Sum: %d\n", cnt);
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "SIMD comparison");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "SIMD comparison took");
 }
 
 #if 0

@@ -30,7 +30,7 @@ struct maver_adj_supp {
 };
 
 bool categorical_init(struct categorical_supp *, size_t, size_t);
-void categorical_impl(struct categorical_supp *, uint8_t *, size_t *, size_t, size_t, size_t, double, enum categorical_flags);
+void categorical_impl(struct categorical_supp *, uint8_t *, size_t *, size_t, size_t, double, enum categorical_flags);
 void categorical_close(struct categorical_supp *);
 
 bool maver_adj_init(struct maver_adj_supp *, size_t, size_t, size_t);

@@ -92,7 +92,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
     double x = 1.; // maver_adj(gen, phen, snp_cnt, phen_cnt, phen_ucnt, &rpl, 10, 1. + 1.e-7, rng, TEST_TYPE_CODOMINANT);
  
     log_message_generic(log, CODE_METRIC, MESSAGE_INFO, "Adjusted P-value for density: %f; count of replications: %zu / %zu.\n", x, rpl, ini_rpl);
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Adjusted P-value computation");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Adjusted P-value computation took");
     if (path_out) append_out(path_out, x, 0, snp_cnt);
 
 error:

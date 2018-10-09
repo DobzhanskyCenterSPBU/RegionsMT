@@ -12,6 +12,9 @@ struct test_sort_b {
     size_t cnt, sz, ucnt;
 };
 
+// Maximal array size is '1 << TEST_SORT_EXP'
+#define TEST_SORT_EXP 24
+
 bool test_sort_generator_a_1(void *, size_t *, struct log *);
 bool test_sort_generator_a_2(void *, size_t *, struct log *);
 void test_sort_disposer_a(void *);

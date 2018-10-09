@@ -9,17 +9,18 @@
 
 DECLARE_PATH
 
-bool test(struct test_group *group_arr, struct log *log)
+bool test(const struct test_group *group_arr, size_t cnt, struct log *log)
 {
     uint64_t start = get_time();
     size_t test_data_sz = 0;
-    for (size_t i = 0; i < countof(group_arr); i++) if (test_data_sz < group_arr[i].test_sz) test_data_sz = group_arr[i].test_sz;    
+    for (size_t i = 0; i < cnt; i++) if (test_data_sz < group_arr[i].test_sz) test_data_sz = group_arr[i].test_sz;
     void *test_data = NULL;
     if (!array_init(&test_data, NULL, test_data_sz, 1, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     {
-        for (size_t i = 0; i < countof(group_arr); i++)
+        for (size_t i = 0; i < cnt; i++)
         {
-            struct test_group *group = group_arr + i;
+            uint64_t group_start = get_time();
+            const struct test_group *group = group_arr + i;
             for (size_t j = 0; j < group->test_generator_cnt; j++)
             {
                 size_t context = 0;
@@ -34,10 +35,11 @@ bool test(struct test_group *group_arr, struct log *log)
                     }
                 } while (context);
             }
+            log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, group_start, get_time(), "Tests execution of the group no. %zu took", i + 1);
         }
         free(test_data);
     }
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Tests execution");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Tests execution took");
     return 1;
 }
 
@@ -47,6 +49,6 @@ bool perf(struct log *log)
 
     // Performance tests here
 
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Performance tests execution");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Performance tests execution took");
     return 1;
 }

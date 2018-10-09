@@ -31,7 +31,6 @@ struct code_metric {
 
 struct time_diff {
     uint64_t start, stop;
-    const char *prefix;
 };
 
 bool message_time_diff(char *, size_t *, void *);
@@ -49,6 +48,8 @@ bool message_var_crt(char *, size_t *, void *, const char *, va_list);
         .line = __LINE__, \
     }
 
+#define INTP(X) ((int) MIN((X), INT_MAX)) // Useful for the printf-like functions
+
 bool log_init(struct log *restrict, char *restrict, size_t, bool, struct log *restrict);
 void log_close(struct log *restrict);
 bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, struct log *restrict);
@@ -59,7 +60,7 @@ bool log_message_var(struct log *restrict, struct code_metric, enum message_type
 
 // Some specialized messages
 bool log_message_generic(struct log *restrict, struct code_metric, enum message_type, const char *restrict, ...);
-bool log_message_time_diff(struct log *restrict, struct code_metric, enum message_type, uint64_t, uint64_t, const char *restrict);
+bool log_message_time_diff(struct log *restrict, struct code_metric, enum message_type, uint64_t, uint64_t, const char *restrict, ...);
 bool log_message_crt(struct log *restrict, struct code_metric, enum message_type, Errno_t);
 bool log_message_fopen(struct log *restrict, struct code_metric, enum message_type, const char *restrict, Errno_t);
 bool log_message_fseek(struct log *restrict, struct code_metric, enum message_type, int64_t, const char *restrict);

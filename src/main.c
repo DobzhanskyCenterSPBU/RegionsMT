@@ -9,6 +9,7 @@
 
 #include "test.h"
 #include "test_ll.h"
+#include "test_np.h"
 #include "test_sort.h"
 #include "test_utf8.h"
 
@@ -22,7 +23,7 @@ DECLARE_PATH
 
 static bool test_main(struct log *log)
 {
-    struct test_group group_arr[] = {
+    const struct test_group group_arr[] = {
         {
             NULL,
             sizeof(struct test_ll_a),
@@ -43,6 +44,16 @@ static bool test_main(struct log *log)
             }),
             CLII((test_callback[]) {
                 test_ll_b,
+            })
+        },
+        {
+            test_np_disposer_a,
+            sizeof(struct test_np_a),
+            CLII((test_generator_callback[]) {
+                test_np_generator_a,
+            }),
+            CLII((test_callback[]) {
+                test_np_a,
             })
         },
         {
@@ -82,7 +93,7 @@ static bool test_main(struct log *log)
             })
         }
     };
-    return test(group_arr, log);
+    return test(group_arr, countof(group_arr), log);
 }
 
 // Main routine arguments management
@@ -336,7 +347,7 @@ static int Main(int argc, char **argv)
             main_args = main_args_override(main_args, main_args_default());
             if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
             {
-                // Help code
+                // Help mode
                 log_message_generic(&log, CODE_METRIC, MESSAGE_INFO, "Help mode triggered!\n");
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
@@ -412,7 +423,7 @@ int wmain(int argc, wchar_t **wargv)
     
     int main_res = EXIT_FAILURE;
 
-    // Translating UTF-16 command-line parameters into UTF-8
+    // Translating UTF-16 command-line parameters to UTF-8
     char **argv;
     if (array_init(&argv, NULL, argc, sizeof(*argv), 0, ARRAY_STRICT))
     {
@@ -424,11 +435,8 @@ int wmain(int argc, wchar_t **wargv)
             uint8_t context = 0;
             for (; *word; word++)
             {
-                if (utf16_decode((uint16_t) *word, &val, NULL, NULL, &context))
-                {
-                    if (!context) base_cnt += utf8_len(val);
-                }
-                else break;
+                if (!utf16_decode((uint16_t) *word, &val, NULL, NULL, &context)) break;
+                if (!context) base_cnt += utf8_len(val);
             }
             if (*word) break;
             else base_cnt++;
@@ -447,16 +455,13 @@ int wmain(int argc, wchar_t **wargv)
                     uint8_t context = 0;
                     for (; *word; word++)
                     {
-                        if (utf16_decode((uint16_t) *word, &val, NULL, NULL, &context))
+                        if (!utf16_decode((uint16_t) *word, &val, NULL, NULL, &context)) break;
+                        if (!context)
                         {
-                            if (!context)
-                            {
-                                uint8_t len;
-                                utf8_encode(val, (uint8_t *) byte, &len);
-                                byte += len;
-                            }
+                            uint8_t len;
+                            utf8_encode(val, (uint8_t *) byte, &len);
+                            byte += len;
                         }
-                        else break;
                     }
                     if (*word) break;
                     else *(byte++) = '\0';

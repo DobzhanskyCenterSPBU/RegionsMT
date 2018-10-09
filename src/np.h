@@ -13,7 +13,7 @@
 #   include <crtdbg.h>
 
 #   include <malloc.h>
-#   define Alloca(SIZE) _alloca((SIZE))
+#   define Alloca(SIZE) (_alloca((SIZE)))
 
 #   include <errno.h>
 typedef errno_t Errno_t;
@@ -44,7 +44,7 @@ void *Aligned_alloc(size_t, size_t);
 void Aligned_free(void *);
 
 // File operations
-int Fclose(FILE *); // Properly handles null pointers 
+int Fclose(FILE *); // Tolerant to the null pointers and will not close 'std' streams  
 int Fseeki64(FILE *, int64_t, int);
 int64_t Ftelli64(FILE *);
 
@@ -56,6 +56,7 @@ Errno_t Localtime_s(struct tm *result, const time_t *time);
 int Stricmp(const char *, const char *);
 int Strnicmp(const char *, const char *, size_t);
 size_t Strnlen(const char *, size_t);
+void *Memrchr(void const *, int, size_t);
 
 int64_t file_get_size(FILE *);
 size_t get_processor_count(void);

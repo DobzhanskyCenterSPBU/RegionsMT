@@ -24,19 +24,9 @@ int64_t Ftelli64(FILE *file)
     return _ftelli64(file);
 }
 
-size_t Fread_nolock(void *buff, size_t sz, size_t cnt, FILE *file)
+Errno_t Strerror_s(char *buff, size_t cap, Errno_t code)
 {
-    return _fread_nolock(buff, sz, cnt, file);
-}
-
-size_t Fseeki64_nolock(FILE *file, int64_t offset, int origin)
-{
-    return _fseeki64_nolock(file, offset, origin);
-}
-
-Errno_t Strerror_s(char *buff, size_t buff_sz, Errno_t code)
-{
-    return strerror_s(buff, buff_sz, code);
+    return strerror_s(buff, cap, code);
 }
 
 Errno_t Localtime_s(struct tm *tm, const time_t *t)
@@ -85,16 +75,9 @@ int64_t Ftelli64(FILE *file)
     return (int64_t) ftello(file);
 }
 
-FILE *Fopen_noblock(const char *path, const char *mode)
+Errno_t Strerror_s(char *buff, size_t cap, Errno_t code)
 {
-    int md = 0, fd = open(path, md);
-    FILE *f = fdopen(fd, mode);
-    return f;
-}
-
-Errno_t Strerror_s(char *buff, size_t buff_sz, Errno_t code)
-{
-    return strerror_r(code, buff, buff_sz);
+    return strerror_r(code, buff, cap);
 }
 
 Errno_t Localtime_s(struct tm *tm, const time_t *t)
@@ -113,17 +96,6 @@ int Strnicmp(const char *a, const char *b, size_t len)
 }
 
 #endif
-
-int Fclose(FILE *file)
-{
-    return file ? fclose(file) : 0;
-}
-
-size_t Strnlen(const char *str, size_t len)
-{
-    char *end = memchr(str, '\0', len);
-    return end ? (size_t) (end - str) : len;
-}
 
 #ifdef _WIN32
 #   include <windows.h>
@@ -197,3 +169,51 @@ uint64_t get_time()
 }
 
 #endif
+
+int Fclose(FILE *file)
+{
+    return file && file != stderr && file != stdin && file != stdout ? fclose(file) : 0;
+}
+
+size_t Strnlen(const char *str, size_t len)
+{
+    char *end = memchr(str, '\0', len);
+    return end ? (size_t) (end - str) : len;
+}
+
+#include <immintrin.h>
+
+void *Memrchr(void const *Str, int ch, size_t cnt)
+{
+    const __m128i test[] = {
+        _mm_set_epi64x(UINT64_MAX, 0),
+        _mm_set_epi32(UINT32_MAX, 0, UINT32_MAX, 0),
+        _mm_set_epi16(UINT16_MAX, 0, UINT16_MAX, 0, UINT16_MAX, 0, UINT16_MAX, 0),
+        _mm_set_epi8(UINT8_MAX, 0, UINT8_MAX, 0, UINT8_MAX, 0, UINT8_MAX, 0, UINT8_MAX, 0, UINT8_MAX, 0, UINT8_MAX, 0, UINT8_MAX, 0)
+    };
+    const __m128i msk = _mm_set1_epi8((char) ch);
+
+    const char *str = (const char *) Str;
+    const size_t off = ((uintptr_t) Str + cnt) & (alignof(__m128i) - 1), n = MIN(off, cnt);
+    for (size_t i = 0; i < n; i++) if (str[--cnt] == ch) return (void *) (str + cnt);
+
+    while (cnt >= sizeof(__m128i))
+    {
+        cnt -= sizeof(__m128i);
+        __m128i a = _mm_cmpeq_epi8(_mm_load_si128((const __m128i *) (str + cnt)), msk);
+        if (_mm_testz_si128(a, a)) continue;
+
+        unsigned pos = 0;
+        for (unsigned i = 0, j = 1 << (countof(test) - 1); i < countof(test) - 1; i++, j >>= 1)
+        {
+            __m128i t = test[i];
+            if (_mm_testz_si128(a, t)) a = _mm_andnot_si128(t, a);
+            else pos += j, a = _mm_and_si128(t, a);
+        }
+        if (!_mm_testz_si128(a, test[countof(test) - 1])) pos++;
+        return (void *) (str + cnt + pos);
+    }
+
+    while (cnt) if (str[--cnt] == ch) return (void *) (str + cnt);
+    return NULL;
+}

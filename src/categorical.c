@@ -238,17 +238,17 @@ static void phen_mar_init(size_t *table, size_t *phen_mar, size_t gen_pop_cnt, s
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; phen_mar[i] += table[j + gen_pop_cnt * i], j++);
 }
 
-static void outer_prod_chisq_impl(size_t *table, double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static void outer_prod_chisq_impl(double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
         outer[j + gen_pop_cnt * i] = (double) gen_mar[j] * (double) phen_mar[i] / (double) gen_phen_mar;
 }
 
-static bool outer_prod_combined_impl(size_t *table, double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static bool outer_prod_combined_impl(double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     if (gen_pop_cnt > 2 || phen_pop_cnt > 2)
     {
-        outer_prod_chisq_impl(table, outer, gen_mar, phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
+        outer_prod_chisq_impl(outer, gen_mar, phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
         return 1;
     }
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
@@ -320,7 +320,7 @@ static void perm_init(size_t *perm, size_t cnt, gsl_rng *rng)
     }
 }
 
-void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, double rel_err, enum categorical_flags flags)
+void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, double rel_err, enum categorical_flags flags)
 {    
     const size_t table_disp = GEN_CNT * phen_ucnt;
        
@@ -356,7 +356,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         gen_phen_mar_init(supp->table, gen_mar, supp->phen_mar, &gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
 
         // Computing test statistic and qas
-        if (outer_prod_combined_impl(supp->table, supp->outer, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt))
+        if (outer_prod_combined_impl(supp->outer, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt))
         {
             supp->nlpv[i] = stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
             supp->qas[i] = qas_chisq(supp->table, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
@@ -410,7 +410,7 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
             // Computing sums
             memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
             gen_phen_mar_init(supp->table, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar + i, gen_pop_cnt, phen_pop_cnt);
-            outer_prod_chisq_impl(supp->table, supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
+            outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
             density[i] += stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
             density_cnt[i]++;
         }
@@ -460,7 +460,7 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
                 // Computing sums
                 memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
                 phen_mar_init(supp->table, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
-                outer_prod_chisq_impl(supp->table, supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
+                outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
                 density_perm[i] += stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
                 density_perm_cnt[i]++;
             }

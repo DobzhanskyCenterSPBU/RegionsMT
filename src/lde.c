@@ -6,7 +6,7 @@ double maf_impl(uint8_t *gen, size_t phen_cnt)
     size_t t[3] = { 0 };
     for (size_t i = 0; i < phen_cnt; i++) if (gen[i] < 3) t[gen[i]]++;
     size_t p = t[0] + t[0] + t[1], q = t[1] + t[2] + t[2];
-    return (double) MIN(p, q) / (p + q);
+    return (double) MIN(p, q) / (double) (p + q);
 }
 
 void maf_all(uint8_t *gen, size_t phen_cnt, double *maf)

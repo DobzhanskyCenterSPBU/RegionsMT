@@ -71,16 +71,16 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
             {
             case ARGV_WARNING_INVALID_PAR_LONG:
             case ARGV_WARNING_INVALID_PAR_SHRT:
-                tmp = snprintf(buff + cnt, len, " %c%.*s%c in the command-line parameter no. %zu!\n", quote, (int) context->len, context->str, quote, context->ind);
+                tmp = snprintf(buff + cnt, len, " %c%.*s%c in the command-line parameter no. %zu!\n", quote, INTP(context->len), context->str, quote, context->ind);
                 break;
             default:
-                tmp = snprintf(buff + cnt, len, " the command-line parameter %c%.*s%c no. %zu!\n", quote, (int) context->len, context->str, quote, context->ind);
+                tmp = snprintf(buff + cnt, len, " the command-line parameter %c%.*s%c no. %zu!\n", quote, INTP(context->len), context->str, quote, context->ind);
             }
             break;
         }
         if (tmp < 0) return 0;
-        len = size_sub_sat(len, (size_t) tmp);
         cnt = size_add_sat(cnt, (size_t) tmp);
+        len = size_sub_sat(len, (size_t) tmp);
     }
     *p_buff_cnt = cnt;
     return 1;
@@ -93,7 +93,7 @@ static bool log_message_warning_argv(struct log *restrict log, struct code_metri
 
 bool argv_parse(par_selector_callback selector_long, par_selector_callback selector_shrt, void *context, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cnt, struct log *log)
 {
-    struct par par;
+    struct par par = { 0 };
     char *str = NULL;
     size_t input_cnt = 0, len = 0;
     bool halt = 0;

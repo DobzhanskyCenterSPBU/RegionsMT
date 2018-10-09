@@ -8,22 +8,18 @@
 
 DECLARE_PATH
 
-bool message_time_diff(char *buff, size_t *p_buff_cnt, void *Context)
+static bool time_diff_impl(char *buff, size_t *p_buff_cnt, uint64_t start, uint64_t stop)
 {
-    struct time_diff *context = Context;
-    int tmp = 0;
     size_t buff_cnt = *p_buff_cnt;
-    if (context->stop >= context->start)
-    {
-        uint64_t diff = context->stop - context->start;
-        uint64_t hdq = diff / 3600000000, hdr = diff % 3600000000, mdq = hdr / 60000000, mdr = hdr % 60000000;
-        double sec = (double) mdr / 1.e6;
-        tmp =
-            hdq ? snprintf(buff, buff_cnt, "%s took %" PRIu64 " hr %" PRIu64 " min %.4f sec.\n", context->prefix, hdq, mdq, sec) :
-            mdq ? snprintf(buff, buff_cnt, "%s took %" PRIu64 " min %.4f sec.\n", context->prefix, mdq, sec) :
-            snprintf(buff, buff_cnt, "%s took %.4f sec.\n", context->prefix, sec);
-    }
-    else tmp = snprintf(buff, buff_cnt, "%s took too much time.\n", context->prefix);
+    uint64_t diff = stop >= start ? stop - start : start - stop;
+    uint64_t hdq = diff / 3600000000, hdr = diff % 3600000000, mdq = hdr / 60000000, mdr = hdr % 60000000;
+    double sec = 1.e-6 * (double) mdr;
+    int tmp =
+        hdq ? snprintf(buff, buff_cnt, "%" PRIu64 " hr %" PRIu64 " min %.6f sec.\n", hdq, mdq, sec) :
+        mdq ? snprintf(buff, buff_cnt, "%" PRIu64 " min %.6f sec.\n", mdq, sec) :
+        sec >= 1.e-6 ? snprintf(buff, buff_cnt, "%.6f sec.\n", sec) :
+        snprintf(buff, buff_cnt, "less than %.6f sec.\n", 1.e-6);
+
     if (tmp < 0) return 0;
     *p_buff_cnt = (size_t) tmp;
     return 1;
@@ -54,14 +50,48 @@ bool message_var_generic(char *buff, size_t *p_buff_cnt, void *context, const ch
     return 1;
 }
 
+bool message_var_time_diff(char *buff, size_t *p_buff_cnt, void *Context, const char *format, va_list arg)
+{
+    struct time_diff *context = Context;
+    size_t len = *p_buff_cnt, cnt = 0;
+    for (unsigned i = 0; i < 2; i++)
+    {
+        size_t tmp = len;
+        switch (i)
+        {
+        case 0:
+            if (!message_var_generic(buff + cnt, &tmp, NULL, format, arg)) return 0;
+            break;
+        case 1:
+            if (!time_diff_impl(buff + cnt, &tmp, context->start, context->stop)) return 0;
+            break;
+        }
+        cnt = size_add_sat(cnt, tmp);
+        len = size_sub_sat(len, tmp);
+    }
+    *p_buff_cnt = cnt;
+    return 1;
+}
+
 bool message_var_crt(char *buff, size_t *p_buff_cnt, void *context, const char *format, va_list arg)
 {
-    size_t buff_cnt = *p_buff_cnt;
-    if (!message_var_generic(buff, p_buff_cnt, context, format, arg)) return 0;
-    size_t bor, len = *p_buff_cnt, diff = size_sub(&bor, buff_cnt, len);
-    if (bor) return 1;
-    *p_buff_cnt = diff;
-    if (!message_crt(buff + len, p_buff_cnt, context)) return 0;
+    size_t len = *p_buff_cnt, cnt = 0;
+    for (unsigned i = 0; i < 2; i++)
+    {
+        size_t tmp = len;
+        switch (i)
+        {
+        case 0:
+            if (!message_var_generic(buff + cnt, &tmp, NULL, format, arg)) return 0;
+            break;
+        case 1:
+            if (!message_crt(buff + cnt, &tmp, context)) return 0;
+            break;
+        }
+        cnt = size_add_sat(cnt, tmp);
+        len = size_sub_sat(len, tmp);
+    }
+    *p_buff_cnt = cnt;
     return 1;
 }
 
@@ -107,7 +137,7 @@ bool log_flush(struct log *restrict log)
 void log_close(struct log *restrict log)
 {
     log_flush(log);
-    if (log->file != stderr) Fclose(log->file);
+    Fclose(log->file);
     free(log->buff);
 }
 
@@ -203,9 +233,13 @@ bool log_message_generic(struct log *restrict log, struct code_metric code_metri
     return res;
 }
 
-bool log_message_time_diff(struct log *restrict log, struct code_metric code_metric, enum message_type type, uint64_t start, uint64_t stop, const char *restrict prefix)
+bool log_message_time_diff(struct log *restrict log, struct code_metric code_metric, enum message_type type, uint64_t start, uint64_t stop, const char *restrict format, ...)
 {
-    return log_message(log, code_metric, type, message_time_diff, &(struct time_diff) { .start = start, .stop = stop, .prefix = prefix });
+    va_list arg;
+    va_start(arg, format);
+    bool res = log_message_impl(log, code_metric, type, NULL, message_var_time_diff, &(struct time_diff) { .start = start, .stop = stop }, format, &arg);
+    va_end(arg);
+    return res;
 }
 
 bool log_message_crt(struct log *restrict log, struct code_metric code_metric, enum message_type type, Errno_t err)

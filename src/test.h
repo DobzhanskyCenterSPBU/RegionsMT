@@ -19,4 +19,4 @@ struct test_group {
     };
 };
 
-bool test(struct test_group *, struct log *);
+bool test(const struct test_group *, size_t, struct log *);

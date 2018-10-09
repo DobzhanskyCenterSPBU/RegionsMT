@@ -18,7 +18,7 @@ bool test_sort_generator_a_1(void *dst, size_t *p_context, struct log *log)
     {
         for (size_t i = 0; i < cnt; i++) arr[i] = (double) (QUICK_SORT_CUTOFF * (i / QUICK_SORT_CUTOFF)) - (double) (i % QUICK_SORT_CUTOFF);
         *(struct test_sort_a *) dst = (struct test_sort_a) { .arr = arr, .cnt = cnt, .sz = sizeof(*arr) };
-        if (context < 24) ++*p_context;
+        if (context < TEST_SORT_EXP) ++*p_context;
         else *p_context = 0;
         return 1;
     }    
@@ -27,6 +27,7 @@ bool test_sort_generator_a_1(void *dst, size_t *p_context, struct log *log)
 
 bool test_sort_generator_a_2(void *dst, size_t *p_context, struct log *log)
 {
+    (void) p_context;
     size_t cnt = ((QUICK_SORT_CUTOFF + 1) << 1) + 1, hcnt = cnt >> 1;
     double *arr;
     if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
@@ -50,7 +51,7 @@ bool test_sort_generator_b_1(void *dst, size_t *p_context, struct log *log)
     {
         for (size_t i = 0; i < cnt; i++) arr[i] = (double) ((i + 13) % ucnt);
         *(struct test_sort_b *) dst = (struct test_sort_b) { .arr = arr, .cnt = cnt, .sz = sizeof(*arr), .ucnt = ucnt };
-        if (context < 24) ++*p_context;
+        if (context < TEST_SORT_EXP) ++*p_context;
         else *p_context = 0;
         return 1;
     }

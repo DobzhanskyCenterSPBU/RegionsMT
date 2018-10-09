@@ -11,7 +11,47 @@
 
 DECLARE_PATH
 
-size_t row_count(FILE *f, int64_t offset, size_t length)
+enum newline { NEWLINE_LF = 0, NEWLINE_CR, NEWLINE_CR_LF };
+
+// Scans forward to the new line
+char *str_newline_forward(const char *buff, size_t len, enum newline newline)
+{
+    char *res = NULL;
+    switch (newline)
+    {
+    case NEWLINE_LF:
+        res = memchr(buff, '\n', len);
+        break;
+    case NEWLINE_CR:
+        res = memchr(buff, '\r', len);
+        break;
+    case NEWLINE_CR_LF:
+        for (char *ptr = memchr(buff, '\r', len); ptr && (size_t) (ptr - buff) < len - 1; ptr = memchr(ptr + 1, '\r', len)) if (ptr[1] == '\n') return ptr + 2;
+        return NULL;
+    }
+    return res ? res + 1 : NULL;
+}
+
+// Scans backwards to the new line
+/*char *str_newline_backward(const char *buff, size_t len, enum newline newline)
+{
+    char *res = NULL;
+    switch (newline)
+    {
+    case NEWLINE_LF:
+        res = memchr(buff, '\n', len);
+        break;
+    case NEWLINE_CR:
+        res = memchr(buff, '\r', len);
+        break;
+    case NEWLINE_CR_LF:
+        for (char *ptr = memchr(buff, '\r', len); ptr && (ptr - buff) < len - 1; ptr = memchr(ptr + 1, '\r', len)) if (ptr[1] == '\n') return ptr + 2;
+        return NULL;
+    }
+    return res ? res + 1 : NULL;
+}*/
+
+size_t row_count(FILE *f, int64_t offset, size_t length, enum newline newline)
 {
     char buff[BLOCK_READ] = { '\0' };
     int64_t orig = Ftelli64(f), row = 0;
@@ -102,7 +142,7 @@ static bool message_error_row_read(char *buff, size_t *p_buff_cnt, void *Context
             switch (context->status)
             {
             case ROW_READ_STATUS_UNHANDLED_VALUE:
-                tmp = snprintf(buff + cnt, len, fmt[context->status], (int) context->len, context->str);
+                tmp = snprintf(buff + cnt, len, fmt[context->status], INTP(context->len), context->str);
                 break;
             default:
                 tmp = snprintf(buff + cnt, len, "%s", fmt[context->status]);
@@ -131,6 +171,21 @@ static bool log_message_error_row_read(struct log *restrict log, struct code_met
     return log_message(log, code_metric, MESSAGE_ERROR, message_error_row_read, &(struct row_read_context) { .byte = byte, .row = row, .col = col, .path = path, .offset = offset, .status = status, .str = str, .len = len });
 }
 
+static FILE *tbl_read_io(const char *path, struct log *log)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno);
+    else
+    {
+
+    }
+}
+
+struct tbl_symbols {
+    char delim, quote;
+    enum newline newline;
+};
+
 bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, tbl_eol_callback eol, void *context, void *res, size_t *p_row_skip, size_t *p_row_cnt, size_t *p_length, char delim, struct log *log)
 {
     bool succ = 0;
@@ -142,7 +197,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
 
     if (!succ) return 0;
     succ = 0;
-    FILE *f = fopen(path, "rt");
+    FILE *f = fopen(path, "rb");
     if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno);
     else succ = 1;
 
