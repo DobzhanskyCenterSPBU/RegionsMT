@@ -238,23 +238,24 @@ static void phen_mar_init(size_t *table, size_t *phen_mar, size_t gen_pop_cnt, s
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; phen_mar[i] += table[j + gen_pop_cnt * i], j++);
 }
 
-static void outer_prod_chisq_impl(double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static void outer_prod_chisq_impl(size_t *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
-        outer[j + gen_pop_cnt * i] = (double) gen_mar[j] * (double) phen_mar[i] / (double) gen_phen_mar;
+        outer[j + gen_pop_cnt * i] = gen_mar[j] * phen_mar[i];
 }
 
-static bool outer_prod_combined_impl(double *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static bool outer_prod_combined_impl(size_t *outer, size_t *gen_mar, size_t *phen_mar, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     if (gen_pop_cnt > 2 || phen_pop_cnt > 2)
     {
-        outer_prod_chisq_impl(outer, gen_mar, phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
+        outer_prod_chisq_impl(outer, gen_mar, phen_mar, gen_pop_cnt, phen_pop_cnt);
         return 1;
     }
+    const size_t lim = 5 * gen_phen_mar;
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
     {
-        double tmp = (double) gen_mar[j] * (double) phen_mar[i] / (double) gen_phen_mar;
-        if (tmp >= 5.) outer[j + gen_pop_cnt * i] = tmp;
+        size_t tmp = gen_mar[j] * phen_mar[i];
+        if (tmp >= lim) outer[j + gen_pop_cnt * i] = tmp;
         else return 0;
     }
     return 1;
@@ -278,14 +279,14 @@ static double qas_exact(size_t *table)
     return log10((double) table[0]) + log10((double) table[3]) - (log10((double) table[1]) + log10((double) table[2]));
 }
 
-static double stat_chisq(size_t *table, double *outer, size_t gen_pop_cnt, size_t phen_pop_cnt)
+static double stat_chisq(size_t *table, size_t *outer, size_t gen_phen_mar, size_t gen_pop_cnt, size_t phen_pop_cnt)
 {
     double stat = 0.;
     size_t pr = gen_pop_cnt * phen_pop_cnt;
     for (size_t i = 0; i < pr; i++)
     {
-        double out = outer[i], diff = out - (double) table[i];
-        stat += diff * diff / out;
+        size_t out = outer[i], diff = out - table[i] * gen_phen_mar;
+        stat += (double) (diff * diff) / (double) (out * gen_phen_mar);
     }
     return -log10(cdf_chisq_Q(stat, (double) (pr - gen_pop_cnt - phen_pop_cnt + 1)));
 }
@@ -358,7 +359,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         // Computing test statistic and qas
         if (outer_prod_combined_impl(supp->outer, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt))
         {
-            supp->nlpv[i] = stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
+            supp->nlpv[i] = stat_chisq(supp->table, supp->outer, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
             supp->qas[i] = qas_chisq(supp->table, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
         }
         else
@@ -410,8 +411,8 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
             // Computing sums
             memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
             gen_phen_mar_init(supp->table, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar + i, gen_pop_cnt, phen_pop_cnt);
-            outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
-            density[i] += stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
+            outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
+            density[i] += stat_chisq(supp->table, supp->outer, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
             density_cnt[i]++;
         }
     }
@@ -460,8 +461,8 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
                 // Computing sums
                 memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
                 phen_mar_init(supp->table, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
-                outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
-                density_perm[i] += stat_chisq(supp->table, supp->outer, gen_pop_cnt, phen_pop_cnt);
+                outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
+                density_perm[i] += stat_chisq(supp->table, supp->outer, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
                 density_perm_cnt[i]++;
             }
         }

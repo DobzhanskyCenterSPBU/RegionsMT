@@ -15,15 +15,13 @@ enum categorical_flags {
 
 struct categorical_supp {
     uint8_t *phen_bits;
-    size_t *filter, *table, *phen_mar;
-    double *outer;
+    size_t *filter, *table, *phen_mar, *outer;
     double nlpv[ALT_CNT], qas[ALT_CNT];
 };
 
 struct maver_adj_supp {
     uint8_t *phen_bits;
-    size_t *filter, *table, *phen_mar, *phen_perm;
-    double *outer;
+    size_t *filter, *table, *phen_mar, *phen_perm, *outer;
     struct categorical_snp_data *snp_data;
     double nlpv[ALT_CNT];
     size_t rpl[ALT_CNT];
