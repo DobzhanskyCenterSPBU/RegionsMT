@@ -251,7 +251,7 @@ static bool outer_prod_combined_impl(size_t *outer, size_t *gen_mar, size_t *phe
         outer_prod_chisq_impl(outer, gen_mar, phen_mar, gen_pop_cnt, phen_pop_cnt);
         return 1;
     }
-    const size_t lim = 5 * gen_phen_mar;
+    size_t lim = 5 * gen_phen_mar;
     for (size_t i = 0; i < phen_pop_cnt; i++) for (size_t j = 0; j < gen_pop_cnt; j++)
     {
         size_t tmp = gen_mar[j] * phen_mar[i];
@@ -323,7 +323,7 @@ static void perm_init(size_t *perm, size_t cnt, gsl_rng *rng)
 
 void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, double rel_err, enum categorical_flags flags)
 {    
-    const size_t table_disp = GEN_CNT * phen_ucnt;
+    size_t table_disp = GEN_CNT * phen_ucnt;
        
     // Initializing genotype filter
     size_t cnt = filter_init(supp->filter, gen, phen_cnt);
@@ -372,7 +372,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
 
 void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, gsl_rng *rng, enum categorical_flags flags)
 {
-    const size_t table_disp = GEN_CNT * phen_ucnt;
+    size_t table_disp = GEN_CNT * phen_ucnt;
     memset(supp->snp_data, 0, snp_cnt * sizeof(*supp->snp_data));
 
     //  Initialization
