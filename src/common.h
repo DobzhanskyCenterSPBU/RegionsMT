@@ -62,8 +62,10 @@
 #define TOSTRING_EXPAND(Z) #Z
 #define TOSTRING(Z) TOSTRING_EXPAND(Z)
 
-#define STRI(STR) { STR, strlenof(STR) }
-#define ARRI(ARR) { ARR, countof(ARR) }
+#define STRC(STR) (STR), strlenof(STR)
+#define STRI(STR) { STRC(STR) }
+#define ARRC(ARR) (ARR), countof(ARR)
+#define ARRI(ARR) { ARRC(ARR) }
 
 // In the case of compound literal extra parentheses should be added
 #define CLII(...) ARRI((__VA_ARGS__))

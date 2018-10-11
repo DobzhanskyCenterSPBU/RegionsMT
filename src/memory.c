@@ -252,3 +252,10 @@ bool persistent_array_test(struct persistent_array *arr, size_t cnt)
     }
     return 1;
 }
+
+void *persistent_array_fetch(struct persistent_array *arr, size_t ind)
+{
+    (void) arr;
+    (void) ind;
+    return NULL;
+}

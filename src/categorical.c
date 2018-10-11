@@ -126,7 +126,7 @@ struct categorical_snp_data {
     uint8_t gen_bits[UINT8_CNT(GEN_CNT)];
 };
 
-_Static_assert((2 * GEN_CNT * sizeof(size_t)) / (2 * GEN_CNT) == sizeof(size_t), "Multiplication overflow!");
+_Static_assert((2 * GEN_CNT * sizeof(size_t)) / 2 / (GEN_CNT) == sizeof(size_t), "Multiplication overflow!");
 _Static_assert((GEN_CNT * sizeof(double)) / GEN_CNT == sizeof(double), "Multiplication overflow!");
 
 bool categorical_init(struct categorical_supp *supp, size_t phen_cnt, size_t phen_ucnt)

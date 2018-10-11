@@ -146,7 +146,7 @@ static int Main(int argc, char **argv)
     {
         CLII((struct tag[]) { { STRI("help"), 0 }, { STRI("log"), 1 }, { STRI("test"), 2 }, { STRI("threads"), 3 }}),
         CLII((struct tag[]) { { STRI("C"), 4 }, { STRI("L"), 5 }, { STRI("T"), 2 }, { STRI("h"), 0 }, { STRI("l"), 1 }, { STRI("t"), 3 } }),
-        CLII((struct par[])
+        CLII((struct par_sch[])
         {
             { 0, &(struct handler_context) { offsetof(struct main_args, bits), MAIN_ARGS_BIT_POS_HELP }, empty_handler, 1 },
             { offsetof(struct main_args, log_path), NULL, p_str_handler, 0 },
@@ -342,7 +342,7 @@ static int Main(int argc, char **argv)
         size_t input_cnt = 0;
         char **input = NULL;
         struct main_args main_args = { 0 };
-        if (argv_parse(argv_par_selector_long, argv_par_selector_shrt, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
+        if (argv_parse(argv_par_selector, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
             main_args = main_args_override(main_args, main_args_default());
             if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))

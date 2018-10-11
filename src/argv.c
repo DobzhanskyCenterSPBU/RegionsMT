@@ -20,8 +20,7 @@ enum argv_status {
     ARGV_WARNING_UNEXPECTED_VALUE_LONG,
     ARGV_WARNING_UNEXPECTED_VALUE_SHRT,
     ARGV_WARNING_INVALID_PAR_LONG,
-    ARGV_WARNING_INVALID_PAR_SHRT,
-    ARGV_MAX
+    ARGV_WARNING_INVALID_PAR_SHRT
 };
 
 struct argv_context {
@@ -40,7 +39,6 @@ static bool message_argv(char *buff, size_t *p_buff_cnt, void *Context)
         "Invalid %s"
     };
     struct argv_context *context = Context;
-    if (context->status >= ARGV_MAX) return 0;
     size_t cnt = 0, len = *p_buff_cnt;
     for (unsigned i = 0; i < 2; i++)
     {
@@ -91,7 +89,7 @@ static bool log_message_warning_argv(struct log *restrict log, struct code_metri
     return log_message(log, code_metric, MESSAGE_WARNING, message_argv, &(struct argv_context) { .status = status, .str = str, .len = len, .ind = ind, .par = par });
 }
 
-bool argv_parse(par_selector_callback selector_long, par_selector_callback selector_shrt, void *context, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cnt, struct log *log)
+bool argv_parse(par_selector_callback selector, void *context, void *res, char **argv, size_t argv_cnt, char ***p_input, size_t *p_input_cnt, struct log *log)
 {
     struct par par = { 0 };
     char *str = NULL;
@@ -104,7 +102,7 @@ bool argv_parse(par_selector_callback selector_long, par_selector_callback selec
         {
             if (capture)
             {
-                if (par.handler && !par.handler(argv[i], SIZE_MAX, (char *) res + par.offset, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, capture > 0 ? ARGV_WARNING_UNHANDLED_PAR_LONG : ARGV_WARNING_UNHANDLED_PAR_SHRT, argv[i]);
+                if (par.handler && !par.handler(argv[i], SIZE_MAX, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, capture > 0 ? ARGV_WARNING_UNHANDLED_PAR_LONG : ARGV_WARNING_UNHANDLED_PAR_SHRT, argv[i]);
                 capture = 0;
             }
             else if (argv[i][0] == '-')
@@ -119,19 +117,19 @@ bool argv_parse(par_selector_callback selector_long, par_selector_callback selec
                     }
                     char *tmp = strchr(str, '=');
                     len = tmp ? (size_t) (tmp - str) : SIZE_MAX;
-                    if (!selector_long(&par, str, len, context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_INVALID_PAR_LONG, NULL);
+                    if (!selector(&par, str, len, res, context, 0)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_INVALID_PAR_LONG, NULL);
                     else
                     {
                         if (par.option)
                         {
                             if (tmp) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNEXPECTED_VALUE_LONG, NULL);
-                            if (par.handler && !par.handler(NULL, SIZE_MAX, (char *) res + par.offset, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_OPT_LONG, NULL);
+                            if (par.handler && !par.handler(NULL, SIZE_MAX, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_OPT_LONG, NULL);
                         }
                         else
                         {
                             if (tmp)
                             {
-                                if (par.handler && !par.handler(argv[i] + len + 1, SIZE_MAX, (char *) res + par.offset, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_PAR_LONG, argv[i] + len + 1);
+                                if (par.handler && !par.handler(argv[i] + len + 1, SIZE_MAX, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_PAR_LONG, argv[i] + len + 1);
                             }
                             else capture = 1;
                         }
@@ -149,18 +147,18 @@ bool argv_parse(par_selector_callback selector_long, par_selector_callback selec
                         else
                         {
                             len = utf8_len;
-                            if (!selector_shrt(&par, str, len, context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_INVALID_PAR_SHRT, NULL);
+                            if (!selector(&par, str, len, res, context, 1)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_INVALID_PAR_SHRT, NULL);
                             else
                             {
                                 if (par.option) // Parameter expects value
                                 {
-                                    if (par.handler && !par.handler(NULL, SIZE_MAX, (char *) res + par.offset, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_OPT_SHRT, NULL);
+                                    if (par.handler && !par.handler(NULL, SIZE_MAX, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_OPT_SHRT, NULL);
                                 }
                                 else
                                 {
                                     if (str[len]) // Executing valued parameter handler
                                     {
-                                        if (par.handler && !par.handler(str + len, SIZE_MAX, (char *) res + par.offset, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_PAR_SHRT, str + len);
+                                        if (par.handler && !par.handler(str + len, SIZE_MAX, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, i, ARGV_WARNING_UNHANDLED_PAR_SHRT, str + len);
                                     }
                                     else capture = -1;
                                     break; // Exiting from the inner loop
@@ -192,32 +190,25 @@ error:
     return 0;    
 }
 
-bool argv_par_selector_long(struct par *par, char *str, size_t len, void *Context)
+bool argv_par_selector(struct par *par, char *str, size_t len, void *res, void *Context, bool shrt)
 {
     struct argv_par_sch *context = Context;
-    size_t id = binary_search(str, context->ltag, sizeof(*context->ltag), context->ltag_cnt, len + 1 ? str_strl_stable_cmp_len : str_strl_stable_cmp, &len);
+    size_t id = shrt ?
+        binary_search(str, context->stag, sizeof(*context->stag), context->stag_cnt, str_strl_stable_cmp_len, &len) :
+        binary_search(str, context->ltag, sizeof(*context->ltag), context->ltag_cnt, len + 1 ? str_strl_stable_cmp_len : str_strl_stable_cmp, &len);
+        
     if (id + 1)
     {
-        id = context->ltag[id].id;
+        id = shrt ? context->stag[id].id : context->ltag[id].id;
         if (id < context->par_cnt)
         {
-            *par = context->par[id];
-            return 1;
-        }
-    }
-    return 0;
-}
-
-bool argv_par_selector_shrt(struct par *par, char *str, size_t len, void *Context)
-{
-    struct argv_par_sch *context = Context;
-    size_t id = binary_search(str, context->stag, sizeof(*context->stag), context->stag_cnt, str_strl_stable_cmp_len, &len);
-    if (id + 1)
-    {
-        id = context->stag[id].id;
-        if (id < context->par_cnt)
-        {
-            *par = context->par[id];
+            struct par_sch par_sch = context->par[id];
+            *par = (struct par) {
+                .ptr = (char *) res + par_sch.off,
+                .context = par_sch.context,
+                .handler = par_sch.handler,
+                .option = par_sch.option
+            };
             return 1;
         }
     }
