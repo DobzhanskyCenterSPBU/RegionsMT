@@ -134,7 +134,7 @@ static bool dfReportThreadProc(dfReportOut *args, dfReportContext *context)
             size_t lpvind = j + ri * ldres->snpcnt; \
             fprintf(f, \
                 form, \
-                lpvind, \
+                ri + j * ldres->testcnt + 1, \
                 densityfoldres->rfdns[j] + 1, \
                 densityfoldres->fdns[j], \
                 densityres->li[lpvind] + 1, \
