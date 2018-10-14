@@ -136,7 +136,7 @@ static bool dfReportThreadProc(dfReportOut *args, dfReportContext *context)
                 form, \
                 ri + j * ldres->testcnt + 1, \
                 densityfoldres->rfdns[j] + 1, \
-                densityfoldres->fdns[j], \
+                isfinite(densityfoldres->fdns[j]) ? densityfoldres->fdns[j] : DBL_MAX, \
                 densityres->li[lpvind] + 1, \
                 densityres->ri[lpvind] + 1, \
                 densityres->lc[lpvind], \
