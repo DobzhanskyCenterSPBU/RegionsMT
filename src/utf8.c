@@ -109,10 +109,15 @@ bool utf8_is_xml_name_char_len(uint32_t utf8_val, uint8_t utf8_len)
 void utf8_encode(uint32_t utf8_val, uint8_t *restrict utf8_byte, uint8_t *restrict p_utf8_len)
 {
     uint8_t mode = (uint8_t) uint32_bit_scan_reverse(utf8_val);
-    if (mode <= 6 || mode == UINT8_MAX) utf8_byte[0] = (uint8_t) utf8_val, *p_utf8_len = 1;
+    if (mode <= 6 || mode == UINT8_MAX)
+    {
+        utf8_byte[0] = (uint8_t) utf8_val;
+        if (p_utf8_len) *p_utf8_len = 1;
+    }
     else
     {
-        uint8_t utf8_len = *p_utf8_len = (mode + 4) / 5;
+        uint8_t utf8_len = (mode + 4) / 5;
+        if (p_utf8_len) *p_utf8_len = utf8_len;
         for (uint8_t i = utf8_len; i > 1; utf8_byte[--i] = 128 | (utf8_val & 63), utf8_val >>= 6);
         utf8_byte[0] = (uint8_t) ((((1u << (utf8_len + 1)) - 1) << (8 - utf8_len)) | utf8_val);
     }
@@ -179,12 +184,12 @@ void utf16_encode(uint32_t utf16_val, uint16_t *restrict utf16_word, uint8_t *re
 {
     if (utf16_val < 0x10000)
     {
-        *p_utf16_len = 1;
+        if (p_utf16_len) *p_utf16_len = 1;
         utf16_word[0] = (uint16_t) utf16_val;
     }
     else
     {
-        *p_utf16_len = 2;
+        if (p_utf16_len) *p_utf16_len = 2;
         utf16_val -= 0x10000;
         utf16_word[0] = (uint16_t) (0xd800 | ((utf16_val >> 10) & 0x3ff));
         utf16_word[1] = (uint16_t) (0xdc00 | (utf16_val & 0x3ff));

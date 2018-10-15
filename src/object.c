@@ -279,6 +279,11 @@ static unsigned xml_name_impl(uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf
     return 0;
 }
 
+static bool xml_ref_impl()
+{
+
+}
+
 static bool xml_ctrl_impl(uint32_t *p_st, struct xml_ctrl_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, char **p_buff, size_t *p_len, size_t *p_cap, struct text_metric metric, const char *path, struct log *log)
 {
     const struct { struct strl name; struct strl subs; } ctrl_subs[] = {
@@ -722,7 +727,7 @@ static bool xml_comment_impl(uint32_t *restrict p_st, uint8_t *restrict utf8_byt
     return 1;
 }
 
-static bool xml_impl(uint32_t *p_st, struct xml_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+static bool xml_doc_impl(uint32_t *p_st, struct xml_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
 {
     enum {
         ST_DECL = 0,
@@ -852,6 +857,11 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
         ST_COMMENT_C,
     };
     
+    struct utf8 {
+        uint8_t utf8_byte[UTF8_COUNT], utf8_len, utf8_context;
+        uint32_t utf8_val;
+    };
+
     uint8_t utf8_byte[UTF8_COUNT];
     uint8_t utf8_len = 0, utf8_context = 0;
     uint32_t utf8_val = 0;
