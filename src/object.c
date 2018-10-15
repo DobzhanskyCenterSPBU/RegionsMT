@@ -93,18 +93,20 @@ bool xml_object_execute(struct xml_object *obj, void *in)
 
 enum xml_status {
     XML_ERROR_UTF,
+    XML_ERROR_INVALID_CHAR,
     XML_ERROR_DECL,
     XML_ERROR_ROOT,
     XML_ERROR_COMPILER,
     XML_ERROR_CHAR_UNEXPECTED_EOF,
-    XML_ERROR_CHAR_INVALID_SYMBOL,
+    XML_ERROR_CHAR_UNEXPECTED_CHAR,
     XML_ERROR_STR_UNEXPECTED_TAG,
     XML_ERROR_STR_UNEXPECTED_ATTRIBUTE,
     XML_ERROR_STR_ENDING,
     XML_ERROR_STR_DUPLICATED_ATTRIBUTE,
     XML_ERROR_STR_UNHANDLED_VALUE,
     XML_ERROR_STR_CONTROL,
-    XML_ERROR_VAL_RANGE
+    XML_ERROR_VAL_RANGE,
+    XML_ERROR_VAL_REFERENCE
 };
 
 struct text_metric {
@@ -126,17 +128,20 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
     struct message_xml_context *restrict context = Context;
     const char *str[] = {
         "Incorrect UTF-8 byte sequence",
+        "Invalid character",
         "Invalid XML declaration",
         "No root element found",
         "Compiler malfunction",
         "Unexpected end of file",
-        "Invalid character",
+        "Unexpected character",
         "Unexpected tag",
         "Unexpected attribute",
         "Unexpected closing tag",
         "Duplicated attribute",
         "Unable to handle value",
-        "Invalid control sequence"
+        "Invalid control sequence",
+        "is out of range",
+        "referencing to invalid character"
     };
     size_t cnt = 0, len = *p_buff_cnt, col_disp = 0, byte_disp = 0;
     for (unsigned i = 0; i < 2; i++)
@@ -148,13 +153,14 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
             switch (context->status)
             {
             case XML_ERROR_UTF:
+            case XML_ERROR_INVALID_CHAR:
             case XML_ERROR_DECL:
             case XML_ERROR_ROOT:
             case XML_ERROR_COMPILER:
                 tmp = snprintf(buff + cnt, len, "%s", str[context->status]);
                 break;
             case XML_ERROR_CHAR_UNEXPECTED_EOF:
-            case XML_ERROR_CHAR_INVALID_SYMBOL:
+            case XML_ERROR_CHAR_UNEXPECTED_CHAR:
                 byte_disp = context->len, col_disp = 1; // Returning to the previous symbol
                 tmp = snprintf(buff + cnt, len, "%s \'%.*s\'", str[context->status], INTP(context->len), context->str);
                 break;
@@ -167,7 +173,8 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
                 tmp = snprintf(buff + cnt, len, "%s \"%.*s\"", str[context->status], INTP(context->len), context->str);
                 break;
             case XML_ERROR_VAL_RANGE:
-                tmp = snprintf(buff + cnt, len, "Numeric value %" PRIu32 " is out of range", context->val);
+            case XML_ERROR_VAL_REFERENCE:
+                tmp = snprintf(buff + cnt, len, "Numeric value %" PRIu32 " %s", context->val, str[context->status]);
                 break;
             }
         case 1:
@@ -211,70 +218,68 @@ static bool log_message_error_val_xml(struct log *restrict log, struct code_metr
 //  XML syntax analyzer
 //
 
-// This is ONLY required for the line marked with '(*)'
-_Static_assert(BLOCK_READ > 2, "'BLOCK_READ' constant is assumed to be greater than 2!");
-
-#define MAX_PRINT 16 
-
-#define XML_DECL_BEGINNING "<?xml " 
-#define XML_DECL_VERSION "version" 
-#define XML_DECL_VERSION_VALUE "1.0"
-#define XML_DECL_ENCODING "encoding"
-#define XML_DECL_ENCODING_VALUE "UTF-8"
-#define XML_DECL_STANDALODE "standalone"
-#define XML_DECL_STANDALODE_VALUE "no"
-#define XML_DECL_ENDING "?>"
-
-enum coroutine_status {
-    STATUS_FAIL = 0,
-    STATUS_CONTINUE,
-    STATUS_COMPLETE
-};
-
-struct xml_context {
-    size_t len;
-    uint32_t st;
+enum {
+    STATUS_FAILURE = 0,
+    STATUS_SUCCESS,
+    STATUS_REPEAT,
 };
 
 struct xml_ctrl_context {
     size_t len, cap;
     char *buff;
     struct text_metric metric;
-    uint32_t st, val;
+    uint32_t val;
 };
 
-struct xml_val_context {
+struct xml_att_context {
     size_t len, cap;
     char *buff;
     struct text_metric metric;
     struct xml_val val;
-    uint32_t st;
     bool quot;
 };
 
-static enum coroutine_status xml_name_impl(uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, char **p_buff, size_t *p_len, size_t *p_cap, bool terminator, struct text_metric metric, const char *path, struct log *log)
+struct xml_context {
+    size_t context, bits_cap;
+    uint8_t *bits;
+    struct xml_ctrl_context ctrl_contex;
+    struct xml_att_context val_context;
+    uint32_t st, ctrl_st, val_st;
+};
+
+static void xml_ctrl_context_reset(struct xml_ctrl_context *context)
+{
+    context->len = 0;
+}
+
+static void xml_val_context_reset(struct xml_att_context *context)
+{
+    context->len = context->quot = 0;
+}
+
+static unsigned xml_name_impl(uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, char **p_buff, size_t *p_len, size_t *p_cap, bool terminator, struct text_metric metric, const char *path, struct log *log)
 {
     size_t len = *p_len;
-    if ((len ? utf8_is_xml_name_char : utf8_is_xml_name_start_char)(utf8_val, utf8_len))
+    if ((len ? utf8_is_xml_name_char_len : utf8_is_xml_name_start_char_len)(utf8_val, utf8_len))
     {
         if (!array_test(p_buff, p_cap, sizeof(**p_buff), 0, 0, ARG_SIZE(len, utf8_len, terminator))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
             strncpy(*p_buff, (char *) utf8_byte, utf8_len);
             *p_len += utf8_len;
-            return 1;
+            return 1 | STATUS_REPEAT;
         }
     }
     else if (len)
     {
         if (terminator) (*p_buff)[len] = '\0';
-        return STATUS_COMPLETE;
+        return 1;
     }
-    else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
+    else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
     return 0;
 }
 
-static enum coroutine_status xml_ctrl_impl(struct xml_ctrl_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, char **p_buff, size_t *p_len, size_t *p_cap, struct text_metric metric, const char *path, struct log *log)
+static bool xml_ctrl_impl(uint32_t *p_st, struct xml_ctrl_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, char **p_buff, size_t *p_len, size_t *p_cap, struct text_metric metric, const char *path, struct log *log)
 {
     const struct { struct strl name; struct strl subs; } ctrl_subs[] = {
         { STRI("amp"), STRI("&") },
@@ -295,149 +300,206 @@ static enum coroutine_status xml_ctrl_impl(struct xml_ctrl_context *context, uin
         ST_CTRL_TEXT,
         ST_CTRL_TEXT_HANDLER
     };
-      
-    for (;;) switch (context->st)
+     
+    size_t st = *p_st;
+    for (;;)
     {
-    case ST_CTRL_IF_NUM:
-        context->metric = metric;
-        if (utf8_val == '#')
+        switch (st)
         {
-            context->metric.byte++, context->metric.col++, context->st = ST_CTRL_IF_NUM_HEX;
-            return 1;
-        }
-        context->st = ST_CTRL_TEXT;
-        continue;
-
-    case ST_CTRL_IF_NUM_HEX:
-        if (utf8_val == 'x')
-        {
-            context->metric.byte++, context->metric.col++, context->st = ST_CTRL_DIGIT_HEX_FIRST;
-            return 1;
-        }
-        context->st++;
-        continue;
-
-    case ST_CTRL_DIGIT_HEX_FIRST:
-        if ('0' <= utf8_val && utf8_val <= '9')
-        {
-            context->val = utf8_val - '0', context->st++;
-            return 1;
-        }
-        else if ('A' <= utf8_val && utf8_val <= 'F')
-        {
-            context->val = utf8_val - 'A' + 10, context->st++;
-            return 1;
-        }
-        else if ('a' <= utf8_val && utf8_val <= 'f')
-        {
-            context->val = utf8_val - 'a' + 10, context->st++;
-            return 1;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, context->metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_CTRL_DIGIT_HEX_NEXT:
-        if ('0' <= utf8_val && utf8_val <= '9')
-        {
-            if (uint32_fused_mul_add(&context->val, 16, utf8_val - '0')) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
-            else return 1;
-        }
-        else if ('A' <= utf8_val && utf8_val <= 'F')
-        {
-            if (uint32_fused_mul_add(&context->val, 16, utf8_val - 'A' + 10)) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
-            else return 1;
-        }
-        else if ('a' <= utf8_val && utf8_val <= 'f')
-        {
-            if (uint32_fused_mul_add(&context->val, 16, utf8_val - 'a' + 10)) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
-            else return 1;
-        }
-        else
-        {
-            context->st = ST_CTRL_NUM_HANDLER;
+        case ST_CTRL_IF_NUM:
+            context->metric = metric;
+            if (utf8_val == '#')
+            {
+                context->metric.byte++, context->metric.col++, st = ST_CTRL_IF_NUM_HEX;
+                break;
+            }
+            st = ST_CTRL_TEXT;
             continue;
-        }
-        return 0;
-
-    case ST_CTRL_DIGIT_DEC_FIRST:
-        if ('0' <= utf8_val && utf8_val <= '9')
-        {
-            context->val = utf8_val - '0', context->st++;
-            return 1;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_CTRL_DIGIT_DEC_NEXT:
-        if ('0' <= utf8_val && utf8_val <= '9')
-        {
-            if (uint32_fused_mul_add(&context->val, 10, utf8_val - '0')) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
-            else return 1;
-        }
-        else
-        {
-            context->st = ST_CTRL_NUM_HANDLER;
+        case ST_CTRL_IF_NUM_HEX:
+            if (utf8_val == 'x')
+            {
+                context->metric.byte++, context->metric.col++, st = ST_CTRL_DIGIT_HEX_FIRST;
+                break;
+            }
+            st++;
             continue;
-        }
-        return 0;
-
-    case ST_CTRL_NUM_HANDLER:
-        if (utf8_val == ';')
-        {
-            if (context->val >= UTF8_BOUND) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, context->val, XML_ERROR_VAL_RANGE);
+        case ST_CTRL_DIGIT_HEX_FIRST:
+            if ('0' <= utf8_val && utf8_val <= '9')
+            {
+                context->val = utf8_val - '0', st++;
+                break;
+            }
+            else if ('A' <= utf8_val && utf8_val <= 'F')
+            {
+                context->val = utf8_val - 'A' + 10, st++;
+                break;
+            }
+            else if ('a' <= utf8_val && utf8_val <= 'f')
+            {
+                context->val = utf8_val - 'a' + 10, st++;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, context->metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case ST_CTRL_DIGIT_HEX_NEXT:
+            if ('0' <= utf8_val && utf8_val <= '9')
+            {
+                if (uint32_fused_mul_add(&context->val, 16, utf8_val - '0')) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
+                else break;
+            }
+            else if ('A' <= utf8_val && utf8_val <= 'F')
+            {
+                if (uint32_fused_mul_add(&context->val, 16, utf8_val - 'A' + 10)) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
+                else break;
+            }
+            else if ('a' <= utf8_val && utf8_val <= 'f')
+            {
+                if (uint32_fused_mul_add(&context->val, 16, utf8_val - 'a' + 10)) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
+                else break;
+            }
             else
             {
-                size_t len = *p_len;
-                uint8_t ctrl_byte[UTF8_COUNT], ctrl_len;
-                utf8_encode(context->val, ctrl_byte, &ctrl_len);
-                if (!array_test(p_buff, p_cap, sizeof(**p_buff), 0, 0, ARG_SIZE(len, ctrl_len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                st = ST_CTRL_NUM_HANDLER;
+                continue;
+            }
+            return 0;
+        case ST_CTRL_DIGIT_DEC_FIRST:
+            if ('0' <= utf8_val && utf8_val <= '9')
+            {
+                context->val = utf8_val - '0', st++;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case ST_CTRL_DIGIT_DEC_NEXT:
+            if ('0' <= utf8_val && utf8_val <= '9')
+            {
+                if (uint32_fused_mul_add(&context->val, 10, utf8_val - '0')) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, utf8_val, XML_ERROR_VAL_RANGE);
+                else break;
+            }
+            else
+            {
+                st = ST_CTRL_NUM_HANDLER;
+                continue;
+            }
+            return 0;
+        case ST_CTRL_NUM_HANDLER:
+            if (utf8_val == ';')
+            {
+                if (!utf8_is_xml_char(context->val)) log_message_error_val_xml(log, CODE_METRIC, context->metric, path, context->val, XML_ERROR_VAL_REFERENCE);
                 else
                 {
-                    strncpy(*p_buff + len, (char *) ctrl_byte, ctrl_len);
-                    *p_len = len + ctrl_len, context->st = 0, context->len = 0;
-                    return STATUS_COMPLETE;
+                    size_t len = *p_len;
+                    uint8_t ctrl_byte[UTF8_COUNT], ctrl_len;
+                    utf8_encode(context->val, ctrl_byte, &ctrl_len);
+                    if (!array_test(p_buff, p_cap, sizeof(**p_buff), 0, 0, ARG_SIZE(len, ctrl_len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                    else
+                    {
+                        strncpy(*p_buff + len, (char *) ctrl_byte, ctrl_len);
+                        *p_len = len + ctrl_len, st = 0;
+                        break;
+                    }
                 }
             }
-        }
-        else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_CTRL_TEXT:
-        switch (xml_name_impl(utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, 0, context->metric, path, log))
-        {
-        case STATUS_COMPLETE:
-            context->st++;
+            else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case ST_CTRL_TEXT: {
+            unsigned res = xml_name_impl(utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, 0, context->metric, path, log);
+            if (!res) return 0;
+            if (res & STATUS_REPEAT) break;
+            st++;
             continue;
-        case STATUS_CONTINUE:
-            return 1;
-        case STATUS_FAIL:
+        }
+        case ST_CTRL_TEXT_HANDLER:
+            if (utf8_val == ';')
+            {
+                size_t ind = binary_search(context->buff, ctrl_subs, sizeof(*ctrl_subs), countof(ctrl_subs), str_strl_stable_cmp_len, &context->len);
+                if (!(ind + 1)) log_message_error_str_xml(log, CODE_METRIC, context->metric, path, context->buff, context->len, XML_ERROR_STR_CONTROL);
+                else
+                {
+                    size_t len = *p_len;
+                    struct strl subs = ctrl_subs[ind].subs;
+                    if (!array_test(p_buff, p_cap, sizeof(*p_buff), 0, 0, ARG_SIZE(len, subs.len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                    else
+                    {
+                        strncpy(*p_buff + len, subs.str, subs.len);
+                        *p_len = len + subs.len, st = 0;
+                        break;
+                    }
+                }
+            }
+            else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
             return 0;
         }
-
-    case ST_CTRL_TEXT_HANDLER:
-        if (utf8_val == ';')
-        {
-            size_t ind = binary_search(context->buff, ctrl_subs, sizeof(*ctrl_subs), countof(ctrl_subs), str_strl_stable_cmp_len, &context->len);
-            if (!(ind + 1)) log_message_error_str_xml(log, CODE_METRIC, context->metric, path, context->buff, context->len, XML_ERROR_STR_CONTROL);
-            else
-            {
-                size_t len = *p_len;
-                struct strl subs = ctrl_subs[ind].subs;
-                if (!array_test(p_buff, p_cap, sizeof(*p_buff), 0, 0, ARG_SIZE(len, subs.len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-                else
-                {
-                    strncpy(*p_buff + len, subs.str, subs.len);
-                    *p_len = len + subs.len, context->len = context->st = 0;
-                    return STATUS_COMPLETE;
-                }
-            }
-        }
-        else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-    } 
+        break;
+    }
+    *p_st = st;
+    return 1;
 }
 
-static enum coroutine_status xml_val_impl(struct xml_val_context *context, struct xml_ctrl_context *ctrl_context, xml_val_selector_callback val_selector, void *val_context, uint8_t **p_buff, size_t *p_cap, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+static bool xml_val_impl(uint32_t *p_st, uint32_t *p_ctrl_st, struct xml_ctrl_context *ctrl_context, char **p_buff, size_t *p_len, size_t *p_cap, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+{
+    enum {
+        ST_QUOTE_OPENING,
+        ST_QUOTE_CLOSING,
+        ST_CTRL
+    };
+    
+    uint32_t st = *p_st;
+    for (;;)
+    {
+        switch (st)
+        {
+        case ST_QUOTE_OPENING:
+            switch (utf8_val)
+            {
+            case '\'':
+                context->quot++;
+            case '\"':
+                context->metric = metric, context->len = 0, st++;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case ST_QUOTE_CLOSING:
+            if (utf8_val == (uint32_t) "\"\'"[context->quot])
+            {
+                if (!array_test(&context->buff, &context->cap, sizeof(*context->buff), 0, 0, ARG_SIZE(context->len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                else
+                {
+                    context->buff[context->len] = '\0', st++;
+                    continue;
+                }
+                return 0;
+            }
+            switch (utf8_val)
+            {
+            case '&':
+                if (p_ctrl_st)
+                {
+                    st = ST_CTRL;
+                    break;
+                }
+            case '<':
+                log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+                return 0;
+            }
+            if (!array_test(&context->buff, &context->cap, sizeof(*context->buff), 0, 0, ARG_SIZE(context->len, utf8_len))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+            else
+            {
+                strncpy(context->buff + context->len, (char *) utf8_byte, utf8_len);
+                context->len += utf8_len;
+                break;
+            }
+            return 0;
+        case ST_CTRL:
+            if (!xml_ctrl_impl(p_ctrl_st, ctrl_context, utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, metric, path, log)) return 0;
+            if (!*p_ctrl_st) st = ST_QUOTE_CLOSING;
+        }
+    }
+}
+
+static bool xml_att_impl(uint32_t *p_st, struct xml_att_context *context, uint32_t *p_ctrl_st, struct xml_ctrl_context *ctrl_context, xml_val_selector_callback val_selector, void *val_res, void *val_selector_context, uint8_t **p_bits, size_t *p_bits_cap, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
 {
     enum {
         ST_INIT = 0,
@@ -446,335 +508,286 @@ static enum coroutine_status xml_val_impl(struct xml_val_context *context, struc
         ST_WHITESPACE_A,
         ST_EQUALS,
         ST_WHITESPACE_B,
-        ST_QUOTE_OPENING,
-        ST_QUOTE_CLOSING,
+        
         ST_VAL_HANDLER,
-        ST_CTRL
+        
     };
     
-    for (;;) switch (context->st)
+    uint32_t st = *p_st;
+    for (;;) 
     {
-    case ST_INIT:
-        context->metric = metric, context->st++;
-
-    case ST_NAME:
-        switch (xml_name_impl(utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, 1, metric, path, log))
+        switch (st)
         {
-        case STATUS_COMPLETE:
-            context->st++;
+        case ST_INIT:
+            context->metric = metric, st++;
             continue;
-        case STATUS_CONTINUE:
-            return 1;
-        case STATUS_FAIL:
-            return 0;
+        case ST_NAME: {
+            unsigned res = xml_name_impl(utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, 1, metric, path, log);
+            if (!res) return 0;
+            if (res & STATUS_REPEAT) break;
+            st++;
+            continue;
         }
-
-    case ST_NAME_HANDLER: {
-        size_t ind;
-        if (!val_selector(&context->val, context->buff, context->len, val_context, ind) && !(ind + 1)) log_message_error_str_xml(log, CODE_METRIC, metric, path, context->buff, context->len, XML_ERROR_STR_UNEXPECTED_ATTRIBUTE);
-        else 
-        {
-            if (ind >= *p_cap)
+        case ST_NAME_HANDLER: {
+            size_t ind;
+            if (!val_selector(&context->val, context->buff, context->len, val_res, val_selector_context, &ind) && !(ind + 1)) log_message_error_str_xml(log, CODE_METRIC, metric, path, context->buff, context->len, XML_ERROR_STR_UNEXPECTED_ATTRIBUTE);
+            else
             {
-                if (!array_test(p_buff, p_cap, sizeof(**p_buff), 0, 0, ARG_SIZE(UINT8_CNT(ind + 1)))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                size_t bits_cap = *p_bits_cap;
+                if (ind >= UINT8_CNT(bits_cap))
+                {
+                    if (!array_test(p_bits, p_bits_cap, sizeof(**p_bits), 0, ARRAY_CLEAR, ARG_SIZE(UINT8_CNT(ind + 1)))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                    else
+                    {
+                        uint8_bit_set(*p_bits, ind);
+                        st++;
+                        continue;
+                    }
+                }
+                else if (uint8_bit_test_set(*p_bits, ind)) log_message_error_str_xml(log, CODE_METRIC, metric, path, context->buff, context->len, XML_ERROR_STR_DUPLICATED_ATTRIBUTE);
                 else
                 {
-                    uint8_bit_set(*p_buff, ind);
-                    context->st++;
+                    st++;
                     continue;
                 }
             }
-            else if (uint8_bit_test_set(*p_buff, ind)) log_message_error_str_xml(log, CODE_METRIC, metric, path, context->buff, context->len, XML_ERROR_STR_DUPLICATED_ATTRIBUTE);
+            return 0;
+        }
+        case ST_WHITESPACE_A:
+        case ST_WHITESPACE_B:
+            if (utf8_is_whitespace_len(utf8_val, utf8_len)) break;
+            st++;
+            continue;
+        case ST_EQUALS:
+            if (utf8_val == '=')
+            {
+                st++;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        
+        case ST_VAL_HANDLER:
+            if (!context->val.handler(context->buff, context->len, context->val.ptr, context->val.context)) log_message_error_str_xml(log, CODE_METRIC, context->metric, path, context->buff, context->len, XML_ERROR_STR_UNHANDLED_VALUE);
             else
             {
-                context->st++;
-                continue;
+                st = 0;
+                break;
             }
-        }
-        return 0;
-    }
-
-    case ST_WHITESPACE_A:
-    case ST_WHITESPACE_B:
-        if (utf8_is_whitespace(utf8_val, utf8_len)) return 1;
-        context->st++;
-        continue;
-
-    case ST_EQUALS:
-        if (utf8_val == '=')
-        {
-            context->st++;
-            return 1;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-        
-    case ST_QUOTE_OPENING:
-        context->quot = 0;
-        switch (utf8_val)
-        {
-        case '\'':
-            context->quot++;
-        case '\"':
-            context->metric = metric, context->len = 0, context->st++;
-            return 1;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_QUOTE_CLOSING:
-        if (utf8_val == (uint32_t) "\"\'"[context->quot])
-        {
-            context->buff[context->len] = '\0', context->st++;
-            continue;
-        }
-        
-        switch (utf8_val)
-        {
-        case '&':
-            if (ctrl_context)
-            {
-                context->st = ST_CTRL;
-                return 1;
-            }
-        case '<':
-            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
             return 0;
         }
-        
-        if (!array_test(&context->buff, &context->cap, sizeof(*context->buff), 0, 0, ARG_SIZE(context->len, utf8_len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-        else
-        {
-            strncpy(context->buff + context->len, (char *) utf8_byte, utf8_len);
-            context->len += utf8_len;
-            return 1;
-        }
-        return 0;
-
-    case ST_VAL_HANDLER:
-        if (!context->val.handler(context->buff, context->len, context->val.ptr, context->val.context)) log_message_error_str_xml(log, CODE_METRIC, context->metric, path, context->buff, context->len, XML_ERROR_STR_UNHANDLED_VALUE);
-        else
-        {
-            context->len = context->st = 0;
-            return STATUS_COMPLETE;
-        }
-        return 0;
-
-    case ST_CTRL:
-        switch (xml_ctrl_impl(ctrl_context, utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, metric, path, log))
-        {
-        case STATUS_COMPLETE:
-            context->st = ST_QUOTE_CLOSING;
-        case STATUS_CONTINUE:
-            return 1;
-        case STATUS_FAIL:
-            return 0;
-        }
+        break;
     }
+    *p_st = st;
+    return 1;
 }
 
-static enum coroutine_status xml_decl_impl(struct xml_context *context, struct xml_val_context *val_context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+static bool xml_match_impl(size_t *p_context, const char *str, size_t len, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+{
+    size_t ind = *p_context;
+    if (utf8_val == (uint32_t) str[ind])
+    {
+        *p_context = ind < len ? ind + 1 : 0;
+        return 1;
+    }
+    log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+    return 0;
+}
+
+static bool *xml_decl_read(const char *str, size_t len, void *ptr, void *Context)
+{
+    const struct strl decl_val[] = { STRI("1.0"), STRI("UTF-8"), STRI("no") }; // Encoding value is not case-sensetive 
+    size_t pos = *(size_t *) Context;
+    if (len == decl_val[pos].len && (pos == 1 ? !Strnicmp(str, decl_val[pos].str, len) : !strncmp(str, decl_val[pos].str, len))) return 1;
+    return 0;
+}
+
+static bool *xml_decl_val_selector(struct xml_val *restrict val, const char *restrict str, size_t len, void *restrict res, void *Context, size_t *restrict p_ind)
+{
+    (void) res;
+    const struct strl decl_name[] = { STRI("version"), STRI("encoding"), STRI("standalone") };
+    size_t *p_pos = Context, pos = *p_pos;
+    for (size_t i = pos; i < countof(decl_name); i++)
+    {
+        if (len == decl_name[i].len && !strncmp(str, decl_name[i].str, len))
+        {
+            *p_ind = *p_pos = i;
+            *val = (struct xml_val) { .context = Context, .handler = xml_decl_read };
+            return 1;
+        }
+        if (!i) break; // First attribute may not be missing!
+    }
+    return 0;    
+}
+
+static bool xml_decl_impl(uint32_t *restrict p_st, size_t *restrict p_context, uint32_t *restrict p_val_st, struct xml_att_context *restrict val_context, uint8_t **restrict p_bits, size_t *restrict p_bits_cap, uint8_t *restrict utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     enum {
-        ST_DECL_A = 0,
-        ST_WHITESPACE_A,
-        ST_DECL_B,
-        ST_WHITESPACE_B,
-        ST_EQUALS_A,
-        ST_WHITESPACE_C,
-        ST_VAL_A,
-        ST_VAL_HANDLING_A,
-        ST_WHITESPACE_D,
-        ST_DECL_ENDING_A,
-        ST_DECL_C,
-        ST_WHITESPACE_E,
-        ST_EQUALS_B,
-        ST_WHITESPACE_F,
-        ST_VAL_B,
-        ST_VAL_HANDLING_B,
-        ST_WHITESPACE_G,
-        ST_DECL_ENDING_B,
-        ST_DECL_D,
-        ST_WHITESPACE_H,
-        ST_EQUALS_C,
-        ST_WHITESPACE_I,
-        ST_VAL_C,
-        ST_VAL_HANDLING_C,
-        ST_WHITESPACE_J,
-        ST_DECL_ENDING_C,
-        ST_DECL_E,
-        ST_DECL_ENDING_D,
+        ST_DECL_BEGINNING = 0,
+        ST_WHITESPACE_MANDATORY_FIRST,
+        ST_WHITESPACE_FIRST,
+        ST_ATTRIBUTE_FIRST,
+        ST_WHITESPACE_MANDATORY_NEXT,
+        ST_WHITESPACE_NEXT,
+        ST_ATTRIBUTE_NEXT,
+        ST_DECL_ENDING_CHECK,
+        ST_DECL_ENDING
     };
 
-    for (;;) switch (context->st)
+    uint32_t st = *p_st;
+    for (;;)
     {
-    case ST_DECL_A:
-        context->len = 0;
-    case ST_DECL_B:
-        if (utf8_val == (uint32_t) (XML_DECL_BEGINNING)[context->len])
+        switch (st)
         {
-
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_DECL_C:
-    case ST_DECL_D:
-    case ST_DECL_E:
-        if (utf8_val == (uint32_t) (XML_DECL_BEGINNING XML_DECL_VERSION XML_DECL_ENCODING XML_DECL_STANDALODE)[context->len])
-        {
-            switch (++context->len)
+        case ST_DECL_BEGINNING:
+            if (!xml_match_impl(p_context, STRC("<?xml"), utf8_byte, utf8_val, utf8_len, metric, path, log)) return 0;
+            if (!*p_context) st++;
+            break;
+        case ST_WHITESPACE_MANDATORY_FIRST:
+        case ST_WHITESPACE_MANDATORY_NEXT:
+            if (utf8_is_whitespace_len(utf8_val, utf8_len))
             {
-            case strlenof(XML_DECL_BEGINNING):
-            case strlenof(XML_DECL_BEGINNING XML_DECL_VERSION):
-            case strlenof(XML_DECL_BEGINNING XML_DECL_VERSION XML_DECL_ENCODING):
-            case strlenof(XML_DECL_BEGINNING XML_DECL_VERSION XML_DECL_ENCODING XML_DECL_STANDALODE):
-                context->st++;
-                return 1;
+                st++;
+                break;
             }
-        }
-        switch (context->len)
-        {
-        case strlenof(XML_DECL_BEGINNING XML_DECL_VERSION):
-            context->len += strlenof(XML_DECL_ENCODING), context->st = ST_DECL_D;
+            st = ST_DECL_ENDING_CHECK;
             continue;
-        case strlenof(XML_DECL_BEGINNING XML_DECL_VERSION XML_DECL_ENCODING):
-            context->len += strlenof(XML_DECL_STANDALODE), context->st = ST_DECL_E;
+        case ST_WHITESPACE_FIRST:
+        case ST_WHITESPACE_NEXT:
+            if (utf8_is_whitespace_len(utf8_val, utf8_len)) break;
+            st++;
             continue;
-        case strlenof(XML_DECL_BEGINNING XML_DECL_VERSION XML_DECL_ENCODING XML_DECL_STANDALODE):
-            context->len = 0, context->st++;
+        case ST_ATTRIBUTE_NEXT:
+            xml_val_context_reset(val_context);
+            st = ST_ATTRIBUTE_FIRST;
             continue;
-        }
-        log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_DECL);
-        return 0;
-
-    case ST_WHITESPACE_A:
-    case ST_WHITESPACE_B:
-    case ST_WHITESPACE_C:
-    case ST_WHITESPACE_D:
-    case ST_WHITESPACE_E:
-    case ST_WHITESPACE_F:
-    case ST_WHITESPACE_G:
-    case ST_WHITESPACE_H:
-    case ST_WHITESPACE_I:
-    case ST_WHITESPACE_J:
-        if (utf8_is_whitespace(utf8_val, utf8_len)) return 1;
-        context->st++;
-        continue;
-
-    case ST_EQUALS_A:
-    case ST_EQUALS_B:
-    case ST_EQUALS_C:
-        if (utf8_val == '=')
-        {
-            context->st++;
-            return 1;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_DECL_ENDING_A:
-    case ST_DECL_ENDING_B:
-    case ST_DECL_ENDING_C:
-        context->st = ST_DECL_ENDING_D;
-        context->len = 0;
-        continue;
-
-    case ST_DECL_ENDING_D:
-        if (utf8_val == (uint32_t) (XML_DECL_ENDING)[context->len])
-        {
-            context->len++;
-            return 1;
-        }
-        if (context->len == strlenof(XML_DECL_ENDING))
-        {
-            context->st = 0;
-            return STATUS_COMPLETE;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case ST_VAL_A:
-    case ST_VAL_B:
-    case ST_VAL_C:
-        switch (xml_val_impl(val_context, NULL, utf8_byte, utf8_val, utf8_len, metric, path, log))
-        {
-        case STATUS_FAIL:
+        case ST_ATTRIBUTE_FIRST:
+            if (!xml_att_impl(p_val_st, val_context, NULL, NULL, xml_decl_val_selector, NULL, p_context, p_bits, p_bits_cap, utf8_byte, utf8_val, utf8_len, metric, path, log)) return 0;
+            if (!*p_val_st) st++;
+            break;
+        case ST_DECL_ENDING_CHECK:
+            if (*p_context) // Check if at least one attribute is present
+            {
+                *p_context = 0, st++;
+                continue;
+            }
+            log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_DECL);
             return 0;
-        case STATUS_COMPLETE:
-            context->st++;
-        case STATUS_CONTINUE:
-            return 1;
+        case ST_DECL_ENDING:
+            if (!xml_match_impl(p_context, STRC("?>"), utf8_byte, utf8_val, utf8_len, metric, path, log)) return 0;
+            if (!*p_context) st = 0;
+            break;
         }
-
-    case ST_VAL_HANDLING_A:
-        if (val_context->len == strlenof(XML_DECL_VERSION_VALUE) && !strncmp(val_context->buff, XML_DECL_VERSION_VALUE, val_context->len))
-        {
-            context->st++;
-            continue;
-        }
-        log_message_error_str_xml(log, CODE_METRIC, val_context->metric, path, val_context->buff, val_context->len, XML_ERROR_STR_UNHANDLED_VALUE);
-        return 0;
-
-    case ST_VAL_HANDLING_B: // Warning: 'Strnicmp' should be used
-        if (val_context->len == strlenof(XML_DECL_ENCODING_VALUE) && !Strnicmp(val_context->buff, XML_DECL_ENCODING_VALUE, val_context->len))
-        {
-            context->st++;
-            continue;
-        }
-        log_message_error_str_xml(log, CODE_METRIC, val_context->metric, path, val_context->buff, val_context->len, XML_ERROR_STR_UNHANDLED_VALUE);
-        return 0;
-
-    case ST_VAL_HANDLING_C:
-        if (val_context->len == strlenof(XML_DECL_STANDALODE_VALUE) && !strncmp(val_context->buff, XML_DECL_STANDALODE_VALUE, val_context->len))
-        {
-            context->st++;
-            continue;
-        }
-        log_message_error_str_xml(log, CODE_METRIC, val_context->metric, path, val_context->buff, val_context->len, XML_ERROR_STR_UNHANDLED_VALUE);
-        return 0;
+        break;
     }
+    *p_st = st;
+    return 1;
 }
 
-static enum coroutine_status xml_comment_impl(struct xml_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+static bool xml_comment_impl(uint32_t *restrict p_st, uint8_t *restrict utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
-    for (;;) switch (context->st)
+    uint32_t st = *p_st;
+    for (;;) 
     {
-    case 0:
-        context->len = 0, context->st++;
-        continue;
-
-    case 1:
-        if (utf8_val == '-')
+        switch (st)
         {
-            context->st++;
-            return 1;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
-
-    case 2:
-        if (context->len == 2)
-        {
-            context->st++;
-            continue;
-        }
-        else if (utf8_val == '-') context->len++;
-        else context->len = 0;
-        return 1;
-
-    case 3:
-        if (utf8_val == '>')
-        {
-            context->st = 0;
-            return STATUS_COMPLETE;
-        }
-        log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-        return 0;
+        case 0:           
+        case 1:
+            if (utf8_val == '-')
+            {
+                st++;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case 2:
+            if (utf8_val == '-') st++;
+            break;
+        case 3:
+            if (utf8_val == '-') st++;
+            else st--;
+            break;
+        case 4:
+            if (utf8_val == '>')
+            {
+                st = 0;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        } 
+        break;
     }
+    *p_st = st;
+    return 1;
 }
 
-struct xml_object *program_object_from_xml(const char *path, xml_node_selector_callback xml_node_selector, xml_att_selector_callback xml_val_selector, void *context, struct log *log)
+static bool xml_impl(uint32_t *p_st, struct xml_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+{
+    enum {
+        ST_DECL = 0,
+        ST_WHITESPACE_A,
+        ST_TAG_BEGINNING,
+        ST_TAG_ROUTING,
+        ST_TAG_NAME,
+        ST_ATT,
+        ST_DECL_ENDING_CHECK,
+        ST_DECL_ENDING,
+        ST_COMMENT
+    };
+    
+    uint32_t st = *p_st;
+    for (;;)
+    {
+        switch (st)
+        {
+        case ST_DECL:
+            if (!xml_decl_impl(&context->st, &context->context, &context->val_st, &context->val_context, &context->bits, &context->bits_cap, utf8_byte, utf8_val, utf8_val, metric, path, log)) return 0;
+            if (!context->st) st++;
+            break;
+        case ST_WHITESPACE_A: // Optional whitespaces
+            if (!utf8_is_whitespace_len(utf8_val, utf8_len)) break;
+            st++;
+            continue;
+        case ST_TAG_BEGINNING:
+            if (utf8_val == '<')
+            {
+                st++;
+                break;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case ST_TAG_ROUTING:
+            switch (utf8_val)
+            {
+            case '/':
+                st = ST_NAME_D;
+                break;
+            case '!':
+                st = ST_COMMENT;
+                break;
+            default:
+                st++;
+                continue;
+            }
+            break;
+        case ST_TAG_NAME: {
+            unsigned res = xml_name_impl(utf8_byte, utf8_val, utf8_len, &context->val_context.buff, &context->val_context.len, &context->val_context.cap, 1, metric, path, log);
+        }
+        case ST_COMMENT:
+            if (!xml_comment_impl(&context->st, utf8_byte, utf8_val, utf8_len, metric, path, log)) return 0;
+            if (!context->st) st = ST_WHITESPACE_A;
+        }
+        break;
+    }
+    *p_st = st;
+    return 1;
+}
+
+// This is ONLY required for the line marked with '(*)'
+_Static_assert(BLOCK_READ > 2, "'BLOCK_READ' constant is assumed to be greater than 2!");
+
+struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_node_selector, xml_val_selector_callback xml_val_selector, void *context, struct log *log)
 {
     FILE *f = NULL;
     if (path)
@@ -788,56 +801,24 @@ struct xml_object *program_object_from_xml(const char *path, xml_node_selector_c
     }
     else f = stdin;
     
-    struct { char *buff; size_t cap; } temp = { 0 }, name = { 0 };
-    struct { uint8_t *buff; size_t cap; } attb = { 0 };
+    
     struct { struct frame { struct xml_object *obj; size_t off, len, dsc_cap; } *frame; size_t cap; } stack = { 0 };
     
-    struct xml_ctrl_context ctrl_context = { 0 };
-    struct xml_val_context comment_context = { 0 };
-
-    size_t len = 0, ind = 0, dep = 0;
+    struct xml_context xml_context = { 0 };
+    struct xml_att_context xml_val_context = { 0 };
+    struct xml_ctrl_context xml_ctrl_context = { 0 };
+    
+    size_t dep = 0;
     char buff[BLOCK_READ], *text = NULL;
-    uint8_t utf8_byte[UTF8_COUNT];
-    struct text_metric txt = { 0 }, str = { 0 }; // Text metrics        
+    struct text_metric metric = { 0 }; // Text metrics        
     struct xml_att xml_val = { 0 };
     struct xml_node xml_node = { 0 };
     
     size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;    
-    if (rd >= 3 && !strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, txt.byte += 3; // (*) Reading UTF-8 BOM if it is present
+    if (rd >= 3 && !strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, metric.byte += 3; // (*) Reading UTF-8 BOM if it is present
     
     enum {
-        ST_DECL_A = 0, 
-        ST_WHITESPACE_A, 
-        ST_DECL_B, 
-        ST_WHITESPACE_B, 
-        ST_EQUALS_A, 
-        ST_WHITESPACE_C, 
-        ST_QUOTE_OPENING_A,       
-        ST_QUOTE_CLOSING_A, 
-        ST_DECL_HANDLING_A, 
-        ST_WHITESPACE_D, 
-        ST_DECL_ENDING_A,
-        ST_DECL_C, 
-        ST_WHITESPACE_E, 
-        ST_EQUALS_B, 
-        ST_WHITESPACE_F, 
-        ST_QUOTE_OPENING_B,
-        ST_QUOTE_CLOSING_B, 
-        ST_DECL_HANDLING_B, 
-        ST_WHITESPACE_G, 
-        ST_DECL_ENDING_B,
-        ST_DECL_D, 
-        ST_WHITESPACE_H, 
-        ST_EQUALS_C, 
-        ST_WHITESPACE_I,
-        ST_QUOTE_OPENING_C, 
-        ST_QUOTE_CLOSING_C, 
-        ST_DECL_HANDLING_C, 
-        ST_WHITESPACE_J, 
-        ST_DECL_ENDING_C,
-        ST_DECL_E, 
-        ST_DECL_ENDING_D, 
-        ST_DECL_ENDING_E,
+        ST_DECL = 0,
         ST_WHITESPACE_K,
         ST_ANGLE_LEFT_A,
         ST_TAG_BEGINNING_A,
@@ -871,371 +852,304 @@ struct xml_object *program_object_from_xml(const char *path, xml_node_selector_c
         ST_COMMENT_C,
     };
     
+    uint8_t utf8_byte[UTF8_COUNT];
     uint8_t utf8_len = 0, utf8_context = 0;
     uint32_t utf8_val = 0;
     bool halt = 0, root = 0;
-    uint32_t st = ST_DECL_A;
+    uint32_t st = 0;
 
-    for (bool upd = 1; !halt && rd; rd = fread(buff, 1, sizeof buff, f), pos = 0) while (!halt)
+    for (; !halt && rd; rd = fread(buff, 1, sizeof buff, f), pos = 0) for (halt = 1; pos < rd; halt = 1)
     {
-        if (upd) // UTF-8 decoder coroutine
+        // UTF-8 decoder coroutine
+        if (!utf8_decode(buff[pos], &utf8_val, utf8_byte, &utf8_len, &utf8_context)) log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_UTF);
+        else
         {
-            if (pos >= rd) break;
-            if (utf8_decode(buff[pos], &utf8_val, utf8_byte, &utf8_len, &utf8_context))
+            pos++, metric.byte++;
+            if (utf8_context) continue;
+            if (!utf8_is_valid(utf8_val, utf8_len)) log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_UTF);
+            else
             {
-                pos++, txt.byte++;
-                if (utf8_context) continue;
-                if (utf8_is_invalid(utf8_val, utf8_len)) log_message_error_xml(log, CODE_METRIC, txt, path, XML_ERROR_UTF), halt = 1;
-                else if (utf8_val == '\n') txt.line++, txt.col = 0; // Updating text metrics
-                else txt.col++;
+                if (utf8_val == '\n') metric.line++, metric.col = 0; // Updating text metrics
+                else metric.col++;
+                if (!utf8_is_xml_char_len(utf8_val, utf8_len)) log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_INVALID_CHAR);
+                else halt = 0;
             }
-            else log_message_error_xml(log, CODE_METRIC, txt, path, XML_ERROR_UTF), halt = 1;
         }
-        else upd = 1;
-
+        
         if (halt) break;
 
-        switch (st)
+        for (;;)
         {
-            ///////////////////////////////////////////////////////////////
-            //
-            //  XML header handling
-            //
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Reading whitespaces
-            //
-
-        case ST_WHITESPACE_K:
-        case ST_WHITESPACE_L:        
-        case ST_WHITESPACE_M:
-        case ST_WHITESPACE_N:
-        case ST_WHITESPACE_O:
-            if (!utf8_is_whitespace(utf8_val, utf8_len)) st++, upd = 0;
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Reading '=' sign
-            //
-
-        
-        
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Reading opening quote
-            //
-
-         
-        case ST_QUOTE_OPENING_D:
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Reading closing quote
-            //
-
-        case ST_QUOTE_CLOSING_A:
-        case ST_QUOTE_CLOSING_B:
-        case ST_QUOTE_CLOSING_C:
-        case ST_QUOTE_CLOSING_D:
+            switch (st)
+            {
             
 
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Reading header attributes
-            //
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Tag beginning handling
+                //
 
-        
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Handling the ending of the XML header
-            //
-
-        
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Reading '<' sign
-            //
-
-        case ST_ANGLE_LEFT_A:
-        case ST_ANGLE_LEFT_B:
-            if (utf8_val == '<')
-            {
-                st++;
+            case ST_TAG_BEGINNING_A:
+                if (utf8_val == '!') st = ST_COMMENT_A;
+                else str = metric, str.col--, str.byte -= utf8_len, len = 0, st++, upd = 0;
                 break;
-            }
-            log_message_error_char_xml(log, CODE_METRIC, txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-            halt = 1;
-            break;
 
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Tag beginning handling
-            //
-
-        case ST_TAG_BEGINNING_A:
-            if (utf8_val == '!') st = ST_COMMENT_A;
-            else str = txt, str.col--, str.byte -= utf8_len, len = 0, st++, upd = 0;
-            break;
-
-        case ST_TAG_BEGINNING_B:
-            switch (utf8_val)
-            {
-            case '/':
-                str = txt, len = 0, st = ST_NAME_D;
-                break;
-            case '!':
-                st = ST_COMMENT_B;
-                break;
-            default:
-                str = txt, str.col--, str.byte -= utf8_len, len = 0, st++, upd = 0;
-            }
-            break;
-
-        case ST_TAG_BEGINNING_C:
-            if (utf8_val == '!') // Only comments are allowed after the root tag
-            {
-                st = ST_COMMENT_C;
-                break;
-            }
-            log_message_error_char_xml(log, CODE_METRIC, txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-            halt = 1;
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Tag or attribute name reading and storing
-            //
-
-        case ST_NAME_A: 
-        case ST_NAME_B: 
-        case ST_NAME_C:
-        
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Tag name handling for the first time
-            //
-
-        case ST_TAG_ROOT_A:
-            root = 1;
-            if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_str_xml(log, CODE_METRIC, txt, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_TAG);
-            {
-                if (!array_init(&stack.frame, &stack.cap, 1, sizeof(*stack.frame), 0, 0)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-                else
+            case ST_TAG_BEGINNING_B:
+                switch (utf8_val)
                 {
-                    stack.frame[0] = (struct frame) { .obj = malloc(sizeof(*stack.frame[0].obj)), .len = len };
-                    if (!stack.frame[0].obj) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                case '/':
+                    str = metric, len = 0, st = ST_NAME_D;
+                    break;
+                case '!':
+                    st = ST_COMMENT_B;
+                    break;
+                default:
+                    str = metric, str.col--, str.byte -= utf8_len, len = 0, st++, upd = 0;
+                }
+                break;
+
+            case ST_TAG_BEGINNING_C:
+                if (utf8_val == '!') // Only comments are allowed after the root tag
+                {
+                    st = ST_COMMENT_C;
+                    break;
+                }
+                log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+                halt = 1;
+                break;
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Tag or attribute name reading and storing
+                //
+
+            case ST_NAME_A:
+            case ST_NAME_B:
+            case ST_NAME_C:
+
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Tag name handling for the first time
+                //
+
+            case ST_TAG_ROOT_A:
+                root = 1;
+                if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_str_xml(log, CODE_METRIC, metric, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_TAG);
+                {
+                    if (!array_init(&stack.frame, &stack.cap, 1, sizeof(*stack.frame), 0, 0)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
                     else
                     {
-                        if (!array_init(&name.buff, &name.cap, len + 1, sizeof(*name.buff), 0, 0)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                        stack.frame[0] = (struct frame) { .obj = malloc(sizeof(*stack.frame[0].obj)), .len = len };
+                        if (!stack.frame[0].obj) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
                         else
                         {
-                            strcpy(name.buff, temp.buff);
-                            *stack.frame[0].obj = (struct xml_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
-                            if (!stack.frame[0].obj->context) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-                            else
-                            {
-                                st++, upd = 0;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            halt = 1;
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Tag name handling
-            //
-
-        case ST_TAG_A:
-            if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_str_xml(log, CODE_METRIC, txt, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_TAG);
-            {
-                if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-                else
-                {
-                    struct xml_object *obj = stack.frame[dep - 1].obj;
-                    if (!array_test(&obj->dsc, &stack.frame[dep - 1].dsc_cap, sizeof(*obj->dsc), 0, 0, ARG_SIZE(obj->dsc_cnt, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-                    {
-                        obj->dsc[obj->dsc_cnt] = (struct xml_object_node) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
-                        if (!obj->dsc[obj->dsc_cnt].context) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
-                        else
-                        {
-                            if (!array_test(&name.buff, &name.cap, sizeof(*name.buff), 0, 0, ARG_SIZE(stack.frame[dep - 1].off, stack.frame[dep - 1].len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                            if (!array_init(&name.buff, &name.cap, len + 1, sizeof(*name.buff), 0, 0)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
                             else
                             {
                                 strcpy(name.buff, temp.buff);
-                                stack.frame[dep] = (struct frame) { .obj = (struct xml_object *) &obj->dsc[obj->dsc_cnt], .len = len, .off = stack.frame[dep - 1].off + stack.frame[dep - 1].len + 1 };
-                                obj->dsc_cnt++;
-                                st = ST_TAG_ENDING_A, upd = 0;
-                                break;
+                                *stack.frame[0].obj = (struct xml_object) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
+                                if (!stack.frame[0].obj->context) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                                else
+                                {
+                                    st++, upd = 0;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
-            }
-            halt = 1;
-            break;
+                halt = 1;
+                break;
 
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Tag ending handling
-            // 
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Tag name handling
+                //
 
-        case ST_TAG_ENDING_A:
-            if (utf8_val == '/') st++;
-            else if (utf8_val == '>') dep++, st = ST_TEXT_A;
-            else str = txt, str.col--, str.byte -= utf8_len, len = 0, st += 2, upd = 0;
-            break;
-
-        case ST_TAG_ENDING_B: 
-        case ST_TAG_ENDING_C:
-            if (utf8_val == '>')
-            {
-                switch (st)
+            case ST_TAG_A:
+                if (!xml_node_selector(&xml_node, temp.buff, len, context)) log_message_error_str_xml(log, CODE_METRIC, metric, path, temp.buff, len, XML_ERROR_STR_UNEXPECTED_TAG);
                 {
-                case ST_TAG_ENDING_B:
-                    st = ST_TEXT_A;
+                    if (!array_test(&stack.frame, &stack.cap, sizeof(*stack.frame), 0, 0, ARG_SIZE(dep))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                    else
+                    {
+                        struct xml_object *obj = stack.frame[dep - 1].obj;
+                        if (!array_test(&obj->dsc, &stack.frame[dep - 1].dsc_cap, sizeof(*obj->dsc), 0, 0, ARG_SIZE(obj->dsc_cnt, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                        {
+                            obj->dsc[obj->dsc_cnt] = (struct xml_object_node) { .prologue = xml_node.prologue, .epilogue = xml_node.epilogue, .dispose = xml_node.dispose, .context = calloc(1, xml_node.sz) };
+                            if (!obj->dsc[obj->dsc_cnt].context) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                            else
+                            {
+                                if (!array_test(&name.buff, &name.cap, sizeof(*name.buff), 0, 0, ARG_SIZE(stack.frame[dep - 1].off, stack.frame[dep - 1].len, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                                else
+                                {
+                                    strcpy(name.buff, temp.buff);
+                                    stack.frame[dep] = (struct frame) { .obj = (struct xml_object *) &obj->dsc[obj->dsc_cnt], .len = len, .off = stack.frame[dep - 1].off + stack.frame[dep - 1].len + 1 };
+                                    obj->dsc_cnt++;
+                                    st = ST_TAG_ENDING_A, upd = 0;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                halt = 1;
+                break;
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Tag ending handling
+                // 
+
+            case ST_TAG_ENDING_A:
+                if (utf8_val == '/') st++;
+                else if (utf8_val == '>') dep++, st = ST_TEXT_A;
+                else str = metric, str.col--, str.byte -= utf8_len, len = 0, st += 2, upd = 0;
+                break;
+
+            case ST_TAG_ENDING_B:
+            case ST_TAG_ENDING_C:
+                if (utf8_val == '>')
+                {
+                    switch (st)
+                    {
+                    case ST_TAG_ENDING_B:
+                        st = ST_TEXT_A;
+                        break;
+                    case ST_TAG_ENDING_C:
+                        st = ST_WHITESPACE_O;
+                    }
                     break;
-                case ST_TAG_ENDING_C:
-                    st = ST_WHITESPACE_O;
+                }
+                log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+                halt = 1;
+                break;
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Text handling
+                // 
+
+            case ST_TEXT_A:
+                switch (utf8_val)
+                {
+                case '<':
+                    st++;
+                    break;
+                case '&':
+                    st = ST_SPECIAL_A;
+                default:;
+                    //if (!array_test(&text, )
                 }
                 break;
-            }
-            log_message_error_char_xml(log, CODE_METRIC, txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_INVALID_SYMBOL);
-            halt = 1;
-            break;
 
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Text handling
-            // 
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Closing tag handling
+                //
 
-        case ST_TEXT_A:
-            switch (utf8_val)
-            {
-            case '<':
-                st++;
-                break;
-            case '&':
-                st = ST_SPECIAL_A;
-            default:;
-                //if (!array_test(&text, )
-            }
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Closing tag handling
-            //
-
-        case ST_CLOSING_TAG_A:
-            if (len != stack.frame[dep].len || strncmp(temp.buff, name.buff + stack.frame[dep].off, len)) log_message_error_str_xml(log, CODE_METRIC, txt, path, temp.buff, len, XML_ERROR_STR_ENDING);
-            else
-            {
-                struct xml_object *obj = stack.frame[dep - 1].obj;
-                if (!array_test(&obj->dsc, &stack.frame[dep - 1].dsc_cap, sizeof(*obj->dsc), 0, ARRAY_REDUCE, ARG_SIZE(obj->dsc_cnt))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+            case ST_CLOSING_TAG_A:
+                if (len != stack.frame[dep].len || strncmp(temp.buff, name.buff + stack.frame[dep].off, len)) log_message_error_str_xml(log, CODE_METRIC, metric, path, temp.buff, len, XML_ERROR_STR_ENDING);
                 else
                 {
-                    st = ST_TAG_ENDING_B;
-                    upd = 0;
-                    break;
-                }                
-            }
-            halt = 1;
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Selecting attribute
-            //
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Executing attribute handler
-            //
-
-        case ST_ATTRIBUTE_HANDLING_A:
-            ; // There is always room for the zero-terminator
-            if (!xml_val.handler(temp.buff, len, (char *) stack.frame[dep].obj->context + xml_val.offset, xml_val.context)) log_message_error_str_xml(log, CODE_METRIC, str, path, temp.buff, len, XML_ERROR_STR_UNHANDLED_VALUE);
-            else
-            {
-                upd = 0;
-                st = ST_TAG_ENDING_A;
-                break;
-            }
-            halt = 1;
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Control sequence handling
-            //
-
-        case ST_SPECIAL_B:
-            switch (xml_ctrl_impl(&ctrl_context, utf8_byte, utf8_val, utf8_len, &temp.buff, &len, &temp.cap, str, path, log))
-            {
-            case STATUS_CONTINUE:
-                break;
-            case STATUS_COMPLETE:
-                st = ST_TEXT_A;
-                break;
-            case STATUS_FAIL:
+                    struct xml_object *obj = stack.frame[dep - 1].obj;
+                    if (!array_test(&obj->dsc, &stack.frame[dep - 1].dsc_cap, sizeof(*obj->dsc), 0, ARRAY_REDUCE, ARG_SIZE(obj->dsc_cnt))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+                    else
+                    {
+                        st = ST_TAG_ENDING_B;
+                        upd = 0;
+                        break;
+                    }
+                }
                 halt = 1;
-            }
-            break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Comment handling
-            //
-
-        case ST_COMMENT_A: // Comments before the root tag
-        case ST_COMMENT_B: // Comments inside the root tag
-        case ST_COMMENT_C: // Comments after the root tag
-            switch (xml_comment_impl(NULL, utf8_byte, utf8_val, utf8_len, str, path, log))
-            {
-            case STATUS_CONTINUE:
                 break;
-            case STATUS_COMPLETE:
-                switch (st)
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Selecting attribute
+                //
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Executing attribute handler
+                //
+
+            case ST_ATTRIBUTE_HANDLING_A:
+                ; // There is always room for the zero-terminator
+                if (!xml_val.handler(temp.buff, len, (char *) stack.frame[dep].obj->context + xml_val.offset, xml_val.context)) log_message_error_str_xml(log, CODE_METRIC, str, path, temp.buff, len, XML_ERROR_STR_UNHANDLED_VALUE);
+                else
                 {
-                case ST_COMMENT_A:
-                    st = ST_WHITESPACE_K;
+                    upd = 0;
+                    st = ST_TAG_ENDING_A;
                     break;
-                case ST_COMMENT_B:
+                }
+                halt = 1;
+                break;
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Control sequence handling
+                //
+
+            case ST_SPECIAL_B:
+                switch (xml_ctrl_impl(&ctrl_context, utf8_byte, utf8_val, utf8_len, &temp.buff, &len, &temp.cap, str, path, log))
+                {
+                case STATUS_CONTINUE:
+                    break;
+                case STATUS_COMPLETE:
                     st = ST_TEXT_A;
                     break;
-                case ST_COMMENT_C:
-                    st = ST_WHITESPACE_O;
+                case STATUS_FAIL:
+                    halt = 1;
                 }
                 break;
-            case STATUS_FAIL:
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Comment handling
+                //
+
+            case ST_COMMENT_A: // Comments before the root tag
+            case ST_COMMENT_B: // Comments inside the root tag
+            case ST_COMMENT_C: // Comments after the root tag
+                switch (xml_comment_impl(NULL, utf8_byte, utf8_val, utf8_len, str, path, log))
+                {
+                case STATUS_CONTINUE:
+                    break;
+                case STATUS_COMPLETE:
+                    switch (st)
+                    {
+                    case ST_COMMENT_A:
+                        st = ST_WHITESPACE_K;
+                        break;
+                    case ST_COMMENT_B:
+                        st = ST_TEXT_A;
+                        break;
+                    case ST_COMMENT_C:
+                        st = ST_WHITESPACE_O;
+                    }
+                    break;
+                case STATUS_FAIL:
+                    halt = 1;
+                }
+                break;
+
+                ///////////////////////////////////////////////////////////////
+                //
+                //  Various stubs
+                //
+
+            default:
+                log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_COMPILER);
                 halt = 1;
             }
             break;
-
-            ///////////////////////////////////////////////////////////////
-            //
-            //  Various stubs
-            //
-
-        default:
-            log_message_error_xml(log, CODE_METRIC, txt, path, XML_ERROR_COMPILER);
-            halt = 1;
         }
     }
     
     
-    if (dep) log_message_error_char_xml(log, CODE_METRIC, txt, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_EOF);
-    if (!root) log_message_error_xml(log, CODE_METRIC, txt, path, XML_ERROR_ROOT);
+    if (dep) log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_EOF);
+    if (!root) log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_ROOT);
     if ((halt || dep) && stack.frame) xml_object_dispose(stack.frame[0].obj), stack.frame[0].obj = NULL;
 
     Fclose(f);

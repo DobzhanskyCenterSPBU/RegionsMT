@@ -23,18 +23,47 @@ bool utf8_is_overlong(uint32_t utf8_val, uint8_t utf8_len)
     return 0;
 }
 
-bool utf8_is_invalid(uint32_t utf8_val, uint8_t utf8_len)
+bool utf8_is_valid(uint32_t utf8_val, uint8_t utf8_len)
 {
-    return utf8_val >= UTF8_BOUND || utf8_is_overlong(utf8_val, utf8_len);
+    return utf8_val <= UTF8_BOUND && !utf8_is_overlong(utf8_val, utf8_len);
 }
 
-bool utf8_is_whitespace(uint32_t utf8_val, uint8_t utf8_len)
+bool utf8_is_whitespace(uint32_t utf8_val)
 {
-    if (utf8_len == 1) return utf8_val == 0x20 || utf8_val == 0xa || utf8_val == 0x9 || utf8_val == 0xd;
+    return utf8_val == 0x20 || utf8_val == '\n' || utf8_val == '\r' || utf8_val == 0x9;
+}
+
+bool utf8_is_whitespace_len(uint32_t utf8_val, uint8_t utf8_len)
+{
+    if (utf8_len == 1) utf8_is_whitespace(utf8_val);
     return 0;
 }
 
-bool utf8_is_xml_name_start_char(uint32_t utf8_val, uint8_t utf8_len)
+bool utf8_is_xml_char(uint32_t utf8_val)
+{
+    return utf8_val == 0x9 || utf8_val == '\n' || utf8_val == '\r' ||
+        (0x20 <= utf8_val && utf8_val <= 0xd7ff) ||
+        (0xe000 <= utf8_val && utf8_val <= 0xfffd) ||
+        (0x10000 <= utf8_val && utf8_val <= 0x10ffff);
+}
+
+bool utf8_is_xml_char_len(uint32_t utf8_val, uint8_t utf8_len)
+{
+    switch (utf8_len)
+    {
+    case 1:
+        return utf8_val == 0x9 || utf8_val == '\n' || utf8_val == '\r' || 0x20 <= utf8_val;
+    case 2:
+        return 1;
+    case 3:
+        return utf8_val <= 0xd7ff || (0xe000 <= utf8_val && utf8_val <= 0xfffd);
+    case 4:
+        return utf8_val <= 0x10ffff;
+    }
+    return 0;
+}
+
+bool utf8_is_xml_name_start_char_len(uint32_t utf8_val, uint8_t utf8_len)
 {
     switch (utf8_len)
     {
@@ -62,9 +91,9 @@ bool utf8_is_xml_name_start_char(uint32_t utf8_val, uint8_t utf8_len)
     return 0;
 }
 
-bool utf8_is_xml_name_char(uint32_t utf8_val, uint8_t utf8_len)
+bool utf8_is_xml_name_char_len(uint32_t utf8_val, uint8_t utf8_len)
 {
-    if (utf8_is_xml_name_start_char(utf8_val, utf8_len)) return 1;
+    if (utf8_is_xml_name_start_char_len(utf8_val, utf8_len)) return 1;
     switch (utf8_len)
     {
     case 1:

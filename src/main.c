@@ -7,12 +7,6 @@
 #include "module_categorical.h"
 #include "module_lde.h"
 
-#include "test.h"
-#include "test_ll.h"
-#include "test_np.h"
-#include "test_sort.h"
-#include "test_utf8.h"
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,6 +14,14 @@ DECLARE_PATH
 
 #include <gsl/gsl_sf.h>
 #include "gslsupp.h"
+
+#ifndef TEST_DEACTIVATE
+
+#   include "test.h"
+#   include "test_ll.h"
+#   include "test_np.h"
+#   include "test_sort.h"
+#   include "test_utf8.h"
 
 static bool test_main(struct log *log)
 {
@@ -93,8 +95,19 @@ static bool test_main(struct log *log)
             })
         }
     };
+    log_message_generic(log, CODE_METRIC, MESSAGE_INFO, "Test mode triggered!\n");
     return test(group_arr, countof(group_arr), log);
 }
+
+#else
+
+static bool test_main(struct log *log)
+{
+    log_message_generic(log, CODE_METRIC, MESSAGE_NOTE, "Test mode deactivated!\n");
+    return 1;
+}
+
+#endif
 
 // Main routine arguments management
 struct main_args main_args_default()
@@ -352,7 +365,6 @@ static int Main(int argc, char **argv)
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_TEST))
             {
-                log_message_generic(&log, CODE_METRIC, MESSAGE_INFO, "Test mode triggered!\n");
                 test_main(&log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))

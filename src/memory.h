@@ -14,14 +14,14 @@ enum array_flags {
     ARRAY_REALLOC = 8 // Default in 'array_test'
 };
 
-enum array_status {
+enum {
     ARRAY_FAILURE = 0,
     ARRAY_SUCCESS,
-    ARRAY_NO_CHANGE
+    ARRAY_UNTOUCHED,
 };
 
-enum array_status array_init(void *, size_t *restrict, size_t, size_t, size_t, enum array_flags);
-enum array_status array_test(void *, size_t *restrict, size_t, size_t, enum array_flags, size_t *restrict, size_t);
+unsigned array_init(void *, size_t *restrict, size_t, size_t, size_t, enum array_flags);
+unsigned array_test(void *, size_t *restrict, size_t, size_t, enum array_flags, size_t *restrict, size_t);
 
 struct queue {
     void *arr;
@@ -30,9 +30,9 @@ struct queue {
 
 void queue_close(struct queue *restrict);
 bool queue_init(struct queue *restrict, size_t, size_t);
-enum array_status queue_test(struct queue *restrict, size_t);
+unsigned queue_test(struct queue *restrict, size_t);
 void *queue_peek(struct queue *restrict, size_t);
-enum array_status queue_enqueue(struct queue *restrict, bool, void *restrict, size_t);
+unsigned queue_enqueue(struct queue *restrict, bool, void *restrict, size_t);
 void queue_dequeue(struct queue *restrict, size_t);
 
 struct persistent_array {

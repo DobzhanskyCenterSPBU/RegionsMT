@@ -201,7 +201,7 @@ bool orders_apply(uintptr_t *restrict ord, size_t cnt, size_t sz, void *restrict
     return 1;
 }
 
-static void swap(void *a, void *b, void *swp, size_t sz)
+static void swap(void *restrict a, void *restrict b, void *restrict swp, size_t sz)
 {
     memcpy(swp, a, sz);
     memcpy(a, b, sz);
@@ -263,10 +263,18 @@ static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callb
         } while (left <= right);
         if (right - a < cutoff)
         {
-            if (cutoff_sort) cutoff_sort((char *) arr + a, right - a + sz, sz, cmp, context, swp, right - a + sz);
+            if (cutoff_sort)
+            {
+                size_t cutoff_tot = right - a + sz;
+                cutoff_sort((char *) arr + a, cutoff_tot, sz, cmp, context, swp, cutoff_tot);
+            }
             if (b - left < cutoff)
             {
-                if (cutoff_sort) cutoff_sort((char *) arr + left, b - left + sz, sz, cmp, context, swp, b - left + sz);
+                if (cutoff_sort)
+                {
+                    size_t cutoff_tot = b - left + sz;
+                    cutoff_sort((char *) arr + left, cutoff_tot, sz, cmp, context, swp, cutoff_tot);
+                }
                 if (!frm--) break;
                 a = stk[frm].a;
                 b = stk[frm].b;
@@ -275,7 +283,11 @@ static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callb
         }
         else if (b - left < cutoff)
         {
-            if (cutoff_sort) cutoff_sort((char *) arr + left, b - left + sz, sz, cmp, context, swp, b - left + sz);
+            if (cutoff_sort)
+            {
+                size_t cutoff_tot = b - left + sz;
+                cutoff_sort((char *) arr + left, cutoff_tot, sz, cmp, context, swp, cutoff_tot);
+            }
             b = right;
         }
         else
@@ -314,15 +326,15 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
     else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
 }
 
-size_t binary_search(const void *restrict key, const void *restrict list, size_t sz, size_t cnt, stable_cmp_callback cmp, void *context)
+size_t binary_search(const void *restrict key, const void *restrict arr, size_t sz, size_t cnt, stable_cmp_callback cmp, void *context)
 {
     size_t left = 0;
     while (left + 1 < cnt)
     {
         size_t mid = left + ((cnt - left) >> 1);
-        if (cmp(key, (char *) list + sz * mid, context) >= 0) left = mid;
+        if (cmp(key, (char *) arr + sz * mid, context) >= 0) left = mid;
         else cnt = mid;
     }
-    if (left + 1 == cnt && !cmp(key, (char *) list + sz * left, context)) return left;
+    if (left + 1 == cnt && !cmp(key, (char *) arr + sz * left, context)) return left;
     return SIZE_MAX;
 }

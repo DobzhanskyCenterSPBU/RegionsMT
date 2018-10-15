@@ -10,7 +10,7 @@
 
 // 'p_cap' -- pointer to initial capacity, cannot be NULL simultaneously with '*p_src'
 // 'cnt' -- desired capacity
-enum array_status array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum array_flags flags)
+unsigned array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum array_flags flags)
 {
     void **restrict p_src = p_Src, *src = *p_src;
     if (src && (flags & ARRAY_REALLOC))
@@ -18,14 +18,14 @@ enum array_status array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, si
         size_t bor, tmp = size_sub(&bor, cnt, *p_cap);
         if (bor) // cnt < cap
         {
-            if (!(flags & ARRAY_REDUCE)) return ARRAY_NO_CHANGE;
+            if (!(flags & ARRAY_REDUCE)) return 1 | ARRAY_UNTOUCHED;
             size_t tot = cnt * sz + diff; // No checks for overflows
             void *res = realloc(src, tot);
             *p_src = res;
             *p_cap = cnt;
             return !(tot && !res);
         }
-        else if (!tmp) return ARRAY_NO_CHANGE; // cnt == cap            
+        else if (!tmp) return 1 | ARRAY_UNTOUCHED; // cnt == cap            
     }
     if (!(flags & ARRAY_STRICT))
     {
@@ -74,7 +74,7 @@ enum array_status array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, si
     return 0;
 }
 
-enum array_status array_test(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_flags flags, size_t *restrict args, size_t args_cnt)
+unsigned array_test(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_flags flags, size_t *restrict args, size_t args_cnt)
 {
     size_t car, cnt = size_sum(&car, args, args_cnt);
     if (!car) return array_init(p_Arr, p_cap, cnt, sz, diff, flags | ARRAY_REALLOC);
@@ -97,18 +97,12 @@ void queue_close(struct queue *restrict queue)
     free(queue->arr);
 }
 
-enum array_status queue_test(struct queue *restrict queue, size_t diff)
+unsigned queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;
-    switch (array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff))) 
-    {
-    case ARRAY_FAILURE:
-        return ARRAY_FAILURE;
-    case ARRAY_NO_CHANGE:
-        return ARRAY_NO_CHANGE; // Queue has already enough space
-    default:
-        break;
-    }
+    unsigned res = array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff));
+    if (!res || (res & ARRAY_UNTOUCHED)) return res;
+
     size_t bor, left = size_sub(&bor, queue->begin, queue->cap - queue->cnt);
     if (!bor && left) // queue->begin > queue->cap - queue->cnt
     {
@@ -234,7 +228,7 @@ void persistent_array_dispose(struct persistent_array *arr)
     free(arr);
 }
 
-bool persistent_array_test(struct persistent_array *arr, size_t cnt)
+unsigned persistent_array_test(struct persistent_array *arr, size_t cnt)
 {
     size_t bor = 0, diff = size_sub(&bor, cnt, arr->cap - arr->cnt);
     if (!bor && diff)
@@ -249,8 +243,9 @@ bool persistent_array_test(struct persistent_array *arr, size_t cnt)
             cap <<= 1;
             off++;
         }
+        return 1;
     }
-    return 1;
+    return 1 | ARRAY_UNTOUCHED;
 }
 
 void *persistent_array_fetch(struct persistent_array *arr, size_t ind)

@@ -192,16 +192,9 @@ static bool log_message_impl(struct log *restrict log, struct code_metric code_m
                 if (handler ? !handler(log->buff + cnt, &len, context) : handler_var && format && !handler_var(log->buff + cnt, &len, context, format, *arg)) return 0;
                 break;
             }
-            switch (array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(cnt, len, 1)))
-            {
-            case ARRAY_SUCCESS:
-                continue;
-            case ARRAY_FAILURE:
-                return 0;
-            default:
-                break;
-            }
-            break;
+            unsigned res = array_test(&log->buff, &log->buff_cap, sizeof(*log->buff), 0, 0, ARG_SIZE(cnt, len, 1));
+            if (!res) return 0;
+            if (res & ARRAY_UNTOUCHED) break;
         }
         cnt += len;
     }

@@ -261,20 +261,20 @@ static bool outer_prod_combined_impl(size_t *outer, size_t *gen_mar, size_t *phe
     return 1;
 }
 
-static double stat_exact(size_t *table, size_t *gen_mar, size_t *phen_mar, double rel_err)
+double stat_exact(size_t *table, size_t *gen_mar, size_t *phen_mar)
 {
     size_t lo = size_sub_sat(gen_mar[0], phen_mar[1]), hi = MIN(gen_mar[0], phen_mar[0]);
-    double hyp_comp = pdf_hypergeom(table[0], phen_mar[0], phen_mar[1], gen_mar[0]), hyp_sum = 0., hyp_less = 0.;
+    double hyp_comp = pdf_hypergeom(table[0], phen_mar[0], phen_mar[1], gen_mar[0]), a = 0., b = 0.;
     for (size_t i = lo; i <= hi; i++)
     {
         double hyp = pdf_hypergeom(i, phen_mar[0], phen_mar[1], gen_mar[0]);
-        hyp_sum += hyp;
-        if (hyp <= hyp_comp * rel_err) hyp_less += hyp;
+        a += hyp;
+        if (hyp <= hyp_comp) b += hyp;
     }
-    return log10(hyp_sum) - log10(hyp_less);
+    return log10(a) - log10(b);
 }
 
-static double qas_exact(size_t *table)
+double qas_exact(size_t *table)
 {
     return log10((double) table[0]) + log10((double) table[3]) - (log10((double) table[1]) + log10((double) table[2]));
 }
@@ -321,7 +321,7 @@ static void perm_init(size_t *perm, size_t cnt, gsl_rng *rng)
     }
 }
 
-void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, double rel_err, enum categorical_flags flags)
+void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, enum categorical_flags flags)
 {    
     size_t table_disp = GEN_CNT * phen_ucnt;
        
@@ -364,7 +364,7 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         }
         else
         {
-            supp->nlpv[i] = stat_exact(supp->table, gen_mar, supp->phen_mar, rel_err);
+            supp->nlpv[i] = stat_exact(supp->table, gen_mar, supp->phen_mar);
             supp->qas[i] = qas_exact(supp->table);
         }
     }
@@ -418,7 +418,7 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
     }
 
     bool alt[ALT_CNT];
-    for (size_t i = 0; i < ALT_CNT; i++, flags >>= 1) alt[i] = (flags & 1) && isfinite(density[i] /= density_cnt[i]);
+    for (size_t i = 0; i < ALT_CNT; i++, flags >>= 1) alt[i] = (flags & 1) && isfinite(density[i] /= (double) density_cnt[i]);
 
     // Simulations
     size_t qc[ALT_CNT] = { 0 }, qt[ALT_CNT] = { 0 }, rpl_max = *p_rpl;

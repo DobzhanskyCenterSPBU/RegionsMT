@@ -15,7 +15,7 @@ struct par {
     bool option;
 };
 
-typedef bool (*par_selector_callback)(struct par *, char *, size_t, void *, void *, bool);
+typedef bool (*par_selector_callback)(struct par *, const char *, size_t, void *, void *, bool);
 bool argv_parse(par_selector_callback, void *, void *, char **, size_t, char ***, size_t *, struct log *);
 
 struct tag {
@@ -45,4 +45,4 @@ struct argv_par_sch {
     };
 };
 
-bool argv_par_selector(struct par *, char *, size_t len, void *, void *, bool);
+bool argv_par_selector(struct par *, const char *, size_t len, void *, void *, bool);

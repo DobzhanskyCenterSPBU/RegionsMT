@@ -1,6 +1,7 @@
 #include "np.h"
 
 #include <string.h>
+#include <immintrin.h>
 
 #if defined _MSC_BUILD
 
@@ -180,8 +181,6 @@ size_t Strnlen(const char *str, size_t len)
     char *end = memchr(str, '\0', len);
     return end ? (size_t) (end - str) : len;
 }
-
-#include <immintrin.h>
 
 void *Memrchr(void const *Str, int ch, size_t cnt)
 {

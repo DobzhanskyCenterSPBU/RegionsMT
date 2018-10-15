@@ -190,7 +190,7 @@ error:
     return 0;    
 }
 
-bool argv_par_selector(struct par *par, char *str, size_t len, void *res, void *Context, bool shrt)
+bool argv_par_selector(struct par *par, const char *str, size_t len, void *res, void *Context, bool shrt)
 {
     struct argv_par_sch *context = Context;
     size_t id = shrt ?
