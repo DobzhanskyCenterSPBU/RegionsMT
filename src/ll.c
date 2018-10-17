@@ -279,28 +279,28 @@ void size_dec_interlocked(volatile size_t *mem)
 
 #if defined __GNUC__ || defined __clang__ || defined _M_IX86 || defined __i386__
 #   if defined _M_X64 || defined __x86_64__
-typedef unsigned __int128 double_size_t;
+typedef unsigned __int128 double_size;
 #   elif defined _M_IX86 || defined __i386__
-typedef unsigned long long double_size_t;
+typedef unsigned long long double_size;
 #   endif
 
 size_t size_mul(size_t *p_hi, size_t x, size_t y)
 {
-    union { double_size_t val; struct { size_t lo, hi; }; } res = { .val = (double_size_t) x * (double_size_t) y };
+    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) x * (double_size) y };
     *p_hi = res.hi;
     return res.lo;
 }
 
 size_t size_add(size_t *p_car, size_t x, size_t y)
 {
-    union { double_size_t val; struct { size_t lo, hi; }; } res = { .val = (double_size_t) x + (double_size_t) y } ;
+    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) x + (double_size) y } ;
     *p_car = res.hi;
     return res.lo;
 }
 
 size_t size_sub(size_t *p_bor, size_t x, size_t y)
 {
-    union { double_size_t val; struct { size_t lo, hi; }; } res = { .val = (double_size_t) x - (double_size_t) y };
+    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) x - (double_size) y };
     *p_bor = 0 - res.hi;
     return res.lo;
 }
@@ -312,7 +312,7 @@ size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
         *p_hi = 0;
         return 0;
     }
-    union { double_size_t val; struct { size_t lo, hi; }; } res = { .val = (double_size_t) args[0] };
+    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) args[0] };
     for (size_t i = 1; i < args_cnt; res.val += args[i++]);
     *p_hi = res.hi;
     return res.lo;

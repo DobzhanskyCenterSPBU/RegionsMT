@@ -15,7 +15,7 @@ typedef struct
     size_t *strtblcnt, *strtblcap;
 } strTableHandlerContext;
 
-bool strTableHandler(const char *str, size_t len, ptrdiff_t *offset, strTableHandlerContext *context)
+bool strTableHandler(const char *buff, size_t len, ptrdiff_t *offset, strTableHandlerContext *context)
 {
     if (!len && *context->strtblcnt) // Last null-terminator is used to store zero-length strings
     {
@@ -26,7 +26,7 @@ bool strTableHandler(const char *str, size_t len, ptrdiff_t *offset, strTableHan
     if (!array_test(context->strtbl, context->strtblcap, 1, 0, 0, ARG_SIZE(*context->strtblcnt, len, 1))) return 0;
 
     *offset = *context->strtblcnt;
-    memcpy(*context->strtbl + *context->strtblcnt, str, len + 1);
+    memcpy(*context->strtbl + *context->strtblcnt, buff, len + 1);
     *context->strtblcnt += len + 1;
 
     return 1;
@@ -54,16 +54,16 @@ bool read_phenotypes(void *Res, void *Context)
     size_t row_cnt = row_count(f, 0, sz);
     ptrdiff_t *tbl = malloc(row_cnt * sizeof(ptrdiff_t));
 
-    char *str = NULL;
+    char *buff = NULL;
     size_t strtblcnt = 0, strtblcap = 0;
-    void *cont[6] = { [0] = &(strTableHandlerContext) { .strtbl = &str,.strtblcnt = &strtblcnt, .strtblcap = &strtblcap } };
+    void *cont[6] = { [0] = &(strTableHandlerContext) { .strtbl = &buff,.strtblcnt = &strtblcnt, .strtblcap = &strtblcap } };
 
     Fseeki64(f, 0, SEEK_SET);
     //bool r = row_read(f, &statSchFam, tbl, NULL, NULL, NULL, NULL, ' ', 0, 0);
 
     res->name_off = tbl[0];
     res->cnt = row_cnt;
-    res->name = str;
+    res->name = buff;
     res->name_sz = strtblcnt;
         
     return 1;

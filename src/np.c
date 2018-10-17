@@ -202,8 +202,8 @@ void *Memrchr(void const *Str, int ch, size_t cnt)
         __m128i a = _mm_cmpeq_epi8(_mm_load_si128((const __m128i *) (str + cnt)), msk);
         if (_mm_testz_si128(a, a)) continue;
 
-        unsigned pos = 0;
-        for (unsigned i = 0, j = 1 << (countof(test) - 1); i < countof(test) - 1; i++, j >>= 1)
+        size_t pos = 0;
+        for (size_t i = 0, j = 1 << (countof(test) - 1); i < countof(test) - 1; i++, j >>= 1)
         {
             __m128i t = test[i];
             if (_mm_testz_si128(a, t)) a = _mm_andnot_si128(t, a);

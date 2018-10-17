@@ -202,12 +202,11 @@ bool argv_par_selector(struct par *par, const char *str, size_t len, void *res, 
         id = shrt ? context->stag[id].id : context->ltag[id].id;
         if (id < context->par_cnt)
         {
-            struct par_sch par_sch = context->par[id];
             *par = (struct par) {
-                .ptr = (char *) res + par_sch.off,
-                .context = par_sch.context,
-                .handler = par_sch.handler,
-                .option = par_sch.option
+                .ptr = (char *) res + context->par[id].off,
+                .context = context->par[id].context,
+                .handler = context->par[id].handler,
+                .option = context->par[id].option
             };
             return 1;
         }
