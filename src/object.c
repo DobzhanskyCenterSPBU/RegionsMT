@@ -241,14 +241,6 @@ struct xml_ctrl_context {
     uint32_t val;
 };
 
-struct xml_att_context {
-    size_t len, cap;
-    char *buff;
-    struct text_metric metric;
-    struct xml_val val;
-    bool quot;
-};
-
 struct xml_context {
     size_t context, bits_cap;
     uint8_t *bits;
@@ -267,16 +259,16 @@ static void xml_val_context_reset(struct xml_att_context *context)
     context->len = context->quot = 0;
 }
 
-static unsigned xml_name_impl(struct utf8 utf8, struct buff *restrict buff, bool terminator, struct text_metric metric, const char *restrict path, struct log *restrict log)
+static unsigned xml_name_impl(struct utf8 *utf8, struct buff *restrict buff, bool terminator, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     size_t len = buff->len;
-    if ((len ? utf8_is_xml_name_char_len : utf8_is_xml_name_start_char_len)(utf8.val, utf8.len))
+    if ((len ? utf8_is_xml_name_char_len : utf8_is_xml_name_start_char_len)(utf8->val, utf8->len))
     {
         if (!array_test(&buff->str, &buff->cap, sizeof(*buff->str), 0, 0, ARG_SIZE(len, utf8_len, terminator))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
-            strncpy(buff->str, (char *) utf8.byte, utf8.len);
-            buff->len += utf8.len;
+            strncpy(buff->str, (char *) utf8->byte, utf8->len);
+            buff->len += utf8->len;
             return 1 | STATUS_REPEAT;
         }
     }
@@ -285,7 +277,7 @@ static unsigned xml_name_impl(struct utf8 utf8, struct buff *restrict buff, bool
         if (terminator) buff->str[len] = '\0';
         return 1;
     }
-    else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8.byte, utf8.len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+    else log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8->byte, utf8->len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
     return 0;
 }
 
@@ -524,24 +516,29 @@ enum {
     XML_ATT_ST_VAL_HANDLER,
 };
 
-static bool xml_att_impl(uint32_t *p_st, struct xml_att_context *context, uint32_t *p_ctrl_st, struct xml_ctrl_context *ctrl_context, xml_val_selector_callback val_selector, void *val_res, void *val_selector_context, uint8_t **p_bits, size_t *p_bits_cap, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
+struct xml_att_context {
+    struct text_metric metric;
+    struct xml_val val;
+};
+
+static bool xml_att_impl(uint32_t *p_st, struct xml_att_context *context, struct xml_ctrl_context *ctrl_context, xml_val_selector_callback val_selector, void *val_res, void *val_selector_context, uint8_t **p_bits, size_t *p_bits_cap, struct utf8 *utf8, struct buff *buff, struct text_metric metric, const char *path, struct log *log)
 {
     uint32_t st = *p_st;
     for (;;) 
     {
         switch (st)
         {
-        case ST_INIT:
+        case XML_ATT_ST_INIT:
             context->metric = metric, st++;
             continue;
-        case ST_NAME: {
-            unsigned res = xml_name_impl(utf8_byte, utf8_val, utf8_len, &context->buff, &context->len, &context->cap, 1, metric, path, log);
+        case XML_ATT_ST_NAME: {
+            unsigned res = xml_name_impl(utf8, buff, 1, metric, path, log);
             if (!res) return 0;
             if (res & STATUS_REPEAT) break;
             st++;
             continue;
         }
-        case ST_NAME_HANDLER: {
+        case XML_ATT_ST_NAME_HANDLER: {
             size_t ind;
             if (!val_selector(&context->val, context->buff, context->len, val_res, val_selector_context, &ind) && !(ind + 1)) log_message_error_str_xml(log, CODE_METRIC, metric, path, context->buff, context->len, XML_ERROR_STR_UNEXPECTED_ATTRIBUTE);
             else
@@ -646,10 +643,10 @@ enum {
 };
 
 enum {
-    XML_DECL_ST_WHITESPACE_MANDATORY_FIRST,
-    XML_DECL_ST_WHITESPACE_FIRST,
-    XML_DECL_ST_ATTRIBUTE_FIRST,
-    XML_DECL_ST_WHITESPACE_MANDATORY_NEXT,
+    XML_DECL_ST_A,
+    XML_DECL_ST_WHITESPACE_A,
+    XML_DECL_ST_QUES_A,
+    XML_DECL_ST_B,
     XML_DECL_ST_WHITESPACE_NEXT,
     XML_DECL_ST_ATTRIBUTE_NEXT,
     XML_DECL_ST_DECL_ENDING_CHECK,
@@ -663,21 +660,37 @@ static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, 
     {
         switch (st)
         {
-        case XML_DECL_ST_WHITESPACE_MANDATORY_FIRST:
-        case XML_DECL_ST_WHITESPACE_MANDATORY_NEXT:
+        case XML_DECL_ST_A:
+        case XML_DECL_ST_B:
             if (utf8_is_whitespace_len(utf8_val, utf8_len))
             {
                 st++;
                 break;
             }
-            st = ST_DECL_ENDING_CHECK;
+            st += 2;
             continue;
-        case ST_WHITESPACE_FIRST:
-        case ST_WHITESPACE_NEXT:
+        case XML_ST_DECL_WHITESPACE_A:
             if (utf8_is_whitespace_len(utf8_val, utf8_len)) break;
             st++;
             continue;
-        case ST_ATTRIBUTE_NEXT:
+        case XML_DECL_ST_QUES_A:
+            if (utf8_val == '?')
+            {
+                switch (st)
+                {
+                case XML_DECL_ST_A:
+                case XML_DECL_ST_B:
+                }
+                break;
+            }
+            else
+            {
+                st++;
+                continue;
+            }
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            return 0;
+        case ST_ATTRIBUTE_A:
             xml_val_context_reset(val_context);
             st = ST_ATTRIBUTE_FIRST;
             continue;
@@ -718,7 +731,7 @@ enum {
 };
 
 // Comment handling
-static bool xml_comment_impl(uint32_t *restrict p_st, struct utf8 utf8, struct text_metric metric, const char *restrict path, struct log *restrict log)
+static bool xml_comment_impl(uint32_t *restrict p_st, struct utf8 *utf8, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     uint32_t st = *p_st;
     for (;;) 
@@ -727,27 +740,27 @@ static bool xml_comment_impl(uint32_t *restrict p_st, struct utf8 utf8, struct t
         {
         case XML_COMMENT_ST_A:
         case XML_COMMENT_ST_B:
-            if (utf8.val == '-')
+            if (utf8->val == '-')
             {
                 st++;
                 break;
             }
-            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8.byte, utf8.len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8->byte, utf8->len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
             return 0;
         case XML_COMMENT_ST_C:
-            if (utf8.val == '-') st++;
+            if (utf8->val == '-') st++;
             break;
         case XML_COMMENT_ST_D:
-            if (utf8.val == '-') st++;
+            if (utf8->val == '-') st++;
             else st--;
             break;
         case XML_COMMENT_ST_E:
-            if (utf8.val == '>')
+            if (utf8->val == '>')
             {
                 st = 0;
                 break;
             }
-            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8.byte, utf8.len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
+            log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8->byte, utf8->len, XML_ERROR_CHAR_UNEXPECTED_CHAR);
             return 0;
         } 
         break;
@@ -774,7 +787,7 @@ enum {
     XML_DOC_ST_DOCTYPE_END = XML_DOC_ST_DOCTYPE_BEGIN + XML_DOCTYPE_CNT - 1,
 };
 
-static bool xml_doc_impl(uint32_t *p_st, struct utf8 utf8, struct buff *buff, struct text_metric metric, const char *path, struct log *log)
+static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, struct text_metric metric, const char *path, struct log *log)
 {
     uint32_t st = *p_st;
     for (;;)
@@ -782,17 +795,17 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 utf8, struct buff *buff, st
         switch (st)
         {
         case XML_DOC_ST_TAG:
-            if (utf8.val == '<') st++;
-            st = XML_DOC_ST_WHITESPACE_A;
+            if (utf8->val == '<') st++;
+            else st = XML_DOC_ST_WHITESPACE_A;
             break;
         case XML_DOC_ST_MODE:
-            switch (utf8.val)
+            switch (utf8->val)
             {
             case '!':
                 st = XML_DOC_ST_EXCL;
                 break;
             case '?':
-                st = XML_DOC_ST_PI;
+                st = XML_DOC_ST_DECL_NAME;
                 break;
             default:
                 st = XML_DOC_ST_NAME;
@@ -800,17 +813,16 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 utf8, struct buff *buff, st
             }
             break;
         case XML_DOC_ST_EXCL:
-            if (utf8.val == '-')
+            if (utf8->val == '-')
             {
                 st = XML_DOC_ST_COMMENT_BEGIN;
                 break;
             }
             else st = XML_DOC_ST_DOCTYPE_BEGIN;
             continue;
-                   
 
         case XML_DOC_ST_WHITESPACE_A:
-            if (!utf8_is_whitespace_len(utf8.val, utf8.len)) break;
+            if (!utf8_is_whitespace_len(utf8->val, utf8->len)) break;
             st++;
             continue;
         case XML_DOC_ST_DECL_NAME: {
