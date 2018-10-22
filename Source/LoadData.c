@@ -321,7 +321,7 @@ static bool loadDataColumnHandlerLpvLog(const char *str, size_t len, void *ptr, 
     char *test;
     double res = (double) strtod(str, &test);
     if (*test) return 0;
-    if (res >= 0 && res <= 1) context->res->nlpv[context->ind] = -log10(res); // Quite NaN otherwise
+    if (res > 0 && res < 1) context->res->nlpv[context->ind] = -log10(res); // Quite NaN otherwise
     
     return 1;
 }
