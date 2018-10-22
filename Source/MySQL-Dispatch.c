@@ -68,7 +68,7 @@ DEFINE_WRITEPROC(Pos, "%zu", res->pos[_index])
 DEFINE_WRITEPROC(Alias, "\"%.31s\"", res->snpnamestr + res->snpname[_index])
 //DEFINE_WRITEPROC(Allele, "\"%.31s\"", res->allelenamestr + res->allelename[_index])
 
-DEFINE_WRITEPROC_V(Lpv, "%.16e", isnan((res->nlpv)[_index]) ? -1. : isinf((res->nlpv)[_index]) ? DBL_MAX : pow(10, -res->nlpv[_index]))
+DEFINE_WRITEPROC_V(Lpv, "%.16e", isnan((res->nlpv)[_index]) ? -1. : pow(10, -res->nlpv[_index]))
 DEFINE_WRITEPROC_V(Qas, "%.16e", isnan((res->qas)[_index]) ? -1. : res->qas[_index] == HUGE_VAL ? DBL_MAX : res->qas[_index])
 DEFINE_WRITEPROC_V(Maf, "%.16e", isnan((res->maf)[_index]) ? -1. : res->maf[_index])
 DEFINE_WRITEPROC_V(Rlpv, "%" PRIuPTR, res->rnlpv[_index] + 1)
