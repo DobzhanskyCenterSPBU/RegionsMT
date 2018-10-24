@@ -321,23 +321,27 @@ static void perm_init(size_t *perm, size_t cnt, gsl_rng *rng)
     }
 }
 
-void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, enum categorical_flags flags)
+struct categorical_res categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen, size_t phen_cnt, size_t phen_ucnt, enum categorical_flags flags)
 {    
+    struct categorical_res res;
+    array_broadcast(res.nlpv, countof(res.nlpv), sizeof(*res.nlpv), &(double) { nan(__func__) });
+    array_broadcast(res.qas, countof(res.qas), sizeof(*res.qas), &(double) { nan(__func__) });
+
     size_t table_disp = GEN_CNT * phen_ucnt;
        
     // Initializing genotype filter
     size_t cnt = filter_init(supp->filter, gen, phen_cnt);
-    if (!cnt) return;
+    if (!cnt) return res;
     
     // Counting unique genotypes
     uint8_t gen_bits[UINT8_CNT(GEN_CNT)] = { 0 };
     size_t gen_pop_cnt_alt[ALT_CNT] = { 0 };
-    if (!gen_pop_cnt_alt_init(gen_pop_cnt_alt, gen_bits, gen_bits_init(gen_bits, cnt, GEN_CNT, supp->filter, gen), flags)) return;
+    if (!gen_pop_cnt_alt_init(gen_pop_cnt_alt, gen_bits, gen_bits_init(gen_bits, cnt, GEN_CNT, supp->filter, gen), flags)) return res;
     
     // Counting unique phenotypes
     memset(supp->phen_bits, 0, UINT8_CNT(phen_ucnt));
     size_t phen_pop_cnt = phen_bits_init(supp->phen_bits, cnt, phen_ucnt, supp->filter, phen);
-    if (phen_pop_cnt < 2) return;
+    if (phen_pop_cnt < 2) return res;
 
     // Building contingency table
     memset(supp->table + table_disp, 0, table_disp * sizeof(*supp->table));
@@ -359,18 +363,19 @@ void categorical_impl(struct categorical_supp *supp, uint8_t *gen, size_t *phen,
         // Computing test statistic and qas
         if (outer_prod_combined_impl(supp->outer, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt))
         {
-            supp->nlpv[i] = stat_chisq(supp->table, supp->outer, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
-            supp->qas[i] = qas_chisq(supp->table, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
+            res.nlpv[i] = stat_chisq(supp->table, supp->outer, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
+            res.qas[i] = qas_chisq(supp->table, gen_mar, supp->phen_mar, gen_phen_mar, gen_pop_cnt, phen_pop_cnt);
         }
         else
         {
-            supp->nlpv[i] = stat_exact(supp->table, gen_mar, supp->phen_mar);
-            supp->qas[i] = qas_exact(supp->table);
+            res.nlpv[i] = stat_exact(supp->table, gen_mar, supp->phen_mar);
+            res.qas[i] = qas_exact(supp->table);
         }
     }
+    return res;
 }
 
-void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, gsl_rng *rng, enum categorical_flags flags)
+struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, gsl_rng *rng, enum categorical_flags flags)
 {
     size_t table_disp = GEN_CNT * phen_ucnt;
     memset(supp->snp_data, 0, snp_cnt * sizeof(*supp->snp_data));
@@ -474,9 +479,19 @@ void maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, siz
         }
     }
 
+    struct maver_adj_res res;
     for (size_t i = 0; i < ALT_CNT; i++)
     {
-        if (alt[i]) supp->nlpv[i] = (double) qc[i] / (double) qt[i], supp->rpl[i] = qt[i];
-        else supp->rpl[i] = 0;
+        if (alt[i])
+        {
+            res.nlpv[i] = log10((double) qt[i]) - log10((double) qc[i]);
+            res.rpl[i] = qt[i];
+        }
+        else
+        {
+            res.nlpv[i] = nan(__func__);
+            res.rpl[i] = 0;
+        }
     }
+    return res;
 }

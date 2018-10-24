@@ -8,6 +8,12 @@
 #include <limits.h>
 #include <errno.h>
 
+void array_broadcast(void *arr, size_t cnt, size_t sz, void *val)
+{
+    size_t tot = cnt * sz;
+    for (size_t i = 0; i < tot; i += sz) memcpy((char *) arr + i, val, sz);
+}
+
 // 'p_cap' -- pointer to initial capacity, cannot be NULL simultaneously with '*p_src'
 // 'cnt' -- desired capacity
 unsigned array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum array_flags flags)

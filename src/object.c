@@ -328,6 +328,7 @@ static unsigned xml_char_ref_impl(uint32_t *p_val, bool hex, struct utf8 *utf8, 
     return 0;
 }
 
+/*
 static bool xml_ref_impl(uint32_t *p_st, struct xml_ctrl_context *context, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, char **p_buff, size_t *p_len, size_t *p_cap, struct text_metric metric, const char *path, struct log *log)
 {
     const struct { struct strl name; struct strl subs; } ctrl_subs[] = {
@@ -432,7 +433,9 @@ static bool xml_ref_impl(uint32_t *p_st, struct xml_ctrl_context *context, uint8
     *p_st = st;
     return 1;
 }
+*/
 
+/*
 static bool xml_val_impl(uint32_t *p_st, char quot, struct xml_ctrl_context *ctrl_context, struct buff *buff, struct utf8 *utf8, struct text_metric metric, const char *path, struct log *log)
 {
     enum {
@@ -493,7 +496,7 @@ static bool xml_val_impl(uint32_t *p_st, char quot, struct xml_ctrl_context *ctr
             if (!*p_ctrl_st) st = ST_QUOTE_CLOSING;
         }
     }
-}
+}*/
 
 enum {
     XML_ATT_ST_INIT = 0,
@@ -510,6 +513,7 @@ struct xml_att_context {
     struct xml_val val;
 };
 
+/*
 static bool xml_att_impl(uint32_t *p_st, struct xml_att_context *att_context, struct xml_ctrl_context *ctrl_context, xml_val_selector_callback val_selector, void *val_res, void *val_selector_context, struct bits *bits, struct utf8 *utf8, struct buff *buff, struct text_metric metric, const char *path, struct log *log)
 {
     uint32_t st = *p_st;
@@ -590,6 +594,7 @@ static bool xml_att_impl(uint32_t *p_st, struct xml_att_context *att_context, st
     *p_st = st;
     return 1;
 }
+*/
 
 static bool xml_match_impl(size_t *p_context, const char *str, size_t len, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
 {
@@ -659,7 +664,7 @@ enum {
     XML_DECL_ST_DECL_ENDING
 };
 
-static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, struct xml_att_context *restrict val_context, uint8_t **restrict p_bits, size_t *restrict p_bits_cap, struct bits *bits, struct utf8 *restrict utf8, struct text_metric metric, const char *restrict path, struct log *restrict log)
+static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, struct xml_att_context *restrict val_context, uint8_t **restrict p_bits, size_t *restrict p_bits_cap, struct bits *bits, struct utf8 *restrict utf8, struct buff *buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     uint32_t st = *p_st;
     for (;;)
@@ -864,7 +869,7 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, s
             if (XML_DOC_ST_DECL_BEGIN <= st && st <= XML_DOC_ST_DECL_END)
             {
                 st -= XML_DOC_ST_DECL_BEGIN;
-                if (!)
+                //if (!)
             }
             else if (XML_DOC_ST_PI_BEGIN <= st && st <= XML_DOC_ST_PI_END)
             {
@@ -1028,7 +1033,7 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
 
         for (;;)
         {
-            switch (st)
+            /*switch (st)
             {
             
 
@@ -1291,22 +1296,22 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
                 log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_COMPILER);
                 halt = 1;
             }
-            break;
+            break;*/
         }
     }
     
     
-    if (dep) log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_EOF);
-    if (!root) log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_ROOT);
+    //if (dep) log_message_error_char_xml(log, CODE_METRIC, metric, path, utf8_byte, utf8_len, XML_ERROR_CHAR_UNEXPECTED_EOF);
+    //if (!root) log_message_error_xml(log, CODE_METRIC, metric, path, XML_ERROR_ROOT);
     if ((halt || dep) && stack.frame) xml_object_dispose(stack.frame[0].obj), stack.frame[0].obj = NULL;
 
     Fclose(f);
     struct xml_object *res = stack.frame ? stack.frame[0].obj : NULL;
     free(stack.frame);
-    free(name.buff);
-    free(attb.buff);
-    free(ctrl_context.buff);
-    free(temp.buff);
+    //free(name.buff);
+    //free(attb.buff);
+    //free(ctrl_context.buff);
+    //free(temp.buff);
     return res;
 }
 

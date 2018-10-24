@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <math.h>
+
 DECLARE_PATH
 
 #include <gsl/gsl_sf.h>
@@ -348,7 +350,7 @@ static int Main(int argc, char **argv)
     //fputs("\xef\xbb\xbf", f);
     //for (size_t i = 0; i < (size_t) argc; i++) fprintf(stderr, "%s\n", argv[i]);
     //fclose(f);
-
+    
     struct log log;
     if (log_init(&log, NULL, BLOCK_WRITE, 0, NULL))
     {

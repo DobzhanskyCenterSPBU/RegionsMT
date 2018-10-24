@@ -20,6 +20,8 @@ enum {
     ARRAY_UNTOUCHED,
 };
 
+void array_broadcast(void *, size_t, size_t, void *);
+
 unsigned array_init(void *, size_t *restrict, size_t, size_t, size_t, enum array_flags);
 unsigned array_test(void *, size_t *restrict, size_t, size_t, enum array_flags, size_t *restrict, size_t);
 
