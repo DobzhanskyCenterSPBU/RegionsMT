@@ -264,7 +264,7 @@ static void xml_ctrl_context_reset(struct xml_ctrl_context *context)
     context->len = context->quot = 0;
 }*/
 
-static unsigned xml_name_impl(struct utf8 *utf8, struct buff *restrict buff, bool terminator, struct text_metric metric, const char *restrict path, struct log *restrict log)
+static unsigned xml_name_impl(bool terminator, struct utf8 *utf8, struct buff *restrict buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     size_t len = buff->len;
     if ((len ? utf8_is_xml_name_char_len : utf8_is_xml_name_start_char_len)(utf8->val, utf8->len))
@@ -664,7 +664,7 @@ enum {
     XML_DECL_ST_DECL_ENDING
 };
 
-static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, struct xml_att_context *restrict val_context, uint8_t **restrict p_bits, size_t *restrict p_bits_cap, struct bits *bits, struct utf8 *restrict utf8, struct buff *buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
+static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, struct xml_att_context *restrict val_context, uint8_t **restrict p_bits, size_t *restrict p_bits_cap, struct bits *bits, struct utf8 *restrict utf8, struct buff *restrict buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     uint32_t st = *p_st;
     for (;;)
@@ -747,6 +747,46 @@ static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, 
     }
     *p_st = st;
     return 1;
+}
+
+enum {
+    XML_PI_INIT = 0,
+    XML_PI_NAME,
+    XML_COMMENT_ST_B,
+    XML_COMMENT_ST_C,
+    XML_COMMENT_ST_D,
+    XML_COMMENT_ST_E,
+    XML_COMMENT_CNT
+};
+
+static bool xml_pi_impl(uint32_t *restrict p_st, bool decl, struct text_metric *snapshot, struct utf8 *utf8, struct buff *restrict buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
+{
+    uint32_t st = *p_st;
+    for (;;)
+    {
+        unsigned res;
+        switch (st)
+        {
+        case XML_PI_INIT:
+            *snapshot = metric;
+            st++;
+            continue;
+        case XML_PI_NAME:
+            res = xml_name_impl(1, utf8, buff, metric, path, log);
+            if (!res) return 0;
+            if (res & STATUS_REPEAT) break;
+            if (buff->len == 3 && !stricmp(buff->str, "xml", buff->len))
+            {
+                if (decl && !strcmp(buff->str, "xml", buff->len))
+                {
+
+                }
+            }
+            st = str_strl_stable_cmp_len(buff->str, &(struct strl) STRI("xml"), &buff->len) ? XML_DOC_ST_PI_BEGIN : XML_DOC_ST_DECL_BEGIN;
+            buff->len = 0;
+            continue;
+        }
+    }
 }
 
 enum {
@@ -858,12 +898,7 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, s
             st++;
             continue;
         case XML_DOC_ST_DECL_NAME: {
-            unsigned res = xml_name_impl(utf8, buff, 1, metric, path, log);
-            if (!res) return 0;
-            if (res & STATUS_REPEAT) break;
-            st = str_strl_stable_cmp_len(buff->str, &(struct strl) STRI("xml"), &buff->len) ? XML_DOC_ST_PI_BEGIN : XML_DOC_ST_DECL_BEGIN;
-            buff->len = 0;
-            continue;
+            
         }
         default:
             if (XML_DOC_ST_DECL_BEGIN <= st && st <= XML_DOC_ST_DECL_END)

@@ -375,7 +375,7 @@ struct categorical_res categorical_impl(struct categorical_supp *supp, uint8_t *
     return res;
 }
 
-struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t *p_rpl, size_t k, gsl_rng *rng, enum categorical_flags flags)
+struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, size_t *phen, size_t snp_cnt, size_t phen_cnt, size_t phen_ucnt, size_t rpl, size_t k, gsl_rng *rng, enum categorical_flags flags)
 {
     size_t table_disp = GEN_CNT * phen_ucnt;
     memset(supp->snp_data, 0, snp_cnt * sizeof(*supp->snp_data));
@@ -384,17 +384,17 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
     double density[ALT_CNT] = { 0. };
     size_t density_cnt[ALT_CNT] = { 0 };
 
-    for (size_t j = 0, off = 0; j < snp_cnt; j++, off += phen_cnt)
+    for (size_t i = 0, off = 0; i < snp_cnt; i++, off += phen_cnt)
     {
         // Initializing genotype filter
         size_t cnt = filter_init(supp->filter + off, gen + off, phen_cnt);
         if (!cnt) continue;
-        supp->snp_data[j].cnt = cnt;
+        supp->snp_data[i].cnt = cnt;
 
         // Counting unique genotypes
-        size_t flags_pop_cnt = gen_pop_cnt_alt_init(supp->snp_data[j].gen_pop_cnt_alt, supp->snp_data[j].gen_bits, gen_bits_init(supp->snp_data[j].gen_bits, cnt, GEN_CNT, supp->filter + off, gen + off), flags);
+        size_t flags_pop_cnt = gen_pop_cnt_alt_init(supp->snp_data[i].gen_pop_cnt_alt, supp->snp_data[i].gen_bits, gen_bits_init(supp->snp_data[i].gen_bits, cnt, GEN_CNT, supp->filter + off, gen + off), flags);
         if (!flags_pop_cnt) continue;
-        supp->snp_data[j].flags_pop_cnt = flags_pop_cnt;
+        supp->snp_data[i].flags_pop_cnt = flags_pop_cnt;
 
         // Counting unique phenotypes
         memset(supp->phen_bits, 0, UINT8_CNT(phen_ucnt));
@@ -406,19 +406,19 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
         contingency_table_init(supp->table + table_disp, gen + off, phen, cnt, supp->filter);
 
         // Performing computations for each alternative
-        for (size_t i = 0; i < ALT_CNT; i++)
+        for (size_t j = 0; j < ALT_CNT; j++)
         {
-            size_t gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[i];
+            size_t gen_pop_cnt = supp->snp_data[i].gen_pop_cnt_alt[j];
             if (!gen_pop_cnt) continue;
 
-            contingency_table_shuffle_alt_impl(i, supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
+            contingency_table_shuffle_alt_impl(j, supp->table, supp->table + table_disp, supp->snp_data[i].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
 
             // Computing sums
             memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
-            gen_phen_mar_init(supp->table, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, supp->snp_data[j].gen_phen_mar + i, gen_pop_cnt, phen_pop_cnt);
-            outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
-            density[i] += stat_chisq(supp->table, supp->outer, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
-            density_cnt[i]++;
+            gen_phen_mar_init(supp->table, supp->snp_data[i].gen_mar + j * GEN_CNT, supp->phen_mar, supp->snp_data[i].gen_phen_mar + j, gen_pop_cnt, phen_pop_cnt);
+            outer_prod_chisq_impl(supp->outer, supp->snp_data[i].gen_mar + j * GEN_CNT, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
+            density[j] += stat_chisq(supp->table, supp->outer, supp->snp_data[i].gen_phen_mar[j], gen_pop_cnt, phen_pop_cnt);
+            density_cnt[j]++;
         }
     }
 
@@ -426,8 +426,8 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
     for (size_t i = 0; i < ALT_CNT; i++, flags >>= 1) alt[i] = (flags & 1) && isfinite(density[i] /= (double) density_cnt[i]);
 
     // Simulations
-    size_t qc[ALT_CNT] = { 0 }, qt[ALT_CNT] = { 0 }, rpl_max = *p_rpl;
-    for (size_t rpl = 0; rpl < rpl_max; rpl++)
+    size_t qc[ALT_CNT] = { 0 }, qt[ALT_CNT] = { 0 };
+    for (size_t r = 0; r < rpl; r++)
     {
         bool alt_rpl[ALT_CNT], alt_any = 0;
         for (size_t i = 0; i < ALT_CNT; i++) alt_any |= (alt_rpl[i] = alt[i] && (!k || qc[i] < k)); // Adaptive mode for positive parameter 'k'
@@ -441,10 +441,10 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
         double density_perm[ALT_CNT] = { 0. };
         size_t density_perm_cnt[ALT_CNT] = { 0 };
 
-        for (size_t j = 0, off = 0; j < snp_cnt; j++, off += phen_cnt)
+        for (size_t i = 0, off = 0; i < snp_cnt; i++, off += phen_cnt)
         {
-            size_t cnt = supp->snp_data[j].cnt;
-            if (!cnt || !supp->snp_data[j].flags_pop_cnt) continue;
+            size_t cnt = supp->snp_data[i].cnt;
+            if (!cnt || !supp->snp_data[i].flags_pop_cnt) continue;
 
             // Counting unique phenotypes
             memset(supp->phen_bits, 0, UINT8_CNT(phen_ucnt));
@@ -456,19 +456,19 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
             contingency_table_init(supp->table + table_disp, gen + off, phen, cnt, supp->filter);
 
             // Performing computations for each alternative
-            for (size_t i = 0; i < ALT_CNT; i++) if (alt_rpl[i])
+            for (size_t j = 0; j < ALT_CNT; j++) if (alt_rpl[j])
             {
-                size_t gen_pop_cnt = supp->snp_data[j].gen_pop_cnt_alt[i];
+                size_t gen_pop_cnt = supp->snp_data[i].gen_pop_cnt_alt[j];
                 if (!gen_pop_cnt) continue;
 
-                contingency_table_shuffle_alt_impl(i, supp->table, supp->table + table_disp, supp->snp_data[j].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
+                contingency_table_shuffle_alt_impl(j, supp->table, supp->table + table_disp, supp->snp_data[i].gen_bits, gen_pop_cnt, supp->phen_bits, phen_pop_cnt);
 
                 // Computing sums
                 memset(supp->phen_mar, 0, phen_pop_cnt * sizeof(*supp->phen_mar));
                 phen_mar_init(supp->table, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
-                outer_prod_chisq_impl(supp->outer, supp->snp_data[j].gen_mar + i * GEN_CNT, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
-                density_perm[i] += stat_chisq(supp->table, supp->outer, supp->snp_data[j].gen_phen_mar[i], gen_pop_cnt, phen_pop_cnt);
-                density_perm_cnt[i]++;
+                outer_prod_chisq_impl(supp->outer, supp->snp_data[i].gen_mar + j * GEN_CNT, supp->phen_mar, gen_pop_cnt, phen_pop_cnt);
+                density_perm[j] += stat_chisq(supp->table, supp->outer, supp->snp_data[i].gen_phen_mar[j], gen_pop_cnt, phen_pop_cnt);
+                density_perm_cnt[j]++;
             }
         }
 
