@@ -40,8 +40,8 @@ struct argv_par_sch {
         size_t stag_cnt;
     };
     struct {
-        struct par_sch *par;
-        size_t par_cnt;
+        struct par_sch *par_sch;
+        size_t par_sch_cnt;
     };
 };
 

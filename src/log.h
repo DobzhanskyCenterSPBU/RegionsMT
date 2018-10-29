@@ -5,11 +5,22 @@
 
 #include <stdarg.h>
 
+#define ANSI_COLOR_BLACK "\x1b[30m"
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN "\x1b[36m"
+#define ANSI_COLOR_BRIGHT_BLACK "\x1b[90m"
+#define ANSI_COLOR_BRIGHT_RED "\x1b[91m"
+#define ANSI_COLOR_RESET "\x1b[0m"
+
 struct log {
     FILE *file;
     char *buff;
-    size_t buff_cnt, buff_cap, buff_lim;
-    uint64_t file_sz; // File size is 64-bit always!
+    size_t cnt, cap, lim;
+    uint64_t tot; // File size is 64-bit always!
 };
 
 enum message_type { 
@@ -33,10 +44,15 @@ struct time_diff {
     uint64_t start, stop;
 };
 
-bool message_time_diff(char *, size_t *, void *);
 bool message_crt(char *, size_t *, void *);
 bool message_var_generic(char *, size_t *, void *, const char *, va_list);
-bool message_var_crt(char *, size_t *, void *, const char *, va_list);
+
+struct message_thunk {
+    message_callback handler;
+    void *context;
+};
+
+bool message_var_staged(char *, size_t *, void *Thunk, const char *, va_list);
 
 #define DECLARE_PATH \
     static const char Path[] = __FILE__;    

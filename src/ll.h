@@ -97,6 +97,7 @@ int flt64_sign(double x);
 uint32_t uint32_fused_mul_add(uint32_t *, uint32_t, uint32_t);
 
 #define SIZE_BIT (sizeof(size_t) * CHAR_BIT)
+#define UINT32_BIT (sizeof(uint32_t) * CHAR_BIT)
 bool uint8_bit_test(uint8_t *, size_t);
 bool uint8_bit_test_set(uint8_t *, size_t);
 bool uint8_bit_test_reset(uint8_t *, size_t);

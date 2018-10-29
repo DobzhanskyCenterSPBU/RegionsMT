@@ -8,8 +8,13 @@ struct test_sort_a {
 };
 
 struct test_sort_b {
-    void *arr;
-    size_t cnt, sz, ucnt;
+    double *arr;
+    size_t cnt, ucnt;
+};
+
+struct test_sort_c {
+    size_t *arr;
+    size_t cnt;
 };
 
 // Maximal array size is '1 << TEST_SORT_EXP'
@@ -24,3 +29,8 @@ bool test_sort_generator_b_1(void *, size_t *, struct log *);
 void test_sort_disposer_b(void *);
 bool test_sort_b_1(void *, struct log *);
 bool test_sort_b_2(void *, struct log *);
+
+bool test_sort_generator_c_1(void *, size_t *, struct log *);
+void test_sort_disposer_c(void *);
+bool test_sort_c_1(void *, struct log *);
+bool test_sort_c_2(void *, struct log *);

@@ -17,6 +17,8 @@ DECLARE_PATH
 #include <gsl/gsl_sf.h>
 #include "gslsupp.h"
 
+#include "sort.h"
+
 #ifndef TEST_DEACTIVATE
 
 #   include "test.h"
@@ -80,6 +82,17 @@ static bool test_main(struct log *log)
             CLII((test_callback[]) {
                 test_sort_b_1,
                 test_sort_b_2
+            })
+        },
+        {
+            test_sort_disposer_c,
+            sizeof(struct test_sort_c),
+            CLII((test_generator_callback[]) {
+                test_sort_generator_c_1
+            }),
+            CLII((test_callback[]) {
+                test_sort_c_1,
+                test_sort_c_2
             })
         },
         {
@@ -352,10 +365,10 @@ static int Main(int argc, char **argv)
     //fclose(f);
     
     struct log log;
-    if (log_init(&log, NULL, BLOCK_WRITE, 0, NULL))
+    if (log_init(&log, NULL, 1, 0, NULL))
     {
-        size_t input_cnt = 0;
-        char **input = NULL;
+        size_t input_cnt;
+        char **input;
         struct main_args main_args = { 0 };
         if (argv_parse(argv_par_selector, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
         {
@@ -371,7 +384,7 @@ static int Main(int argc, char **argv)
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
-                if (input_cnt >= 3) categorical_run(input[0], input[1], input[2], &log);
+                if (input_cnt >= 4) categorical_run(input[0], input[1], input[2], (size_t) strtoull(input[4], NULL, 10), &log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_LDE))
             {

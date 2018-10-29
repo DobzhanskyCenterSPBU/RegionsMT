@@ -41,5 +41,5 @@ struct categorical_res categorical_impl(struct categorical_supp *, uint8_t *, si
 void categorical_close(struct categorical_supp *);
 
 bool maver_adj_init(struct maver_adj_supp *, size_t, size_t, size_t);
-struct maver_adj_res maver_adj_impl(struct maver_adj_supp *, uint8_t *, size_t *, size_t, size_t, size_t, size_t *, size_t, gsl_rng *, enum categorical_flags);
+struct maver_adj_res maver_adj_impl(struct maver_adj_supp *, uint8_t *, size_t *, size_t, size_t, size_t, size_t, size_t, gsl_rng *, enum categorical_flags);
 void maver_adj_close(struct maver_adj_supp *);

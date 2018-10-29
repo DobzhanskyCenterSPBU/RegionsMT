@@ -112,14 +112,14 @@ unsigned queue_test(struct queue *restrict queue, size_t diff)
     size_t bor, left = size_sub(&bor, queue->begin, queue->cap - queue->cnt);
     if (!bor && left) // queue->begin > queue->cap - queue->cnt
     {
-        size_t bor2, left2 = size_sub(&bor2, queue->begin, cap - queue->cnt);
-        if (!bor2 && left2) // queue->begin > cap - queue->cnt
+        size_t left2 = size_sub(&bor, queue->begin, cap - queue->cnt);
+        if (!bor && left2) // queue->begin > cap - queue->cnt
         {
             size_t capp_diff = cap - queue->cap, capp_diff_pr = capp_diff * queue->sz;
             memcpy((char *) queue->arr + queue->cap * queue->sz, queue->arr, capp_diff_pr);
 
-            size_t bor3, left3 = size_sub(&bor3, left2, capp_diff);
-            if (!bor3 && left3) // queue->begin - cap + queue->cnt > cap - queue->cap
+            size_t left3 = size_sub(&bor, left2, capp_diff);
+            if (!bor && left3) // queue->begin - cap + queue->cnt > cap - queue->cap
             {
                 memcpy(queue->arr, (char *) queue->arr + capp_diff_pr, capp_diff_pr);
                 memcpy((char *) queue->arr + capp_diff_pr, (char *) queue->arr + (capp_diff_pr << 1), left3 * queue->sz);

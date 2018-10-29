@@ -12,19 +12,12 @@ int char_cmp(const void *a, const void *b, void *context)
     return (int) *(const char *) a - (int) *(const char *) b;
 }
 
-int str_strl_stable_cmp_len(const void *Str, const void *Entry, void *p_Len)
+int str_strl_stable_cmp(const void *Str, const void *Entry, void *p_Len)
 {
     const struct strl *entry = Entry;
     size_t len = *(size_t *) p_Len;
     int res = strncmp((const char *) Str, entry->str, len);
     return res ? res : len < entry->len ? INT_MIN : 0;
-}
-
-int str_strl_stable_cmp(const void *Str, const void *Entry, void *context)
-{
-    (void) context;
-    const struct strl *entry = Entry;
-    return strcmp((const char *) Str, entry->str);
 }
 
 int str_off_stable_cmp(const void *A, const void *B, void *Str)

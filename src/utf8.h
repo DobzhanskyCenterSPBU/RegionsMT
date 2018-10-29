@@ -4,6 +4,7 @@
 
 #define UTF8_COUNT 6
 #define UTF8_BOUND 0x110000
+#define UTF8_BOM "\xef\xbb\xbf"
 
 uint8_t utf8_len(uint32_t);
 

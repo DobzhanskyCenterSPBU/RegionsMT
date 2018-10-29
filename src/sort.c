@@ -326,15 +326,33 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
     else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
 }
 
-size_t binary_search(const void *restrict key, const void *restrict arr, size_t sz, size_t cnt, stable_cmp_callback cmp, void *context)
+bool binary_search(size_t *p_ind, const void *restrict key, const void *restrict arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context, enum binary_search_flags flags)
 {
-    size_t left = 0;
-    while (left + 1 < cnt)
+    if (!cnt) return 0;
+    bool critical = !!(flags & BINARY_SEARCH_CRITICAL), rightmost = !!(flags & BINARY_SEARCH_RIGHTMOST);
+    size_t left = 0, right = cnt - 1;
+    int res = 0;
+    while (left < right) for (;;)
     {
-        size_t mid = left + ((cnt - left) >> 1);
-        if (cmp(key, (char *) arr + sz * mid, context) >= 0) left = mid;
-        else cnt = mid;
+        size_t mid = left + ((right - left + rightmost) >> 1);
+        res = cmp(key, (char *) arr + sz * mid, context);
+        if (res > 0) left = mid + 1;
+        else if (res < 0) right = mid - 1;
+        else
+        {
+            if (critical)
+            {
+                if (rightmost) left = mid;
+                else right = mid;
+                if (left < right) continue;
+            }
+            *p_ind = mid;
+            return 1;
+        }
+        break;
     }
-    if (left + 1 == cnt && !cmp(key, (char *) arr + sz * left, context)) return left;
-    return SIZE_MAX;
+    size_t ind = rightmost ? left : right;
+    if ((flags & BINARY_SEARCH_APPROX) || cmp(key, (char *) arr + sz * ind, context)) return 0;
+    *p_ind = ind;
+    return 1;
 }

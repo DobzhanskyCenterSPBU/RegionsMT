@@ -25,4 +25,11 @@ bool orders_apply(uintptr_t *restrict, size_t, size_t, void *restrict);
 #define QUICK_SORT_CUTOFF 20 // The actual quick sort is applied only for arrays of counts, greater than this value
 #define QUICK_SORT_CACHED // Enables the more optimal utilization of the CPU caches
 void quick_sort(void *restrict, size_t, size_t, cmp_callback, void *);
-size_t binary_search(const void *restrict, const void *restrict, size_t, size_t, stable_cmp_callback, void *);
+
+enum binary_search_flags {
+    BINARY_SEARCH_RIGHTMOST = 1, // Searches for the rightmost occurrence of the key
+    BINARY_SEARCH_CRITICAL = 2, // Searches for the left/rightmost occurrence of the key
+    BINARY_SEARCH_APPROX = 4, // Searches for the best approximation from left/right side
+};
+
+bool binary_search(size_t *, const void *restrict, const void *restrict, size_t, size_t, stable_cmp_callback, void *, enum binary_search_flags);

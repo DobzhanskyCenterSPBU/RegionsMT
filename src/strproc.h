@@ -12,9 +12,13 @@ struct strl {
     size_t len;
 };
 
+struct text_metric {
+    uint64_t byte;
+    size_t col, row;
+};
+
 // Functions to be used as 'stable_cmp_callback' and 'cmp_callback' (see sort.h)
 int char_cmp(const void *, const void *, void *);
-int str_strl_stable_cmp_len(const void *, const void *, void *);
 int str_strl_stable_cmp(const void *, const void *, void *);
 int str_off_stable_cmp(const void *, const void *, void *);
 bool str_off_cmp(const void *, const void *, void *);

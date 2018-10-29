@@ -17,7 +17,7 @@ bool test_np_generator_a(void *dst, size_t *p_context, struct log *log)
             for (char j = 0; j < CHAR_MAX && i < cnt; j++)
                 for (char k = 0; k < j && i < cnt; k++) str[i++] = k;
         *(struct test_np_a *) dst = (struct test_np_a) { .str = str, .cnt = cnt };
-        if (context < TEST_NP_EXP) ++*p_context;
+        if (context <= TEST_NP_EXP) ++*p_context;
         else *p_context = 0;
         return 1;
     }

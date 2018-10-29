@@ -4,6 +4,7 @@
 #include "object.h"
 #include "sort.h"
 #include "ll.h"
+#include "strproc.h"
 #include "utf8.h"
 
 #include <errno.h>
@@ -109,11 +110,6 @@ enum xml_status {
     XML_ERROR_VAL_REFERENCE
 };
 
-struct text_metric {
-    uint64_t byte;
-    size_t col, line;
-};
-
 struct message_xml_context {
     struct text_metric metric;
     const char *path;
@@ -127,7 +123,7 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
 {
     struct message_xml_context *restrict context = Context;
     const char *str[] = {
-        "Incorrect UTF-8 byte sequence",
+        "Invalid UTF-8 byte sequence",
         "Invalid character",
         "Invalid XML declaration",
         "No root element found",
@@ -144,7 +140,7 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
         "referencing to invalid character"
     };
     size_t cnt = 0, len = *p_buff_cnt, col_disp = 0, byte_disp = 0;
-    for (unsigned i = 0; i < 2; i++)
+    for (unsigned i = 0;; i++)
     {
         int tmp = -1;
         switch (i)
@@ -180,13 +176,14 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
         case 1:
             tmp = snprintf(buff + cnt, len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n",
                 context->path,
-                context->metric.line + 1,
+                context->metric.row + 1,
                 context->metric.col - col_disp + 1,
                 context->metric.byte - byte_disp + 1
             );
         }
         if (tmp < 0) return 0;
         cnt = size_add_sat(cnt, (size_t) tmp);
+        if (i == 1) break;
         len = size_sub_sat(len, (size_t) tmp);
     }
     *p_buff_cnt = cnt;
@@ -410,7 +407,7 @@ static bool xml_ref_impl(uint32_t *p_st, struct xml_ctrl_context *context, uint8
         case ST_CTRL_TEXT_HANDLER:
             if (utf8_val == ';')
             {
-                size_t ind = binary_search(context->buff, ctrl_subs, sizeof(*ctrl_subs), countof(ctrl_subs), str_strl_stable_cmp_len, &context->len);
+                size_t ind = binary_search(context->buff, ctrl_subs, sizeof(*ctrl_subs), countof(ctrl_subs), str_strl_stable_cmp, &context->len);
                 if (!(ind + 1)) log_message_error_str_xml(log, CODE_METRIC, context->metric, path, context->buff, context->len, XML_ERROR_STR_CONTROL);
                 else
                 {
@@ -752,11 +749,7 @@ static bool xml_decl_impl(uint32_t *restrict p_st, uint32_t *restrict p_val_st, 
 enum {
     XML_PI_INIT = 0,
     XML_PI_NAME,
-    XML_COMMENT_ST_B,
-    XML_COMMENT_ST_C,
-    XML_COMMENT_ST_D,
-    XML_COMMENT_ST_E,
-    XML_COMMENT_CNT
+    
 };
 
 static bool xml_pi_impl(uint32_t *restrict p_st, bool decl, struct text_metric *snapshot, struct utf8 *utf8, struct buff *restrict buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
@@ -775,14 +768,14 @@ static bool xml_pi_impl(uint32_t *restrict p_st, bool decl, struct text_metric *
             res = xml_name_impl(1, utf8, buff, metric, path, log);
             if (!res) return 0;
             if (res & STATUS_REPEAT) break;
-            if (buff->len == 3 && !stricmp(buff->str, "xml", buff->len))
+            if (buff->len == 3 && !Strnicmp(buff->str, "xml", buff->len))
             {
-                if (decl && !strcmp(buff->str, "xml", buff->len))
+                if (decl && !strncmp(buff->str, "xml", buff->len))
                 {
 
                 }
             }
-            st = str_strl_stable_cmp_len(buff->str, &(struct strl) STRI("xml"), &buff->len) ? XML_DOC_ST_PI_BEGIN : XML_DOC_ST_DECL_BEGIN;
+            //st = str_strl_stable_cmp(buff->str, &(struct strl) STRI("xml"), &buff->len) ? XML_DOC_ST_PI_BEGIN : XML_DOC_ST_DECL_BEGIN;
             buff->len = 0;
             continue;
         }
@@ -959,9 +952,6 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, s
     return 1;
 }
 
-// This is ONLY required for the line marked with '(*)'
-_Static_assert(BLOCK_READ > 2, "'BLOCK_READ' constant is assumed to be greater than 2!");
-
 struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_node_selector, xml_val_selector_callback xml_val_selector, void *context, struct log *log)
 {
     FILE *f = NULL;
@@ -984,13 +974,13 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
     struct xml_ctrl_context xml_ctrl_context = { 0 };
     
     size_t dep = 0;
-    char buff[BLOCK_READ], *text = NULL;
+    char buff[MAX(BLOCK_READ, countof(UTF8_BOM))] = { '\0' }, *text = NULL;
     struct text_metric metric = { 0 }; // Text metrics        
     struct xml_att xml_val = { 0 };
     struct xml_node xml_node = { 0 };
     
     size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;    
-    if (rd >= 3 && !strncmp(buff, "\xef\xbb\xbf", 3)) pos += 3, metric.byte += 3; // (*) Reading UTF-8 BOM if it is present
+    if (rd >= 3 && !strncmp(buff, STRC(UTF8_BOM))) pos += 3, metric.byte += 3; // (*) Reading UTF-8 BOM if it is present
     
     enum {
         ST_DECL = 0,
@@ -1048,13 +1038,13 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
                 case '\n':
                     if (!skip) // '\n' which appears after '\r' is always skipped
                     {
-                        metric.line++, metric.col = 0, skip = 0;
+                        metric.row++, metric.col = 0, skip = 0;
                         break;
                     }
                     skip = 0;
                     continue;
                 case '\r': // '\r' is replaced by '\n'
-                    metric.line++, metric.col = 0, skip = 1, utf8 = (struct utf8) { .byte = { '\n' }, .len = 1, .val = '\n' };
+                    metric.row++, metric.col = 0, skip = 1, utf8 = (struct utf8) { .byte = { '\n' }, .len = 1, .val = '\n' };
                     break;
                 default:
                     metric.col++, skip = 0;
@@ -1360,7 +1350,7 @@ bool xml_node_selector(struct xml_node *node, char *str, size_t len, void *conte
 
 bool xml_att_selector(struct xml_node *node, char *str, size_t len, void *context, size_t *p_ind)
 {
-    //ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_stable_cmp_len, &len);
+    //ind = binary_search(temp.buff, stack.frame[dep].node->att, sizeof *stack.frame[dep].node->att, stack.frame[dep].node->att_cnt, str_strl_stable_cmp, &len);
     //att = stack.frame[dep].node->att + ind;
    
     return 1;

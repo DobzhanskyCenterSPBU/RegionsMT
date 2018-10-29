@@ -35,11 +35,11 @@ bool test(const struct test_group *group_arr, size_t cnt, struct log *log)
                     }
                 } while (context);
             }
-            log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, group_start, get_time(), "Tests execution of the group no. %zu took", i + 1);
+            log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, group_start, get_time(), "Tests execution of the group no. %zu took ", i + 1);
         }
         free(test_data);
     }
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Tests execution took");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Tests execution took ");
     return 1;
 }
 
@@ -49,6 +49,6 @@ bool perf(struct log *log)
 
     // Performance tests here
 
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Performance tests execution took");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Performance tests execution took ");
     return 1;
 }

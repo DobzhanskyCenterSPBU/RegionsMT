@@ -279,30 +279,30 @@ void size_dec_interlocked(volatile size_t *mem)
 
 #if defined __GNUC__ || defined __clang__ || defined _M_IX86 || defined __i386__
 #   if defined _M_X64 || defined __x86_64__
-typedef unsigned __int128 double_size;
+typedef unsigned __int128 double_size_t;
 #   elif defined _M_IX86 || defined __i386__
-typedef unsigned long long double_size;
+typedef unsigned long long double_size_t;
 #   endif
 
 size_t size_mul(size_t *p_hi, size_t x, size_t y)
 {
-    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) x * (double_size) y };
-    *p_hi = res.hi;
-    return res.lo;
+    double_size_t val = (double_size_t) x * (double_size_t) y;
+    *p_hi = (size_t) (val >> SIZE_BIT);
+    return (size_t) val;
 }
 
 size_t size_add(size_t *p_car, size_t x, size_t y)
 {
-    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) x + (double_size) y } ;
-    *p_car = res.hi;
-    return res.lo;
+    double_size_t val = (double_size_t) x + (double_size_t) y;
+    *p_car = (size_t) (val >> SIZE_BIT);
+    return (size_t) val;
 }
 
 size_t size_sub(size_t *p_bor, size_t x, size_t y)
 {
-    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) x - (double_size) y };
-    *p_bor = 0 - res.hi;
-    return res.lo;
+    double_size_t val = (double_size_t) x - (double_size_t) y;
+    *p_bor = 0 - (size_t) (val >> SIZE_BIT);
+    return (size_t) val;
 }
 
 size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
@@ -312,10 +312,10 @@ size_t size_sum(size_t *p_hi, size_t *args, size_t args_cnt)
         *p_hi = 0;
         return 0;
     }
-    union { double_size val; struct { size_t lo, hi; }; } res = { .val = (double_size) args[0] };
-    for (size_t i = 1; i < args_cnt; res.val += args[i++]);
-    *p_hi = res.hi;
-    return res.lo;
+    double_size_t val = args[0];
+    for (size_t i = 1; i < args_cnt; val += args[i++]);
+    *p_hi = (size_t) (val >> SIZE_BIT);
+    return (size_t) val;
 }
 
 #endif
@@ -515,9 +515,9 @@ int flt64_sign(double x)
 
 uint32_t uint32_fused_mul_add(uint32_t *p_res, uint32_t m, uint32_t a)
 {
-    union { uint64_t val; struct { uint32_t lo, hi; }; } res = { .val = (uint64_t) *p_res * (uint64_t) m + (uint64_t) a };
-    *p_res = res.lo;
-    return res.hi;
+    uint64_t val = (uint64_t) *p_res * (uint64_t) m + (uint64_t) a;
+    *p_res = (uint32_t) val;
+    return (uint32_t) (val >> UINT32_BIT);
 }
 
 #define DECLARE_BIT_TEST(TYPE, PREFIX) \

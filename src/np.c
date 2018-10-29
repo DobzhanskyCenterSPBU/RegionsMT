@@ -1,4 +1,5 @@
 #include "np.h"
+#include "ll.h"
 
 #include <string.h>
 #include <immintrin.h>
@@ -171,6 +172,14 @@ uint64_t get_time()
 
 #endif
 
+bool aligned_alloca_chk(size_t cnt, size_t sz, size_t al)
+{
+    size_t hi, res = size_mul(&hi, cnt, sz);
+    if (hi) return 0;
+    size_add(&hi, res, al - 1);
+    return !!hi;
+}
+
 int Fclose(FILE *file)
 {
     return file && file != stderr && file != stdin && file != stdout ? fclose(file) : 0;
@@ -193,7 +202,7 @@ void *Memrchr(void const *Str, int ch, size_t cnt)
     const __m128i msk = _mm_set1_epi8((char) ch);
 
     const char *str = (const char *) Str;
-    const size_t off = ((uintptr_t) Str + cnt) & (alignof(__m128i) - 1), n = MIN(off, cnt);
+    const size_t off = ((uintptr_t) Str + cnt) % alignof(__m128i), n = MIN(off, cnt);
     for (size_t i = 0; i < n; i++) if (str[--cnt] == ch) return (void *) (str + cnt);
 
     while (cnt >= sizeof(__m128i))

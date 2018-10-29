@@ -39,6 +39,9 @@ typedef int Errno_t;
 #include <stdio.h>
 #include <time.h>
 
+bool aligned_alloca_chk(size_t, size_t, size_t);
+#define aligned_alloca(SZ, ALIGN) ((void *) ((((uintptr_t) Alloca((SZ) + (ALIGN) - 1) + (ALIGN) - 1) / (ALIGN)) * (ALIGN)))
+
 // Aligned memory allocation/deallocation
 void *Aligned_alloc(size_t, size_t);
 void Aligned_free(void *);
