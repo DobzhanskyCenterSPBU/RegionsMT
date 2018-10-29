@@ -25,9 +25,9 @@ enum argv_status {
 };
 
 struct argv_context {
-    enum argv_status status;
     char *name_str, *val_str;
     size_t name_len, val_len, ind;
+    enum argv_status status;
 };
 
 static bool message_argv(char *buff, size_t *p_cnt, void *Context)
@@ -62,7 +62,7 @@ static bool message_argv(char *buff, size_t *p_cnt, void *Context)
                 tmp = snprintf(buff + cnt, len, fmt[context->status / 2], "character");
                 break;
             case ARGV_WARNING_INVALID_UTF:
-                tmp = snprintf(buff + cnt, len, fmt[context->status / 2], context->name_len);
+                tmp = snprintf(buff + cnt, len, fmt[context->status / 2], context->name_len + 1);
                 break;
             default:
                 tmp = snprintf(buff + cnt, len, "%s", fmt[context->status / 2]);
@@ -113,9 +113,17 @@ static bool log_message_warning_argv(struct log *restrict log, struct code_metri
 
 static bool utf8_decode_len(char *str, size_t tot, size_t *p_len)
 {
-    uint8_t len;
     uint32_t val; // Never used
-    if (!utf8_decode_once((uint8_t *) str, tot, &val, &len)) return 0;
+    uint8_t len = 0, context = 0;
+    for (size_t i = 0; i < tot; i++)
+    {
+        if (!utf8_decode(str[i], &val, NULL, &len, &context))
+        {
+            *p_len = i;
+            return 0;
+        }
+        if (!context) break;
+    }
     *p_len = len;
     return 1;
 }
@@ -172,7 +180,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
                     for (size_t k = 1; argv[i][k];) // Inner loop for handling multiple option-like parameters
                     {
                         str = argv[i] + k;
-                        if (!utf8_decode_len(str, tot, &len)) log_message_warning_argv(log, CODE_METRIC, NULL, k + 1, NULL, 0, i, ARGV_WARNING_INVALID_UTF);
+                        if (!utf8_decode_len(str, tot, &len)) log_message_warning_argv(log, CODE_METRIC, NULL, k + len, NULL, 0, i, ARGV_WARNING_INVALID_UTF);
                         else
                         {
                             if (!selector(&par, str, len, res, context, 1)) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, ARGV_WARNING_INVALID_PAR_SHRT);

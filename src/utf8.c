@@ -166,20 +166,6 @@ bool utf8_decode(uint8_t byte, uint32_t *restrict p_utf8_val, uint8_t *restrict 
     return 0;
 }
 
-// Decodes first UTF-8 character in the string and returns its Unicode value and number of bytes
-bool utf8_decode_once(uint8_t *restrict str, size_t len, uint32_t *restrict p_utf8_val, uint8_t *restrict p_utf8_len)
-{
-    size_t ind = 0;
-    uint8_t utf8_context = 0;
-    for (; ind < len; ind++)
-    {
-        if (!utf8_decode(str[ind], p_utf8_val, NULL, p_utf8_len, &utf8_context)) break;
-        if (!utf8_context) return 1;
-    }
-    if (p_utf8_len) *p_utf8_len = (uint8_t) ind;
-    return 0;
-}
-
 void utf16_encode(uint32_t utf16_val, uint16_t *restrict utf16_word, uint8_t *restrict p_utf16_len)
 {
     if (utf16_val < 0x10000)
