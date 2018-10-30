@@ -26,7 +26,7 @@ struct xml_att {
     read_callback handler;
 };
 
-struct xml_node {
+/*struct xml_node {
     //struct strl name;
     size_t sz;
     prologue_callback prologue;
@@ -36,7 +36,7 @@ struct xml_node {
     //    struct xml_node *dsc;
     //    size_t dsc_cnt;
     //};
-};
+};*/
 
 typedef bool (*xml_node_selector_callback)(struct xml_node *, const char *, size_t, void *, void *);
 typedef bool (*xml_val_selector_callback)(struct xml_att *, const char *, size_t, void *, void *, size_t *);

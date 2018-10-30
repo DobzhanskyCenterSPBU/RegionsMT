@@ -234,6 +234,67 @@ static bool log_message_error_val_xml(struct log *restrict log, struct code_metr
 //  XML syntax analyzer
 //
 
+enum xml_node_type {
+    XML_NODE_DECL,
+    XML_NODE_ELEMENT,
+    XML_NODE_ATTRIBUTE,
+    XML_NODE_TEXT,
+    XML_NODE_ENTITY_REF,
+    XML_NODE_PI,
+};
+
+struct xml_pool {
+    struct xml_node *arr;
+    size_t cap, cnt;
+};
+
+struct xml_node_base {
+    struct text_metric metric;
+    ptrdiff_t off;
+    size_t len;
+};
+
+struct xml_node_decl {
+    struct xml_node_base version, encoding, standalone;
+};
+
+struct xml_node_attribute {
+    struct xml_node_base name;
+    struct xml_node_base val;
+};
+
+struct xml_node_element {
+    struct xml_node_base name;
+    struct xml_pool pool;
+};
+
+struct xml_node_text {
+    struct xml_node_base text;
+};
+
+struct xml_node_entity_ref {
+    struct xml_node_base text;
+};
+
+struct xml_node {
+    enum xml_node_type type;
+    union {
+        struct xml_node_decl decl;
+        struct xml_node_element element;
+        struct xml_node_attribute attribute;
+        struct xml_node_text text;
+    };
+};
+
+struct xml_context {
+    uint32_t st;
+    size_t dep;
+    struct xml_node *cur;
+    struct buff buff;
+    struct xml_pool pool;
+    bool header; // if 'false' header MAY NOT appear in the document
+};
+
 struct bits {
     char *arr;
     size_t cap;
@@ -251,13 +312,13 @@ struct xml_ctrl_context {
     uint32_t val;
 };
 
-struct xml_context {
+/*struct xml_context {
     size_t context, bits_cap;
     uint8_t *bits;
     struct xml_ctrl_context ctrl_contex;
     //struct xml_att_context val_context;
     uint32_t st, ctrl_st, val_st;
-};
+};*/
 
 /*static void xml_val_context_reset(struct xml_att_context *context)
 {
@@ -451,7 +512,7 @@ struct xml_val_context {
     struct text_metric *snapshot;
     struct xml_ctrl_context *ctrl_context;
 };
-
+/*
 static bool xml_val_impl(uint32_t *p_st, enum xml_val_flags flags, struct xml_val_context context,  struct buff *buff, struct utf8 *utf8, struct text_metric metric, const char *path, struct log *log)
 {
     uint32_t st = *p_st;
@@ -506,7 +567,7 @@ static bool xml_val_impl(uint32_t *p_st, enum xml_val_flags flags, struct xml_va
             if (!*p_ctrl_st) st = ST_QUOTE_CLOSING;
         }
     }
-}
+}*/
 
 enum {
     XML_ATT_ST_INIT = 0,
@@ -523,7 +584,7 @@ struct xml_att_context {
     struct xml_ctrl_context *ctrl_context;
     struct xml_val *val;
 };
-
+/*
 static bool xml_att_impl(uint32_t *p_st, struct xml_att_context context, xml_val_selector_callback val_selector, void *val_res, void *val_selector_context, struct bits *bits, struct utf8 *utf8, struct buff *buff, struct text_metric metric, const char *path, struct log *log)
 {
     uint32_t st = *p_st;
@@ -604,7 +665,7 @@ static bool xml_att_impl(uint32_t *p_st, struct xml_att_context context, xml_val
     }
     *p_st = st;
     return 1;
-}
+}*/
 
 static bool xml_match_impl(size_t *p_context, const char *str, size_t len, uint8_t *utf8_byte, uint32_t utf8_val, uint8_t utf8_len, struct text_metric metric, const char *path, struct log *log)
 {
@@ -751,11 +812,11 @@ static bool xml_decl_impl(uint32_t *restrict p_st, struct xml_decl_context conte
             if (!xml_match_impl(p_context, STRC("?>"), utf8_byte, utf8_val, utf8_len, metric, path, log)) return 0;
             if (!*p_context) st = 0;
             break;*/
-        default:
+        //default:
             if (XML_DECL_ST_ATTRIBUTE_A_BEGIN <= st && st <= XML_DECL_ST_ATTRIBUTE_A_END)
             {
                 st -= XML_DECL_ST_ATTRIBUTE_A_BEGIN;
-                if (!xml_att_impl(&st, &(struct xml_att_context) { .snapshot = &context.snapshot }, NULL, NULL, xml_decl_val_selector, NULL, NULL, bits, utf8, buff, metric, path, log)) return 0;
+                if (!xml_att_impl(&st, (struct xml_att_context) { .snapshot = &context.snapshot }, NULL, NULL, xml_decl_val_selector, NULL, NULL, bits, utf8, buff, metric, path, log)) return 0;
                 if (!st) st++;
             }
         }
@@ -772,7 +833,7 @@ enum {
     XML_PI_ST_DECL_END = XML_PI_ST_DECL_BEGIN + XML_DECL_ST_DECL_CNT
 };
 
-static bool xml_pi_impl(uint32_t *restrict p_st, bool decl, struct text_metric *snapshot, struct utf8 *utf8, struct buff *restrict buff, struct text_metric metric, const char *restrict path, struct log *restrict log)
+static bool xml_pi_impl(uint32_t *restrict p_st, struct xml_context *context, struct utf8 *utf8, struct text_metric metric, const char *restrict path, struct log *restrict log)
 {
     uint32_t st = *p_st;
     for (;;)
@@ -781,26 +842,26 @@ static bool xml_pi_impl(uint32_t *restrict p_st, bool decl, struct text_metric *
         switch (st)
         {
         case XML_PI_ST_INIT:
-            *snapshot = metric;
+            //*context.snapshot = metric;
             st++;
             continue;
         case XML_PI_ST_NAME:
-            res = xml_name_impl(1, utf8, buff, metric, path, log);
+            //res = xml_name_impl(1, utf8, buff, metric, path, log);
             if (!res) return 0;
             if (res & STATUS_REPEAT) break;
-            if (buff->len == 3 && !Strnicmp(buff->str, "xml", buff->len))
+            //if (buff->len == 3 && !Strnicmp(buff->str, "xml", buff->len))
             {
-                if (!decl || strncmp(buff->str, "xml", buff->len)) log_message_error_str_xml(log, CODE_METRIC, *snapshot, path, buff->str, buff->len, XML_ERROR_STR_INVALID_PI);
-                else st = XML_PI_ST_DECL_BEGIN;
+                //if (!decl || strncmp(buff->str, "xml", buff->len)) log_message_error_str_xml(log, CODE_METRIC, *context.snapshot, path, buff->str, buff->len, XML_ERROR_STR_INVALID_PI);
+                //else st = XML_PI_ST_DECL_BEGIN;
             }
         default:
             if (XML_PI_ST_DECL_BEGIN <= st && st <= XML_PI_ST_DECL_END)
             {
                 st -= XML_PI_ST_DECL_BEGIN;
-                if (xml_decl_impl(&st, )
+                //if (xml_decl_impl(&st, )
             }
             //st = str_strl_stable_cmp(buff->str, &(struct strl) STRI("xml"), &buff->len) ? XML_DOC_ST_PI_BEGIN : XML_DOC_ST_DECL_BEGIN;
-            buff->len = 0;
+            //buff->len = 0;
             continue;
         }
     }
@@ -859,7 +920,8 @@ static bool xml_comment_impl(uint32_t *restrict p_st, struct utf8 *utf8, struct 
 }
 
 enum {
-    XML_DOC_ST_TAG = 0,
+    XML_DOC_ST_TAG_A = 0,
+    XML_DOC_ST_TAG_B,
     XML_DOC_ST_MODE,
     XML_DOC_ST_EXCL,
     XML_DOC_ST_PI,
@@ -874,16 +936,21 @@ enum {
     XML_DOC_ST_COMMENT_END = XML_DOC_ST_COMMENT_BEGIN + XML_COMMENT_CNT - 1,
     XML_DOC_ST_DOCTYPE_BEGIN,
     XML_DOC_ST_DOCTYPE_END = XML_DOC_ST_DOCTYPE_BEGIN + XML_DOCTYPE_CNT - 1,
+    XML_DOC_ST_CDATA_BEGIN,
+    XML_DOC_ST_CDATA_END = XML_DOC_ST_CDATA_BEGIN - 1
 };
 
-static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, struct text_metric metric, const char *path, struct log *log)
+static bool xml_doc_impl(uint32_t *p_st, struct xml_context *context, struct utf8 *utf8, struct text_metric metric, const char *path, struct log *log)
 {
     uint32_t st = *p_st;
     for (;;)
     {
         switch (st)
         {
-        case XML_DOC_ST_TAG:
+        case XML_DOC_ST_TAG_A: // Determines whether header may appear or not
+            if (utf8->val == '<') st = XML_DOC_ST_MODE, context->header = 1;
+            else st = XML_DOC_ST_WHITESPACE_A;
+        case XML_DOC_ST_TAG_B:
             if (utf8->val == '<') st++;
             else st = XML_DOC_ST_WHITESPACE_A;
             break;
@@ -902,13 +969,19 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, s
             }
             break;
         case XML_DOC_ST_EXCL:
-            if (utf8->val == '-')
+            switch (utf8->val)
             {
+            case '-':
                 st = XML_DOC_ST_COMMENT_BEGIN;
                 break;
-            }
-            else st = XML_DOC_ST_DOCTYPE_BEGIN;
-            continue;
+            case '[':
+                st = XML_DOC_ST_CDATA_BEGIN;
+                break;
+            default:
+                st = XML_DOC_ST_DOCTYPE_BEGIN;
+                continue;
+            }            
+            break;
         case XML_DOC_ST_WHITESPACE_A:
             if (!utf8_is_whitespace_len(utf8->val, utf8->len)) break;
             st++;
@@ -916,15 +989,10 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, s
         case XML_DOC_ST_DECL_NAME: 
 
         default:
-            if (XML_DOC_ST_DECL_BEGIN <= st && st <= XML_DOC_ST_DECL_END)
-            {
-                st -= XML_DOC_ST_DECL_BEGIN;
-                //if (!)
-            }
-            else if (XML_DOC_ST_PI_BEGIN <= st && st <= XML_DOC_ST_PI_END)
+            if (XML_DOC_ST_PI_BEGIN <= st && st <= XML_DOC_ST_PI_END)
             {
                 st -= XML_DOC_ST_PI_BEGIN;
-                //if (!xml_pi_impl(&st, ))
+                //if (!xml_pi_impl(&st, context, ))
             }
             else if (XML_DOC_ST_COMMENT_BEGIN <= st && st <= XML_DOC_ST_COMMENT_END)
             {
@@ -978,18 +1046,15 @@ static bool xml_doc_impl(uint32_t *p_st, struct utf8 *utf8, struct buff *buff, s
 struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_node_selector, xml_val_selector_callback xml_val_selector, void *context, struct log *log)
 {
     FILE *f = NULL;
-    if (path)
+    if (path) for (;;)
     {
         f = fopen(path, "rb");
-        if (!f)
-        {
-            log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno); 
-            return 0;
-        }
+        if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno);
+        else break;
+        return 0;
     }
     else f = stdin;
-    
-    
+
     struct { struct frame { struct xml_object *obj; size_t off, len, dsc_cap; } *frame; size_t cap; } stack = { 0 };
     
     struct xml_context xml_context = { 0 };
@@ -1002,9 +1067,9 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
     struct xml_att xml_val = { 0 };
     struct xml_node xml_node = { 0 };
     
-    size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;    
-    if (rd >= 3 && !strncmp(buff, STRC(UTF8_BOM))) pos += 3, metric.byte += 3; // (*) Reading UTF-8 BOM if it is present
-    
+    size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;
+    if (rd >= strlenof(UTF8_BOM) && !strncmp(buff, STRC(UTF8_BOM))) pos += strlenof(UTF8_BOM), metric.byte += strlenof(UTF8_BOM);
+        
     enum {
         ST_DECL = 0,
         ST_WHITESPACE_K,

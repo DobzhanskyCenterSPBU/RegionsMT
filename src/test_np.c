@@ -4,6 +4,8 @@
 
 #include "test_np.h"
 
+#include <stdlib.h> 
+
 DECLARE_PATH
 
 bool test_np_generator_a(void *dst, size_t *p_context, struct log *log)

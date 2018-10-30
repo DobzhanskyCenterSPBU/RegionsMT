@@ -9,10 +9,16 @@
 #include "log.h"
 #include "strproc.h"
 
+enum par_mode {
+    PAR_VALUED = 0,
+    PAR_OPTION,
+    PAR_VALUED_OPTION
+};
+
 struct par {
     void *ptr, *context; // Third argument of the handler
     read_callback handler;
-    bool option;
+    enum par_mode mode;
 };
 
 typedef bool (*par_selector_callback)(struct par *, const char *, size_t, void *, void *, bool);
@@ -27,7 +33,7 @@ struct par_sch {
     ptrdiff_t off;
     void *context; // Third argument of the handler
     read_callback handler;
-    bool option;
+    enum par_mode mode;
 };
 
 struct argv_par_sch {

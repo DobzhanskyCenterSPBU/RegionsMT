@@ -177,12 +177,12 @@ static void queue_enqueue_hi(struct queue *restrict queue, void *restrict arr, s
     queue->cnt += cnt;
 }
 
-enum array_status queue_enqueue(struct queue *restrict queue, bool hi, void *restrict arr, size_t cnt)
+unsigned queue_enqueue(struct queue *restrict queue, bool hi, void *restrict arr, size_t cnt)
 {
-    enum array_status status = queue_test(queue, cnt);
-    if (!status) return 0;
+    unsigned res = queue_test(queue, cnt);
+    if (!res) return 0;
     (hi ? queue_enqueue_hi : queue_enqueue_lo)(queue, arr, cnt);
-    return status;
+    return res;
 }
 
 void queue_dequeue(struct queue *restrict queue, size_t offset)

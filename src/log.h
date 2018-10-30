@@ -14,7 +14,25 @@
 #define ANSI_COLOR_CYAN "\x1b[36m"
 #define ANSI_COLOR_BRIGHT_BLACK "\x1b[90m"
 #define ANSI_COLOR_BRIGHT_RED "\x1b[91m"
+#define ANSI_COLOR_BRIGHT_GREEN "\x1b[92m"
+#define ANSI_COLOR_BRIGHT_YELLOW "\x1b[93m"
+#define ANSI_COLOR_BRIGHT_BLUE "\x1b[94m"
+#define ANSI_COLOR_BRIGHT_MAGENTA "\x1b[96m"
+#define ANSI_COLOR_BRIGHT_CYAN "\x1b[96m"
+#define ANSI_COLOR_BRIGHT_WHITE "\x1b[97m"
 #define ANSI_COLOR_RESET "\x1b[0m"
+
+#define COL(S) S ANSI_COLOR_RESET
+#define COL_TTL0(S) COL(ANSI_COLOR_CYAN S)
+#define COL_TTL1(S) COL(ANSI_COLOR_RED S)
+#define COL_TTL2(S) COL(ANSI_COLOR_YELLOW S)
+#define COL_TTL3(S) COL(ANSI_COLOR_BLUE S)
+#define COL_TTL4(S) COL(ANSI_COLOR_GREEN S)
+#define COL_TTL5(S) COL(ANSI_COLOR_BLACK S)
+#define COL_TIME(S) COL(ANSI_COLOR_BRIGHT_BLACK S)
+#define COL_CODE(S) COL(ANSI_COLOR_BRIGHT_BLACK S)
+#define COL_FILE(S) COL(ANSI_COLOR_BRIGHT_YELLOW S)
+#define COL_NUM(S) COL(ANSI_COLOR_BRIGHT_WHITE S)
 
 struct log {
     FILE *file;
@@ -52,7 +70,7 @@ struct message_thunk {
     void *context;
 };
 
-bool message_var_staged(char *, size_t *, void *Thunk, const char *, va_list);
+bool message_var_two_stage(char *, size_t *, void *Thunk, const char *, va_list);
 
 #define DECLARE_PATH \
     static const char Path[] = __FILE__;    

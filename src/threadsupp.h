@@ -20,7 +20,7 @@
 #define thread_callback_convention __stdcall
 typedef _beginthreadex_proc_type thread_callback;
 typedef HANDLE thread_handle;
-typedef DWORD thread_return;
+typedef unsigned thread_return;
 typedef CRITICAL_SECTION mutex_handle;
 typedef CONDITION_VARIABLE condition_handle;
 typedef DWORD tls_handle;

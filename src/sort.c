@@ -14,8 +14,8 @@ struct generic_cmp_thunk {
 
 static bool generic_cmp(const void *A, const void *B, void *Thunk)
 {
-    struct generic_cmp_thunk *restrict thunk = Thunk;
-    const void **restrict a = (void *) A, **restrict b = (void *) B;
+    struct generic_cmp_thunk *thunk = Thunk;
+    const void **a = (void *) A, **b = (void *) B;
     int res = thunk->cmp(*a, *b, thunk->context);
     if (res > 0 || (!res && *a > *b)) return 1;
     return 0;
@@ -326,7 +326,7 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
     else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
 }
 
-bool binary_search(size_t *p_ind, const void *restrict key, const void *restrict arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context, enum binary_search_flags flags)
+bool binary_search(size_t *p_ind, const void *key, const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context, enum binary_search_flags flags)
 {
     if (!cnt) return 0;
     bool critical = !!(flags & BINARY_SEARCH_CRITICAL), rightmost = !!(flags & BINARY_SEARCH_RIGHTMOST);

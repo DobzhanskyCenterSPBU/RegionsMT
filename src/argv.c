@@ -143,11 +143,17 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
         {
             if (capture)
             {
-                size_t tmp = strlen(argv[i]);
-                if (par.handler && !par.handler(argv[i], tmp, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, argv[i], tmp, i - 1, capture > 0 ? ARGV_WARNING_UNHANDLED_PAR_LONG : ARGV_WARNING_UNHANDLED_PAR_SHRT);
+                bool shrt = capture < 0;
                 capture = 0;
+                if (par.mode != PAR_VALUED_OPTION || argv[i][0] != '-')
+                {
+                    size_t tmp = strlen(argv[i]);
+                    if (par.handler && !par.handler(argv[i], tmp, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, argv[i], tmp, i - 1, shrt ? ARGV_WARNING_UNHANDLED_PAR_SHRT : ARGV_WARNING_UNHANDLED_PAR_LONG);
+                    continue;
+                }
+                else if (par.handler && !par.handler(NULL, 0, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, shrt ? ARGV_WARNING_UNHANDLED_OPT_SHRT : ARGV_WARNING_UNHANDLED_OPT_LONG);
             }
-            else if (argv[i][0] == '-')
+            if (argv[i][0] == '-')
             {
                 if (argv[i][1] == '-') // Long mode
                 {
@@ -161,7 +167,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
                     if (!selector(&par, str, len, res, context, 0)) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, ARGV_WARNING_INVALID_PAR_LONG);
                     else
                     {
-                        if (par.option)
+                        if (par.mode == PAR_OPTION)
                         {
                             if (str[len]) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, ARGV_WARNING_UNEXPECTED_VALUE_LONG);
                             if (par.handler && !par.handler(NULL, 0, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, ARGV_WARNING_UNHANDLED_OPT_LONG);
@@ -186,7 +192,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
                             if (!selector(&par, str, len, res, context, 1)) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, ARGV_WARNING_INVALID_PAR_SHRT);
                             else
                             {
-                                if (!par.option) // Parameter expects value
+                                if (par.mode != PAR_OPTION) // Parameter expects value
                                 {
                                     if (!str[len]) capture = -1;
                                     else
@@ -208,7 +214,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
         if (!array_test(p_arr, p_cnt, sizeof(**p_arr), 0, 0, ARG_SIZE(cnt, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
-            (*p_arr)[cnt++] = argv[i]; // Storing input file path
+            (*p_arr)[cnt++] = argv[i]; // Storing positional parameters
             continue;
         }       
         succ = 0;
@@ -216,7 +222,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
     }
     if (succ)
     {
-        if (capture) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, argc - 1, capture > 0 ? ARGV_WARNING_MISSING_VALUE_LONG : ARGV_WARNING_MISSING_VALUE_SHRT);
+        if (capture && par.mode == PAR_VALUED) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, argc - 1, capture > 0 ? ARGV_WARNING_MISSING_VALUE_LONG : ARGV_WARNING_MISSING_VALUE_SHRT);
         if (!array_test(p_arr, p_cnt, sizeof(**p_arr), 0, ARRAY_REDUCE, ARG_SIZE(cnt))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else return 1;
     }
@@ -238,7 +244,7 @@ bool argv_par_selector(struct par *par, const char *str, size_t len, void *res, 
         if (id < context->par_sch_cnt)
         {
             struct par_sch par_sch = context->par_sch[id];
-            *par = (struct par) { .ptr = (char *) res + par_sch.off, .context = par_sch.context, .handler = par_sch.handler, .option = par_sch.option };
+            *par = (struct par) { .ptr = (char *) res + par_sch.off, .context = par_sch.context, .handler = par_sch.handler, .mode = par_sch.mode };
             return 1;
         }
     }

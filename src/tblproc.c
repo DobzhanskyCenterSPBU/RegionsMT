@@ -87,11 +87,14 @@ bool dsv_index(const char *path, uint64_t **p_ind, size_t *p_cnt, struct log *lo
 {
     char buff[MAX(BLOCK_READ, countof(UTF8_BOM))] = { '\0' };
     FILE *f = fopen(path, "rb");
-    if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno);
-    else return 0;
+    do {
+        if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path, errno);
+        else break;
+        return 0;
+    } while (0);
     uint64_t byte = 0;
     size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0, cnt = 0;
-    if (rd >= strlenof(UTF8_BOM) && !strncmp(buff, UTF8_BOM, strlenof(UTF8_BOM))) pos += strlenof(UTF8_BOM), byte += strlenof(UTF8_BOM);
+    if (rd >= strlenof(UTF8_BOM) && !strncmp(buff, STRC(UTF8_BOM))) pos += strlenof(UTF8_BOM), byte += strlenof(UTF8_BOM);
     bool halt = 0;
     unsigned quot = 0, line = 1;
     *p_ind = NULL;

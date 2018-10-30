@@ -44,7 +44,7 @@ bool test_sort_generator_a_2(void *dst, size_t *p_context, struct log *log)
 
 bool test_sort_generator_b_1(void *dst, size_t *p_context, struct log *log)
 {
-    size_t context = *p_context, ucnt = context * context + 13, cnt = ((size_t) 1 << context) + ucnt;
+    size_t context = *p_context, ucnt = context * context + 17, cnt = MAX(((size_t) 1 << context), ucnt);
     double *arr;
     if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
@@ -57,7 +57,6 @@ bool test_sort_generator_b_1(void *dst, size_t *p_context, struct log *log)
     }
     return 0;
 }
-
 
 bool test_sort_generator_c_1(void *dst, size_t *p_context, struct log *log)
 {
