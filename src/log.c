@@ -164,7 +164,7 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
     return 1;
 }
 
-static bool log_message_impl(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, message_callback_var handler_var, void *context, const char *restrict format, va_list *arg)
+static bool log_message_impl(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, message_callback_var handler_var, void *context, const char *restrict format, va_list arg)
 {
     if (!log) return 1;
     size_t cnt = log->cnt, len;
@@ -182,7 +182,7 @@ static bool log_message_impl(struct log *restrict log, struct code_metric code_m
                 if (handler_var)
                 {
                     va_list tmp;
-                    va_copy(tmp, *arg);
+                    va_copy(tmp, arg);
                     bool res = handler_var(log->buff + cnt, &len, context, format, tmp);
                     va_end(tmp);
                     if (!res) return 0;
@@ -209,7 +209,7 @@ bool log_message_var(struct log *restrict log, struct code_metric code_metric, e
 {
     va_list arg;
     va_start(arg, format);
-    bool res = log_message_impl(log, code_metric, type, NULL, handler_var, context, format, &arg);
+    bool res = log_message_impl(log, code_metric, type, NULL, handler_var, context, format, arg);
     va_end(arg);
     return res;
 }
@@ -218,7 +218,7 @@ bool log_message_generic(struct log *restrict log, struct code_metric code_metri
 {
     va_list arg;
     va_start(arg, format);
-    bool res = log_message_impl(log, code_metric, type, NULL, message_var_generic, NULL, format, &arg);
+    bool res = log_message_impl(log, code_metric, type, NULL, message_var_generic, NULL, format, arg);
     va_end(arg);
     return res;
 }
@@ -227,7 +227,7 @@ bool log_message_time_diff(struct log *restrict log, struct code_metric code_met
 {
     va_list arg;
     va_start(arg, format);
-    bool res = log_message_impl(log, code_metric, type, NULL, message_var_two_stage, &(struct message_thunk) { .handler = message_time_diff, .context = &(struct time_diff) { .start = start, .stop = stop } }, format, &arg);
+    bool res = log_message_impl(log, code_metric, type, NULL, message_var_two_stage, &(struct message_thunk) { .handler = message_time_diff, .context = &(struct time_diff) { .start = start, .stop = stop } }, format, arg);
     va_end(arg);
     return res;
 }
