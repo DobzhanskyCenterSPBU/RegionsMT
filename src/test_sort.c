@@ -6,6 +6,7 @@
 
 #include <string.h> 
 #include <stdlib.h> 
+#include <math.h> 
 
 DECLARE_PATH
 
@@ -44,12 +45,20 @@ bool test_sort_generator_a_2(void *dst, size_t *p_context, struct log *log)
 
 bool test_sort_generator_b_1(void *dst, size_t *p_context, struct log *log)
 {
-    size_t context = *p_context, ucnt = context * context + 17, cnt = MAX(((size_t) 1 << context), ucnt);
+    size_t context = *p_context, ucnt = context * context + context + 1, cnt = MAX(((size_t) 1 << context), ucnt);
     double *arr;
     if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
-        for (size_t i = 0; i < cnt; i++) arr[i] = (double) ((i + 13) % ucnt);
+        for (size_t i = 0; i < cnt; i++) arr[i] = (double) (i % ucnt) + 1. / (double) (i % ucnt + 1);
+        for (size_t i = 0; i < cnt - 1; i++)
+        {
+            size_t n = (size_t) ((double) (cnt * cnt) * sin((double) i)) % cnt;
+            n = MAX(n, i + 1);
+            double swp = arr[i];
+            arr[i] = arr[n];
+            arr[n] = swp;
+        }
         *(struct test_sort_b *) dst = (struct test_sort_b) { .arr = arr, .cnt = cnt, .ucnt = ucnt };
         if (context <= TEST_SORT_EXP) ++*p_context;
         else *p_context = 0;
@@ -157,16 +166,16 @@ bool test_sort_b_2(void *In, struct log *log)
     else
     {
         double *arr;
-        if (!array_init(&arr, NULL, ucnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+        if (!array_init(&arr, NULL, in->cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
-            memcpy(arr, in->arr, in->ucnt * sizeof(*in->arr));
+            memcpy(arr, in->arr, in->cnt * sizeof(*arr));
             if (!orders_apply(ord, ucnt, sizeof(*arr), arr)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
             else
             {
                 size_t ind = 1;
                 for (; ind < ucnt; ind++) if (in->arr[ord[ind]] != arr[ind]) break;
-                succ = ind == ucnt;
+                succ = !ucnt || ind == ucnt;
             }
             free(arr);
         }

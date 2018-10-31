@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include <math.h>
+#include <float.h>
 
 DECLARE_PATH
 
@@ -363,7 +364,7 @@ static int Main(int argc, char **argv)
     //fputs("\xef\xbb\xbf", f);
     //for (size_t i = 0; i < (size_t) argc; i++) fprintf(stderr, "%s\n", argv[i]);
     //fclose(f);
-    
+
     struct log log;
     if (log_init(&log, NULL, 1, 0, NULL))
     {

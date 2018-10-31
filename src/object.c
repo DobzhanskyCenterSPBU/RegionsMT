@@ -940,9 +940,9 @@ enum {
     XML_DOC_ST_CDATA_END = XML_DOC_ST_CDATA_BEGIN - 1
 };
 
-static bool xml_doc_impl(uint32_t *p_st, struct xml_context *context, struct utf8 *utf8, struct text_metric metric, const char *path, struct log *log)
+static bool xml_doc_impl(struct xml_context *context, struct utf8 *utf8, struct text_metric metric, const char *path, struct log *log)
 {
-    uint32_t st = *p_st;
+    uint32_t st = context->st;
     for (;;)
     {
         switch (st)
@@ -1039,7 +1039,7 @@ static bool xml_doc_impl(uint32_t *p_st, struct xml_context *context, struct utf
         }
         break;
     }
-    *p_st = st;
+    context->st = st;
     return 1;
 }
 

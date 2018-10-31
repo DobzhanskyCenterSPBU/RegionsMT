@@ -312,7 +312,7 @@ static double qas_chisq(size_t *table, size_t *gen_mar, size_t *phen_mar, size_t
 
 static void perm_init(size_t *perm, size_t cnt, gsl_rng *rng)
 {
-    for (size_t i = 0; i < cnt; i++) // Performing 'Knuth shuffle'
+    for (size_t i = 0; i < cnt - 1; i++) // Performing 'Knuth shuffle'
     {
         size_t j = i + (size_t) floor(gsl_rng_uniform(rng) * (cnt - i));
         size_t swp = perm[i];
