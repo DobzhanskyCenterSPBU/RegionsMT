@@ -35,6 +35,7 @@ struct gen_context {
 
 static bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
+    (void) row;
     struct gen_context *context = Context;
     if (!col || col > context->phen_cnt)
     {
@@ -75,7 +76,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
     gsl_rng *rng = NULL;    
     size_t *phen = NULL;
     struct phen_context phen_context = { 0 };
-    size_t phen_cap = 0, phen_skip = 1, phen_cnt = 0, phen_length = 0;
+    size_t phen_skip = 1, phen_cnt = 0, phen_length = 0;
     if (!tbl_read(path_phen, 0, tbl_phen_selector, NULL, &phen_context, &phen, &phen_skip, &phen_cnt, &phen_length, ',', log)) goto error;
 
     uintptr_t *phen_ptr = pointers_stable(phen, phen_cnt, sizeof(*phen), str_off_stable_cmp, phen_context.handler_context.str);
@@ -104,7 +105,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
         "%s: %f, %zu; %s: %f, %zu; %s: %f, %zu; %s: %f, %zu\n",
         "CD", x.nlpv[0], x.rpl[0], "R", x.nlpv[1], x.rpl[1], "D", x.nlpv[2], x.rpl[2], "A", x.nlpv[3], x.rpl[3]);
     log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Adjusted P-value computation took");
-    if (path_out) append_out(path_out, x, 0, snp_cnt, log);
+    if (path_out) append_out(path_out, x, log);
 
 error:
     gsl_rng_free(rng);
