@@ -368,10 +368,10 @@ static int Main(int argc, char **argv)
     struct log log;
     if (log_init(&log, NULL, 1, 0, NULL))
     {
-        size_t input_cnt;
-        char **input;
+        size_t pos_cnt;
+        char **pos_arr;
         struct main_args main_args = { 0 };
-        if (argv_parse(argv_par_selector, &argv_par_sch, &main_args, argv, argc, &input, &input_cnt, &log))
+        if (argv_parse(argv_par_selector, &argv_par_sch, &main_args, argv, argc, &pos_arr, &pos_cnt, &log))
         {
             main_args = main_args_override(main_args, main_args_default());
             if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_HELP))
@@ -385,21 +385,21 @@ static int Main(int argc, char **argv)
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
-                if (input_cnt >= 4) categorical_run(input[0], input[1], input[2], (size_t) strtoull(input[4], NULL, 10), &log);
+                if (pos_cnt >= 4) categorical_run(pos_arr[0], pos_arr[1], pos_arr[2], (size_t) strtoull(pos_arr[3], NULL, 10), &log);
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_LDE))
             {
-                if (input_cnt >= 2) lde_run(input[0], input[1], &log);
+                if (pos_cnt >= 2) lde_run(pos_arr[0], pos_arr[1], &log);
             }
             else
             {
-                if (!input_cnt) log_message_generic(&log, CODE_METRIC, MESSAGE_NOTE, "No input data specified.\n");
+                if (!pos_cnt) log_message_generic(&log, CODE_METRIC, MESSAGE_NOTE, "No input data specified.\n");
                 else
                 {
                     
                 }
             }
-            free(input);
+            free(pos_arr);
         }
         log_close(&log);
     }

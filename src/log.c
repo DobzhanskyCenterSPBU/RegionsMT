@@ -68,7 +68,6 @@ bool message_var_two_stage(char *buff, size_t *p_cnt, void *Thunk, const char *f
             break;
         case 1:
             if (!thunk->handler(buff + cnt, &tmp, thunk->context)) return 0;
-            break;
         }
         cnt = size_add_sat(cnt, tmp);
         if (i == 1) break;
@@ -140,14 +139,7 @@ void log_multiple_close(struct log *restrict arr, size_t cnt)
 
 static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric, enum message_type type)
 {
-    const char *title[] = { 
-        COL_TTL0("MESSAGE"),
-        COL_TTL1("ERROR"),
-        COL_TTL2("WARNING"),
-        COL_TTL3("NOTE"),
-        COL_TTL4("INFO"),
-        COL_TTL5("DAMNATION")
-    };
+    const char *title[] = { COL_TTL0("MESSAGE"), COL_TTL1("ERROR"), COL_TTL2("WARNING"), COL_TTL3("NOTE"), COL_TTL4("INFO"), COL_TTL5("DAMNATION") };
     time_t t;
     time(&t);
     struct tm ts;
@@ -155,7 +147,7 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
     size_t cnt = *p_cnt, len = strftime(buff, cnt, COL_TIME("[%Y-%m-%d %H:%M:%S UTC%z]") " ", &ts);
     if (len)
     {
-        int tmp = snprintf(buff + len, cnt - len, "%s " COL_CODE("(%s @ \"%s\":%zu):") " ", title[type], code_metric.func, code_metric.path, code_metric.line);
+        int tmp = snprintf(buff + len, cnt - len, "%s " COL_SRC("(%s @ \"%s\":%zu):") " ", title[type], code_metric.func, code_metric.path, code_metric.line);
         if (tmp < 0) return 0;
         *p_cnt = size_add_sat(len, (size_t) tmp);
         return 1;
@@ -167,42 +159,49 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
 static bool log_message_impl(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, message_callback_var handler_var, void *context, const char *restrict format, va_list arg)
 {
     if (!log) return 1;
-    size_t cnt = log->cnt, len;
-    for (unsigned i = 0; i < 2; i++)
+    size_t cnt = log->cnt;
+    for (unsigned i = 0; i < 2; i++) for (;;)
     {
-        for (;;)
+        size_t len = log->cap - cnt;
+        switch (i)
         {
-            len = log->cap - cnt;
-            switch (i)
+        case 0:
+            if (!log_prefix(log->buff + cnt, &len, code_metric, type)) return 0;
+            break;
+        case 1:
+            if (handler_var)
             {
-            case 0:
-                if (!log_prefix(log->buff + cnt, &len, code_metric, type)) return 0;
-                break;
-            case 1:
-                if (handler_var)
-                {
-                    va_list tmp;
-                    va_copy(tmp, arg);
-                    bool res = handler_var(log->buff + cnt, &len, context, format, tmp);
-                    va_end(tmp);
-                    if (!res) return 0;
-                }
-                else if (handler && !handler(log->buff + cnt, &len, context)) return 0;
-                break;
+                va_list tmp;
+                va_copy(tmp, arg);
+                bool res = handler_var(log->buff + cnt, &len, context, format, tmp);
+                va_end(tmp);
+                if (!res) return 0;
             }
-            unsigned res = array_test(&log->buff, &log->cap, sizeof(*log->buff), 0, 0, ARG_SIZE(cnt, len, 1));
-            if (!res) return 0;
-            if (res & ARRAY_UNTOUCHED) break;
+            else if (handler && !handler(log->buff + cnt, &len, context)) return 0;
         }
+        unsigned res = array_test(&log->buff, &log->cap, sizeof(*log->buff), 0, 0, ARG_SIZE(cnt, len, 1));
+        if (!res) return 0;
+        if (!(res & ARRAY_UNTOUCHED)) continue;
         cnt += len;
+        break;
     }
     log->cnt = cnt;
     return cnt >= log->lim ? log_flush(log) : 1;
 }
 
+// Emulation of passing '(va_list) 0'
+static bool log_message_supp(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, void *context, ...)
+{
+    va_list arg;
+    va_start(arg, context);
+    bool res = log_message_impl(log, code_metric, type, handler, NULL, context, NULL, arg);
+    va_end(context);
+    return res;
+}
+
 bool log_message(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, void *context)
 {
-    return log_message_impl(log, code_metric, type, handler, NULL, context, NULL, NULL);
+    return log_message_supp(log, code_metric, type, handler, context);
 }
 
 bool log_message_var(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback_var handler_var, void *context, const char *restrict format, ...)

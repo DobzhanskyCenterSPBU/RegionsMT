@@ -52,17 +52,21 @@ static bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *t
     return;
 }*/
 
-bool append_out(const char *path_out, double val, size_t off, size_t cnt, struct log *log)
+bool append_out(const char *path_out, struct maver_adj_res res, struct log *log)
 {
-    bool succ = 0;
+    bool succ = 1;
     FILE *f = fopen(path_out, "a");
-    if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, "", errno);
-    int tmp = fprintf(f, "%.15f\n", val);
-    if (tmp < 0) goto error;
-    succ = 1;
-error:
+    for (;;)
+    {
+        if (!f) log_message_fopen(log, CODE_METRIC, MESSAGE_ERROR, path_out, errno);
+        else break;
+        return 0;
+    }
+    int tmp = fprintf(f, "%.15f, %.15f, %.15f, %.15f, %zu, %zu, %zu, %zu\n", 
+        res.nlpv[0], res.nlpv[1], res.nlpv[2], res.nlpv[3], res.rpl[0], res.rpl[1], res.rpl[2], res.rpl[3]);
+    if (tmp < 0) succ = 0;
     Fclose(f);
-    return 1;
+    return succ;
 }
 
 bool categorical_run(const char *path_phen, const char *path_gen, const char *path_out, size_t rpl, struct log *log)
@@ -100,7 +104,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
         "%s: %f, %zu; %s: %f, %zu; %s: %f, %zu; %s: %f, %zu\n",
         "CD", x.nlpv[0], x.rpl[0], "R", x.nlpv[1], x.rpl[1], "D", x.nlpv[2], x.rpl[2], "A", x.nlpv[3], x.rpl[3]);
     log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Adjusted P-value computation took");
-    if (path_out) append_out(path_out, x.nlpv[0], 0, snp_cnt, log);
+    if (path_out) append_out(path_out, x, 0, snp_cnt, log);
 
 error:
     gsl_rng_free(rng);
