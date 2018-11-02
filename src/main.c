@@ -385,7 +385,12 @@ static int Main(int argc, char **argv)
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_CAT))
             {
-                if (pos_cnt >= 4) categorical_run(pos_arr[0], pos_arr[1], pos_arr[2], (size_t) strtoull(pos_arr[3], NULL, 10), &log);
+                if (pos_cnt >= 6)
+                {
+                    size_t rpl = (size_t) strtoull(pos_arr[4], NULL, 10);
+                    uint64_t seed = (uint64_t) strtoull(pos_arr[5], NULL, 10);
+                    categorical_run(pos_arr[0], pos_arr[1], pos_arr[2], pos_arr[3], rpl, seed, &log);
+                }
             }
             else if (uint8_bit_test(main_args.bits, MAIN_ARGS_BIT_POS_LDE))
             {

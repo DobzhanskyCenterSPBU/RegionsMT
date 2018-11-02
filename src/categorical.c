@@ -484,7 +484,7 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
     {
         if (alt[i])
         {
-            res.nlpv[i] = (double) qc[i] / (double) qt[i];// log10((double) qt[i]) - log10((double) qc[i]);
+            res.nlpv[i] = (double) qc[i] / (double) qt[i];//log10((double) qt[i]) - log10((double) qc[i]);
             res.rpl[i] = qt[i];
         }
         else

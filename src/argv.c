@@ -141,11 +141,12 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
     {
         if (!halt)
         {
+            bool hyph = argv[i][0] == '-';
             if (capture)
             {
                 bool shrt = capture < 0;
                 capture = 0;
-                if (par.mode != PAR_VALUED_OPTION || argv[i][0] != '-')
+                if (par.mode != PAR_VALUED_OPTION || !hyph)
                 {
                     size_t tmp = strlen(argv[i]);
                     if (par.handler && !par.handler(argv[i], tmp, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, argv[i], tmp, i - 1, shrt ? ARGV_WARNING_UNHANDLED_PAR_SHRT : ARGV_WARNING_UNHANDLED_PAR_LONG);
@@ -153,7 +154,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
                 }
                 else if (par.handler && !par.handler(NULL, 0, par.ptr, par.context)) log_message_warning_argv(log, CODE_METRIC, str, len, NULL, 0, i, shrt ? ARGV_WARNING_UNHANDLED_OPT_SHRT : ARGV_WARNING_UNHANDLED_OPT_LONG);
             }
-            if (argv[i][0] == '-')
+            if (hyph)
             {
                 if (argv[i][1] == '-') // Long mode
                 {
