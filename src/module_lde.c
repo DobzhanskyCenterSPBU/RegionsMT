@@ -21,7 +21,7 @@ static bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *t
         return 1;
     }
     if (!row) context->phen_cnt++;
-    if (!array_test(tbl, &context->gen_cap, 1, 0, 0, ARG_SIZE(context->gen_cnt, 1))) return 0;
+    if (!array_test(tbl, &context->gen_cap, 1, 0, 0, context->gen_cnt, 1)) return 0;
     *cl = (struct tbl_col) { .handler = { .read = uint8_handler }, .ptr = *(uint8_t **) tbl + context->gen_cnt++ };
     return 1;
 }
@@ -57,6 +57,11 @@ static bool tbl_gen_head_callback(const char *str, size_t len, void *dst, void *
 
 static bool tbl_gen_head_selector(struct tbl_col *cl, size_t row, size_t col, void *tbl, void *Context)
 {
+    (void) cl;
+    (void) row;
+    (void) col;
+    (void) tbl;
+    (void) Context;
     return 1;
 }
 

@@ -51,7 +51,7 @@ enum message_type {
 };
 
 typedef bool (*message_callback)(char *, size_t *, void *);
-typedef bool (*message_callback_var)(char *, size_t *, void *, const char *, va_list);
+typedef bool (*message_callback_var)(char *, size_t *, void *, va_list);
 
 struct code_metric {
     const char *path, *func;
@@ -63,14 +63,14 @@ struct time_diff {
 };
 
 bool message_crt(char *, size_t *, void *);
-bool message_var_generic(char *, size_t *, void *, const char *, va_list);
+bool message_var(char *, size_t *, void *, va_list);
 
 struct message_thunk {
     message_callback handler;
     void *context;
 };
 
-bool message_var_two_stage(char *, size_t *, void *Thunk, const char *, va_list);
+bool message_var_two_stage(char *, size_t *, void *Thunk, va_list);
 
 #define DECLARE_PATH \
     static const char Path[] = __FILE__;    
@@ -90,11 +90,11 @@ bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, str
 void log_multiple_close(struct log *restrict, size_t);
 bool log_flush(struct log *restrict);
 bool log_message(struct log *restrict, struct code_metric, enum message_type, message_callback, void *);
-bool log_message_var(struct log *restrict, struct code_metric, enum message_type, message_callback_var, void *, const char *restrict, ...);
+bool log_message_var(struct log *restrict, struct code_metric, enum message_type, message_callback_var, void *, ...);
 
 // Some specialized messages
-bool log_message_generic(struct log *restrict, struct code_metric, enum message_type, const char *restrict, ...);
-bool log_message_time_diff(struct log *restrict, struct code_metric, enum message_type, uint64_t, uint64_t, const char *restrict, ...);
+bool log_message_generic(struct log *restrict, struct code_metric, enum message_type, ...);
+bool log_message_time_diff(struct log *restrict, struct code_metric, enum message_type, uint64_t, uint64_t, ...);
 bool log_message_crt(struct log *restrict, struct code_metric, enum message_type, Errno_t);
 bool log_message_fopen(struct log *restrict, struct code_metric, enum message_type, const char *restrict, Errno_t);
 bool log_message_fseek(struct log *restrict, struct code_metric, enum message_type, int64_t, const char *restrict);

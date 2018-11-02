@@ -24,7 +24,7 @@ static bool tbl_phen_selector(struct tbl_col *cl, size_t row, size_t col, void *
         return 1;
     }
     struct phen_context *context = Context;
-    if (!array_test(tbl, &context->cap, sizeof(ptrdiff_t), 0, 0, ARG_SIZE(row, 1))) return 0;
+    if (!array_test(tbl, &context->cap, sizeof(ptrdiff_t), 0, 0, row, 1)) return 0;
     *cl = (struct tbl_col) { .handler = { .read = str_tbl_handler }, .ptr = *(ptrdiff_t **) tbl + row, .context = &context->handler_context };
     return 1;
 }
@@ -42,7 +42,7 @@ static bool tbl_gen_selector(struct tbl_col *cl, size_t row, size_t col, void *t
         cl->handler.read = NULL;
         return 1;
     }
-    if (!array_test(tbl, &context->gen_cap, 1, 0, 0, ARG_SIZE(context->gen_cnt, 1))) return 0;
+    if (!array_test(tbl, &context->gen_cap, 1, 0, 0, context->gen_cnt, 1)) return 0;
     *cl = (struct tbl_col) { .handler = { .read = uint8_handler }, .ptr = *(uint8_t **) tbl + context->gen_cnt++ };
     return 1;
 }
@@ -98,13 +98,13 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
     struct maver_adj_supp supp;
     maver_adj_init(&supp, snp_cnt, phen_cnt, phen_ucnt);
 
-    struct maver_adj_res x = maver_adj_impl(&supp, gen, phen, snp_cnt, phen_cnt, phen_ucnt, rpl, 10, rng, 7);
+    struct maver_adj_res x = maver_adj_impl(&supp, gen, phen, snp_cnt, phen_cnt, phen_ucnt, rpl, 10, rng, 15);
     maver_adj_close(&supp);
 
-    log_message_generic(log, CODE_METRIC, MESSAGE_INFO, "Results of the computation of adjusted P-value (model: -log10(adjusted P-value), count of replications):"
-        "%s: %f, %zu; %s: %f, %zu; %s: %f, %zu; %s: %f, %zu\n",
+    log_message_generic(log, CODE_METRIC, MESSAGE_INFO, "Results of the computation of adjusted P-value (model: -log10(adjusted P-value), count of replications): "
+        "%s: %f, %zu; %s: %f, %zu; %s: %f, %zu; %s: %f, %zu.\n",
         "CD", x.nlpv[0], x.rpl[0], "R", x.nlpv[1], x.rpl[1], "D", x.nlpv[2], x.rpl[2], "A", x.nlpv[3], x.rpl[3]);
-    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Adjusted P-value computation took");
+    log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, start, get_time(), "Adjusted P-value computation took ");
     if (path_out) append_out(path_out, x, log);
 
 error:

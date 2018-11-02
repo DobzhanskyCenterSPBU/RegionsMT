@@ -23,7 +23,10 @@ enum {
 void array_broadcast(void *, size_t, size_t, void *);
 
 unsigned array_init(void *, size_t *restrict, size_t, size_t, size_t, enum array_flags);
-unsigned array_test(void *, size_t *restrict, size_t, size_t, enum array_flags, size_t *restrict, size_t);
+unsigned array_test_impl(void *, size_t *restrict, size_t, size_t, enum array_flags, size_t *restrict, size_t);
+
+#define array_test(ARR, P_CAP, SZ, DIFF, FLAGS, ...) \
+    (array_test_impl((ARR), (P_CAP), (SZ), (DIFF), (FLAGS), ARG(size_t, __VA_ARGS__)))
 
 struct queue {
     void *arr;

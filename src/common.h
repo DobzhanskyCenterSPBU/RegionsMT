@@ -55,8 +55,6 @@
     { __VA_ARGS__ }, countof(((T []) { __VA_ARGS__ }))
 #define ARG(T, ...) \
     ((T []) { __VA_ARGS__ }), countof(((T []) { __VA_ARGS__ }))
-#define ARG_SIZE(...) \
-    ARG(size_t, __VA_ARGS__)
 
 // Convert value (which is often represented by a macro) to the string literal
 #define TOSTRING_EXPAND(Z) #Z

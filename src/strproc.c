@@ -134,7 +134,7 @@ bool str_tbl_handler(const char *str, size_t len, void *p_Off, void *Context)
         *p_off = context->str_cnt - 1;
         return 1;
     }
-    if (!array_test(&context->str, &context->str_cap, sizeof(*context->str), 0, 0, ARG_SIZE(context->str_cnt, len, 1))) return 0;
+    if (!array_test(&context->str, &context->str_cap, sizeof(*context->str), 0, 0, context->str_cnt, len, 1)) return 0;
     *p_off = context->str_cnt;
     memcpy(context->str + context->str_cnt, str, len + 1);
     context->str_cnt += len + 1;

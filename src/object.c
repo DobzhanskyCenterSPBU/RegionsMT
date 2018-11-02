@@ -330,7 +330,7 @@ static unsigned xml_name_impl(bool terminator, struct utf8 *utf8, struct buff *r
     size_t len = buff->len;
     if ((len ? utf8_is_xml_name_char_len : utf8_is_xml_name_start_char_len)(utf8->val, utf8->len))
     {
-        if (!array_test(&buff->str, &buff->cap, sizeof(*buff->str), 0, 0, ARG_SIZE(len, utf8_len, terminator))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+        if (!array_test(&buff->str, &buff->cap, sizeof(*buff->str), 0, 0, len, utf8_len, terminator)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
             strncpy(buff->str, (char *) utf8->byte, utf8->len);

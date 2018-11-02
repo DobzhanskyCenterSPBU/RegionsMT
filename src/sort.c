@@ -54,7 +54,7 @@ uintptr_t *orders_stable_unique(const void *arr, size_t *p_cnt, size_t sz, stabl
     if (cnt) tmp = res[0], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
     for (size_t i = 1; i < cnt; i++)
         if (cmp((const void *) res[i], (const void *) tmp, context) > 0) tmp = res[i], res[ucnt++] = (tmp - (uintptr_t) arr) / sz;
-    if (array_test(&res, p_cnt, sizeof(*res), 0, ARRAY_REDUCE, ARG_SIZE(ucnt))) return res;
+    if (array_test(&res, p_cnt, sizeof(*res), 0, ARRAY_REDUCE, ucnt)) return res;
 
     free(res);
     *p_cnt = 0;

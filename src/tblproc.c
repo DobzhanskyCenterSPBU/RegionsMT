@@ -120,7 +120,7 @@ bool dsv_index(const char *path, uint64_t **p_ind, size_t *p_cnt, struct log *lo
                 }
             }
             line = 0;
-            if (!array_test(p_ind, p_cnt, 1, sizeof(*p_ind), 0, ARG_SIZE(cnt, 1))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+            if (!array_test(p_ind, p_cnt, 1, sizeof(*p_ind), 0, cnt, 1)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
             else (*p_ind)[cnt] = byte, halt = 0;
         }
         else halt = 0;
@@ -410,7 +410,7 @@ bool tbl_read(const char *path, int64_t offset, tbl_selector_callback selector, 
                 }
                 break;
             }
-            if (!array_test(&temp_buff, &cap, sizeof(*temp_buff), 0, 0, ARG_SIZE(len, 2))) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+            if (!array_test(&temp_buff, &cap, sizeof(*temp_buff), 0, 0, len, 2)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
             else
             {
                 temp_buff[len++] = buff[ind];

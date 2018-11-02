@@ -45,16 +45,20 @@ bool message_crt(char *buff, size_t *p_cnt, void *Context)
     return 1;
 }
 
-bool message_var_generic(char *buff, size_t *p_cnt, void *context, const char *format, va_list arg)
+bool message_var(char *buff, size_t *p_cnt, void *context, va_list arg)
 {
     (void) context;
-    int tmp = vsnprintf(buff, *p_cnt, format, arg);
-    if (tmp < 0) return 0;
-    *p_cnt = (size_t) tmp;
+    const char *format = va_arg(arg, const char *);
+    if (format)
+    {
+        int tmp = vsnprintf(buff, *p_cnt, format, arg);
+        if (tmp < 0) return 0;
+        *p_cnt = (size_t) tmp;
+    }
     return 1;
 }
 
-bool message_var_two_stage(char *buff, size_t *p_cnt, void *Thunk, const char *format, va_list arg)
+bool message_var_two_stage(char *buff, size_t *p_cnt, void *Thunk, va_list arg)
 {
     struct message_thunk *thunk = Thunk;
     size_t len = *p_cnt, cnt = 0;
@@ -64,7 +68,7 @@ bool message_var_two_stage(char *buff, size_t *p_cnt, void *Thunk, const char *f
         switch (i)
         {
         case 0:
-            if (!message_var_generic(buff + cnt, &tmp, NULL, format, arg)) return 0;
+            if (!message_var(buff + cnt, &tmp, NULL, arg)) return 0;
             break;
         case 1:
             if (!thunk->handler(buff + cnt, &tmp, thunk->context)) return 0;
@@ -156,7 +160,7 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
     return 1;
 }
 
-static bool log_message_impl(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, message_callback_var handler_var, void *context, const char *restrict format, va_list arg)
+static bool log_message_impl(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback handler, message_callback_var handler_var, void *context, va_list arg)
 {
     if (!log) return 1;
     size_t cnt = log->cnt;
@@ -173,13 +177,13 @@ static bool log_message_impl(struct log *restrict log, struct code_metric code_m
             {
                 va_list tmp;
                 va_copy(tmp, arg);
-                bool res = handler_var(log->buff + cnt, &len, context, format, tmp);
+                bool res = handler_var(log->buff + cnt, &len, context, tmp);
                 va_end(tmp);
                 if (!res) return 0;
             }
             else if (handler && !handler(log->buff + cnt, &len, context)) return 0;
         }
-        unsigned res = array_test(&log->buff, &log->cap, sizeof(*log->buff), 0, 0, ARG_SIZE(cnt, len, 1));
+        unsigned res = array_test(&log->buff, &log->cap, sizeof(*log->buff), 0, 0, cnt, len, 1);
         if (!res) return 0;
         if (!(res & ARRAY_UNTOUCHED)) continue;
         cnt += len;
@@ -194,8 +198,8 @@ static bool log_message_supp(struct log *restrict log, struct code_metric code_m
 {
     va_list arg;
     va_start(arg, context);
-    bool res = log_message_impl(log, code_metric, type, handler, NULL, context, NULL, arg);
-    va_end(context);
+    bool res = log_message_impl(log, code_metric, type, handler, NULL, context, arg);
+    va_end(arg);
     return res;
 }
 
@@ -204,29 +208,29 @@ bool log_message(struct log *restrict log, struct code_metric code_metric, enum 
     return log_message_supp(log, code_metric, type, handler, context);
 }
 
-bool log_message_var(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback_var handler_var, void *context, const char *restrict format, ...)
+bool log_message_var(struct log *restrict log, struct code_metric code_metric, enum message_type type, message_callback_var handler_var, void *context, ...)
 {
     va_list arg;
-    va_start(arg, format);
-    bool res = log_message_impl(log, code_metric, type, NULL, handler_var, context, format, arg);
+    va_start(arg, context);
+    bool res = log_message_impl(log, code_metric, type, NULL, handler_var, context, arg);
     va_end(arg);
     return res;
 }
 
-bool log_message_generic(struct log *restrict log, struct code_metric code_metric, enum message_type type, const char *restrict format, ...)
+bool log_message_generic(struct log *restrict log, struct code_metric code_metric, enum message_type type, ...)
 {
     va_list arg;
-    va_start(arg, format);
-    bool res = log_message_impl(log, code_metric, type, NULL, message_var_generic, NULL, format, arg);
+    va_start(arg, type);
+    bool res = log_message_impl(log, code_metric, type, NULL, message_var, NULL, arg);
     va_end(arg);
     return res;
 }
 
-bool log_message_time_diff(struct log *restrict log, struct code_metric code_metric, enum message_type type, uint64_t start, uint64_t stop, const char *restrict format, ...)
+bool log_message_time_diff(struct log *restrict log, struct code_metric code_metric, enum message_type type, uint64_t start, uint64_t stop, ...)
 {
     va_list arg;
-    va_start(arg, format);
-    bool res = log_message_impl(log, code_metric, type, NULL, message_var_two_stage, &(struct message_thunk) { .handler = message_time_diff, .context = &(struct time_diff) { .start = start, .stop = stop } }, format, arg);
+    va_start(arg, stop);
+    bool res = log_message_impl(log, code_metric, type, NULL, message_var_two_stage, &(struct message_thunk) { .handler = message_time_diff, .context = &(struct time_diff) { .start = start, .stop = stop } }, arg);
     va_end(arg);
     return res;
 }

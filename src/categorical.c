@@ -403,7 +403,7 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
 
         // Building contingency table
         memset(supp->table + table_disp, 0, table_disp * sizeof(*supp->table));
-        contingency_table_init(supp->table + table_disp, gen + off, phen, cnt, supp->filter);
+        contingency_table_init(supp->table + table_disp, gen + off, phen, cnt, supp->filter + off);
 
         // Performing computations for each alternative
         for (size_t j = 0; j < ALT_CNT; j++)
@@ -453,7 +453,7 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
 
             // Building contingency table
             memset(supp->table + table_disp, 0, table_disp * sizeof(*supp->table));
-            contingency_table_init(supp->table + table_disp, gen + off, phen, cnt, supp->filter);
+            contingency_table_init(supp->table + table_disp, gen + off, supp->phen_perm, cnt, supp->filter + off);
 
             // Performing computations for each alternative
             for (size_t j = 0; j < ALT_CNT; j++) if (alt_rpl[j])
@@ -484,7 +484,7 @@ struct maver_adj_res maver_adj_impl(struct maver_adj_supp *supp, uint8_t *gen, s
     {
         if (alt[i])
         {
-            res.nlpv[i] = log10((double) qt[i]) - log10((double) qc[i]);
+            res.nlpv[i] = (double) qc[i] / (double) qt[i];// log10((double) qt[i]) - log10((double) qc[i]);
             res.rpl[i] = qt[i];
         }
         else

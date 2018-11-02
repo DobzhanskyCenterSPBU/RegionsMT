@@ -19,7 +19,7 @@ void array_broadcast(void *arr, size_t cnt, size_t sz, void *val)
 unsigned array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, size_t diff, enum array_flags flags)
 {
     void **restrict p_src = p_Src, *src = *p_src;
-    if (src && (flags & ARRAY_REALLOC))
+    if (src && p_cap && (flags & ARRAY_REALLOC))
     {
         size_t bor, tmp = size_sub(&bor, cnt, *p_cap);
         if (bor) // cnt < cap
@@ -57,7 +57,7 @@ unsigned array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, 
         if (!car)
         {
             void *res;
-            if (src && (flags & ARRAY_REALLOC))
+            if (src && p_cap && (flags & ARRAY_REALLOC))
             {
                 res = realloc(src, tot);
                 if (res && (flags & ARRAY_CLEAR))
@@ -80,10 +80,10 @@ unsigned array_init(void *p_Src, size_t *restrict p_cap, size_t cnt, size_t sz, 
     return 0;
 }
 
-unsigned array_test(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_flags flags, size_t *restrict args, size_t args_cnt)
+unsigned array_test_impl(void *p_Arr, size_t *restrict p_cap, size_t sz, size_t diff, enum array_flags flags, size_t *restrict arg, size_t cnt)
 {
-    size_t car, cnt = size_sum(&car, args, args_cnt);
-    if (!car) return array_init(p_Arr, p_cap, cnt, sz, diff, flags | ARRAY_REALLOC);
+    size_t car, sum = size_sum(&car, arg, cnt);
+    if (!car) return array_init(p_Arr, p_cap, sum, sz, diff, flags | ARRAY_REALLOC);
     errno = ERANGE;
     return 0;
 }
@@ -106,7 +106,7 @@ void queue_close(struct queue *restrict queue)
 unsigned queue_test(struct queue *restrict queue, size_t diff)
 {
     size_t cap = queue->cap;
-    unsigned res = array_test(&queue->arr, &cap, queue->sz, 0, 0, ARG_SIZE(queue->cnt, diff));
+    unsigned res = array_test(&queue->arr, &cap, queue->sz, 0, 0, queue->cnt, diff);
     if (!res || (res & ARRAY_UNTOUCHED)) return res;
 
     size_t bor, left = size_sub(&bor, queue->begin, queue->cap - queue->cnt);
