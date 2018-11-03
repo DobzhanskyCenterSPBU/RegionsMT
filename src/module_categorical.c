@@ -8,6 +8,7 @@
 #include "module_categorical.h"
 
 #include <string.h>
+#include <inttypes.h>
 
 struct phen_context {
     struct str_tbl_handler_context handler_context;
@@ -175,16 +176,19 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
         size_t left = top_hit[i].left - 1, right = top_hit[i].right - 1;
         if (left > right || right >= snp_cnt) continue;
 
-        uint64_t tic = get_time();
+        uint64_t t0 = get_time();
         struct maver_adj_res x = maver_adj_impl(&supp, gen + left * phen_cnt, phen, right - left + 1, phen_cnt, phen_ucnt, rpl, 10, rng, 15);
         log_message_generic(log, CODE_METRIC, MESSAGE_INFO, "Adjusted P-value for window %zu:%zu no. %zu: "
             "[%s] %f, %zu; [%s] %f, %zu; [%s] %f, %zu; [%s] %f, %zu.\n",
             left + 1, right + 1, i + 1,
             "CD", x.nlpv[0], x.rpl[0], "R", x.nlpv[1], x.rpl[1], "D", x.nlpv[2], x.rpl[2], "A", x.nlpv[3], x.rpl[3]);
-        log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, tic, get_time(), "Adjusted P-value computation took ");
+        uint64_t t1 = get_time();
+        log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, t0, t1, "Adjusted P-value computation took ");
 
-        fprintf(f, "%zu,%.15f,%zu,%.15f,%zu,%.15f,%zu,%.15f,%zu\n",
-            i + 1, x.nlpv[0], x.rpl[0], x.nlpv[1], x.rpl[1], x.nlpv[2], x.rpl[2], x.nlpv[3], x.rpl[3]);
+        int64_t diff = t1 - t0, mdq = diff / 60000000, mdr = diff % 60000000;
+        double sec = 1.e-6 * (double) mdr;
+        fprintf(f, "%zu,%.15f,%zu,%.15f,%zu,%.15f,%zu,%.15f,%zu,%" PRId64 " min.,%.6f sec.\n",
+            i + 1, x.nlpv[0], x.rpl[0], x.nlpv[1], x.rpl[1], x.nlpv[2], x.rpl[2], x.nlpv[3], x.rpl[3], mdq, sec);
         fflush(f);
     }
     

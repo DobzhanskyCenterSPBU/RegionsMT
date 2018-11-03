@@ -8,6 +8,8 @@
 
 #define UTF8_LDQUO "\xe2\x80\x9c"
 #define UTF8_RDQUO "\xe2\x80\x9d"
+#define UTF8_LSQUO "\xe2\x80\x98"
+#define UTF8_RSQUO "\xe2\x80\x99"
 
 uint8_t utf8_len(uint32_t);
 

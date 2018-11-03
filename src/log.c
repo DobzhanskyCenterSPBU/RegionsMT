@@ -150,7 +150,7 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
     size_t cnt = *p_cnt, len = strftime(buff, cnt, TXT_RESET STY_TTL_TS("[%Y-%m-%d %H:%M:%S UTC%z]") " ", &ts);
     if (len)
     {
-        int tmp = snprintf(buff + len, cnt - len, "%s " STY_TTL_SRC("(%s @ " UTF8_LDQUO "%s" UTF8_RDQUO ":%zu):") " ", title[type], code_metric.func, code_metric.path, code_metric.line);
+        int tmp = snprintf(buff + len, cnt - len, "%s " STY_TTL_SRC("(" UTF8_LSQUO "%s" UTF8_RSQUO " @ " UTF8_LDQUO "%s" UTF8_RDQUO ":%zu):") " ", title[type], code_metric.func, code_metric.path, code_metric.line);
         if (tmp < 0) return 0;
         *p_cnt = size_add_sat(len, (size_t) tmp);
         return 1;
@@ -241,10 +241,10 @@ bool log_message_crt(struct log *restrict log, struct code_metric code_metric, e
 
 bool log_message_fopen(struct log *restrict log, struct code_metric code_metric, enum message_type type, const char *restrict path, Errno_t err)
 {
-    return log_message_var(log, code_metric, type, message_var_two_stage, &(struct message_thunk) { .handler = message_crt, .context = &err }, "Unable to open the file " UTF8_LDQUO STY_PATH("%s") UTF8_RDQUO ": ", path);
+    return log_message_var(log, code_metric, type, message_var_two_stage, &(struct message_thunk) { .handler = message_crt, .context = &err }, "Unable to open the file " STY_PATH(UTF8_LDQUO "%s" UTF8_RDQUO) ": ", path);
 }
 
 bool log_message_fseek(struct log *restrict log, struct code_metric code_metric, enum message_type type, int64_t offset, const char *restrict path)
 {
-    return log_message_generic(log, code_metric, type, "Unable to seek into the position " STY_NUM("%" PRId64) " while reading the file " UTF8_LDQUO STY_PATH("%s") UTF8_RDQUO "!\n", offset, path);
+    return log_message_generic(log, code_metric, type, "Unable to seek into the position " STY_NUM("%" PRId64) " while reading the file " STY_PATH(UTF8_LDQUO "%s" UTF8_RDQUO) "!\n", offset, path);
 }
