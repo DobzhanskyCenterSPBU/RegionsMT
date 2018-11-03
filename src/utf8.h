@@ -6,6 +6,9 @@
 #define UTF8_BOUND 0x110000
 #define UTF8_BOM "\xef\xbb\xbf"
 
+#define UTF8_LDQUO "\xe2\x80\x9c"
+#define UTF8_RDQUO "\xe2\x80\x9d"
+
 uint8_t utf8_len(uint32_t);
 
 bool utf8_is_overlong(uint32_t, uint8_t);

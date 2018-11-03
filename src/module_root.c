@@ -6,8 +6,6 @@
 
 #include <stdlib.h>
 
-DECLARE_PATH
-
 void module_root_context_dispose(void *Context)
 {
     

@@ -5,8 +5,6 @@
 #include <math.h>
 #include <string.h>
 
-DECLARE_PATH
-
 bool test_ll_generator_a(void *dst, size_t *p_context, struct log *log)
 {
     (void) log;

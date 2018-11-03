@@ -5,34 +5,42 @@
 
 #include <stdarg.h>
 
-#define ANSI_COLOR_BLACK "\x1b[30m"
-#define ANSI_COLOR_RED "\x1b[31m"
-#define ANSI_COLOR_GREEN "\x1b[32m"
-#define ANSI_COLOR_YELLOW "\x1b[33m"
-#define ANSI_COLOR_BLUE "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN "\x1b[36m"
-#define ANSI_COLOR_BRIGHT_BLACK "\x1b[90m"
-#define ANSI_COLOR_BRIGHT_RED "\x1b[91m"
-#define ANSI_COLOR_BRIGHT_GREEN "\x1b[92m"
-#define ANSI_COLOR_BRIGHT_YELLOW "\x1b[93m"
-#define ANSI_COLOR_BRIGHT_BLUE "\x1b[94m"
-#define ANSI_COLOR_BRIGHT_MAGENTA "\x1b[96m"
-#define ANSI_COLOR_BRIGHT_CYAN "\x1b[96m"
-#define ANSI_COLOR_BRIGHT_WHITE "\x1b[97m"
-#define ANSI_COLOR_RESET "\x1b[0m"
+#define ANSI "\x1b"
+#define CSI "["
+#define SGR(C) C "m"
 
-#define COL(S) S ANSI_COLOR_RESET
-#define COL_TTL0(S) COL(ANSI_COLOR_CYAN S)
-#define COL_TTL1(S) COL(ANSI_COLOR_RED S)
-#define COL_TTL2(S) COL(ANSI_COLOR_YELLOW S)
-#define COL_TTL3(S) COL(ANSI_COLOR_BLUE S)
-#define COL_TTL4(S) COL(ANSI_COLOR_GREEN S)
-#define COL_TTL5(S) COL(ANSI_COLOR_BLACK S)
-#define COL_TIME(S) COL(ANSI_COLOR_BRIGHT_BLACK S)
-#define COL_SRC(S) COL(ANSI_COLOR_BRIGHT_BLACK S)
-#define COL_FILE(S) COL(ANSI_COLOR_BRIGHT_YELLOW S)
-#define COL_NUM(S) COL(ANSI_COLOR_BRIGHT_WHITE S)
+#define RESET 0
+#define FG_BLACK 30
+#define FG_RED 31
+#define FG_GREEN 32
+#define FG_YELLOW 33
+#define FG_BLUE 34
+#define FG_MAGENTA 35
+#define FG_CYAN 36
+#define FG_WHITE 37
+#define FG_BR_BLACK 90
+#define FG_BR_RED 91
+#define FG_BR_GREEN 92
+#define FG_BR_YELLOW 93
+#define FG_BR_BLUE 94
+#define FG_BR_MAGENTA 95
+#define FG_BR_CYAN 96
+#define FG_BR_WHITE 97
+
+#define TXT_RESET ANSI CSI SGR(TOSTRING(RESET))
+#define TXT_FG(COL, TXT) ANSI CSI SGR(TOSTRING(FG_ ## COL)) TXT TXT_RESET
+#define STY_TTL0(S) TXT_FG(GREEN, S)
+#define STY_TTL1(S) TXT_FG(RED, S)
+#define STY_TTL2(S) TXT_FG(YELLOW, S)
+#define STY_TTL3(S) TXT_FG(BLUE, S)
+#define STY_TTL4(S) TXT_FG(CYAN, S)
+#define STY_TTL5(S) TXT_FG(BLACK, S)
+#define STY_TTL_TS(S) TXT_FG(BR_BLACK, S)
+#define STY_TTL_SRC(S) TXT_FG(BR_BLACK, S)
+#define STY_PATH(S) TXT_FG(BR_CYAN, S)
+#define STY_NUM(S) TXT_FG(BR_WHITE, S)
+#define STY_STR(S) TXT_FG(BR_WHITE, S)
+#define STY_CHR(S) TXT_FG(BR_WHITE, S)
 
 struct log {
     FILE *file;
@@ -72,15 +80,8 @@ struct message_thunk {
 
 bool message_var_two_stage(char *, size_t *, void *Thunk, va_list);
 
-#define DECLARE_PATH \
-    static const char Path[] = __FILE__;    
-
 #define CODE_METRIC \
-    (struct code_metric) { \
-        .path = Path, \
-        .func = __func__, \
-        .line = __LINE__, \
-    }
+    (struct code_metric) { .path = (__FILE__), .func = (__func__), .line = (__LINE__) }
 
 #define INTP(X) ((int) MIN((X), INT_MAX)) // Useful for the printf-like functions
 

@@ -7,8 +7,6 @@
 
 #include <stdlib.h>
 
-DECLARE_PATH
-
 bool test(const struct test_group *group_arr, size_t cnt, struct log *log)
 {
     uint64_t start = get_time();
@@ -30,12 +28,12 @@ bool test(const struct test_group *group_arr, size_t cnt, struct log *log)
                     else
                     {
                         for (size_t k = 0; k < group->test_cnt; k++)
-                            if (!group->test[k](test_data, log)) log_message_generic(log, CODE_METRIC, MESSAGE_WARNING, "Test no. " COL_NUM("%zu") " of the group no. " COL_NUM("%zu") " failed under the input data instance no. " COL_NUM("%zu") " of the generator no. " COL_NUM("%zu") "!\n", k + 1, i + 1, ind + 1, j + 1);
+                            if (!group->test[k](test_data, log)) log_message_generic(log, CODE_METRIC, MESSAGE_WARNING, "Test no. " STY_NUM("%zu") " of the group no. " STY_NUM("%zu") " failed under the input data instance no. " STY_NUM("%zu") " of the generator no. " STY_NUM("%zu") "!\n", k + 1, i + 1, ind + 1, j + 1);
                         if (group->test_dispose) group->test_dispose(test_data);
                     }
                 } while (context);
             }
-            log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, group_start, get_time(), "Tests execution of the group no. " COL_NUM("%zu") " took ", i + 1);
+            log_message_time_diff(log, CODE_METRIC, MESSAGE_INFO, group_start, get_time(), "Tests execution of the group no. " STY_NUM("%zu") " took ", i + 1);
         }
         free(test_data);
     }

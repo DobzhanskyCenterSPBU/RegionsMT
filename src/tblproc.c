@@ -11,8 +11,6 @@
 #include <string.h>
 #include <inttypes.h>
 
-DECLARE_PATH
-
 enum row_read_status {
     TBL_STATUS_UNHANDLED_VALUE = 0,
     TBL_STATUS_BAD_QUOTES,

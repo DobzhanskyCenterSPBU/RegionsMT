@@ -8,8 +8,6 @@
 #include <stdlib.h> 
 #include <math.h> 
 
-DECLARE_PATH
-
 bool test_sort_generator_a_1(void *dst, size_t *p_context, struct log *log)
 {
     size_t context = *p_context, cnt = ((size_t) 1 << context) - 1;

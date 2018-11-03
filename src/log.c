@@ -2,11 +2,10 @@
 #include "ll.h"
 #include "log.h"
 #include "memory.h"
+#include "utf8.h"
 
 #include <inttypes.h>
 #include <stdlib.h>
-
-DECLARE_PATH
 
 static bool time_diff(char *buff, size_t *p_cnt, uint64_t start, uint64_t stop)
 {
@@ -15,10 +14,10 @@ static bool time_diff(char *buff, size_t *p_cnt, uint64_t start, uint64_t stop)
     uint64_t hdq = diff / 3600000000, hdr = diff % 3600000000, mdq = hdr / 60000000, mdr = hdr % 60000000;
     double sec = 1.e-6 * (double) mdr;
     int tmp =
-        hdq ? snprintf(buff, cnt, COL_NUM("%" PRIu64) " hr " COL_NUM("%" PRIu64) " min " COL_NUM("%.6f") " sec.\n", hdq, mdq, sec) :
-        mdq ? snprintf(buff, cnt, COL_NUM("%" PRIu64) " min " COL_NUM("%.6f") " sec.\n", mdq, sec) :
-        sec >= 1.e-6 ? snprintf(buff, cnt, COL_NUM("%.6f") " sec.\n", sec) :
-        snprintf(buff, cnt, "less than " COL_NUM("%.6f") " sec.\n", 1.e-6);
+        hdq ? snprintf(buff, cnt, STY_NUM("%" PRIu64) " hr " STY_NUM("%" PRIu64) " min " STY_NUM("%.6f") " sec.\n", hdq, mdq, sec) :
+        mdq ? snprintf(buff, cnt, STY_NUM("%" PRIu64) " min " STY_NUM("%.6f") " sec.\n", mdq, sec) :
+        sec >= 1.e-6 ? snprintf(buff, cnt, STY_NUM("%.6f") " sec.\n", sec) :
+        snprintf(buff, cnt, "less than " STY_NUM("%.6f") " sec.\n", 1.e-6);
     if (tmp < 0) return 0;
     *p_cnt = (size_t) tmp;
     return 1;
@@ -143,15 +142,15 @@ void log_multiple_close(struct log *restrict arr, size_t cnt)
 
 static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric, enum message_type type)
 {
-    const char *title[] = { COL_TTL0("MESSAGE"), COL_TTL1("ERROR"), COL_TTL2("WARNING"), COL_TTL3("NOTE"), COL_TTL4("INFO"), COL_TTL5("DAMNATION") };
+    const char *title[] = { STY_TTL0("MESSAGE"), STY_TTL1("ERROR"), STY_TTL2("WARNING"), STY_TTL3("NOTE"), STY_TTL4("INFO"), STY_TTL5("DAMNATION") };
     time_t t;
     time(&t);
     struct tm ts;
     Localtime_s(&ts, &t);
-    size_t cnt = *p_cnt, len = strftime(buff, cnt, COL_TIME("[%Y-%m-%d %H:%M:%S UTC%z]") " ", &ts);
+    size_t cnt = *p_cnt, len = strftime(buff, cnt, TXT_RESET STY_TTL_TS("[%Y-%m-%d %H:%M:%S UTC%z]") " ", &ts);
     if (len)
     {
-        int tmp = snprintf(buff + len, cnt - len, "%s " COL_SRC("(%s @ \"%s\":%zu):") " ", title[type], code_metric.func, code_metric.path, code_metric.line);
+        int tmp = snprintf(buff + len, cnt - len, "%s " STY_TTL_SRC("(%s @ " UTF8_LDQUO "%s" UTF8_RDQUO ":%zu):") " ", title[type], code_metric.func, code_metric.path, code_metric.line);
         if (tmp < 0) return 0;
         *p_cnt = size_add_sat(len, (size_t) tmp);
         return 1;
@@ -242,10 +241,10 @@ bool log_message_crt(struct log *restrict log, struct code_metric code_metric, e
 
 bool log_message_fopen(struct log *restrict log, struct code_metric code_metric, enum message_type type, const char *restrict path, Errno_t err)
 {
-    return log_message_var(log, code_metric, type, message_var_two_stage, &(struct message_thunk) { .handler = message_crt, .context = &err }, "Unable to open the file " COL_FILE("\"%s\"") ": ", path);
+    return log_message_var(log, code_metric, type, message_var_two_stage, &(struct message_thunk) { .handler = message_crt, .context = &err }, "Unable to open the file " UTF8_LDQUO STY_PATH("%s") UTF8_RDQUO ": ", path);
 }
 
 bool log_message_fseek(struct log *restrict log, struct code_metric code_metric, enum message_type type, int64_t offset, const char *restrict path)
 {
-    return log_message_generic(log, code_metric, type, "Unable to seek into the position " COL_NUM("%" PRId64) " while reading the file " COL_FILE("\"%s\"") "!\n", offset, path);
+    return log_message_generic(log, code_metric, type, "Unable to seek into the position " STY_NUM("%" PRId64) " while reading the file " UTF8_LDQUO STY_PATH("%s") UTF8_RDQUO "!\n", offset, path);
 }

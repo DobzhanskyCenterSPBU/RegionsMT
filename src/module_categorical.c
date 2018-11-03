@@ -9,8 +9,6 @@
 
 #include <string.h>
 
-DECLARE_PATH
-
 struct phen_context {
     struct str_tbl_handler_context handler_context;
     size_t cap;
@@ -125,7 +123,7 @@ bool categorical_run(const char *path_phen, const char *path_gen, const char *pa
     FILE *f = NULL;
     struct interval *top_hit = NULL;
     struct phen_context phen_context = { 0 };
-    size_t phen_skip = 1, phen_cnt = 0, phen_length = 0;
+    size_t phen_skip = 0, phen_cnt = 0, phen_length = 0;
     if (!tbl_read(path_phen, 0, tbl_phen_selector, NULL, &phen_context, &phen, &phen_skip, &phen_cnt, &phen_length, ',', log)) goto error;
 
     uintptr_t *phen_ptr = pointers_stable(phen, phen_cnt, sizeof(*phen), str_off_stable_cmp, phen_context.handler_context.str);

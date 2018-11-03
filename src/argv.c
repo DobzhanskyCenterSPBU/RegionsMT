@@ -8,8 +8,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-DECLARE_PATH
-
 enum argv_status {
     ARGV_WARNING_MISSING_VALUE_LONG = 0,
     ARGV_WARNING_MISSING_VALUE_SHRT,
@@ -95,7 +93,7 @@ static bool message_argv(char *buff, size_t *p_cnt, void *Context)
             }
             break;
         case 4:
-            tmp = snprintf(buff + cnt, len, " no. %zu!\n", context->ind);
+            tmp = snprintf(buff + cnt, len, " no. " STY_NUM("%zu") "!\n", context->ind);
         }
         if (tmp < 0) return 0;
         cnt = size_add_sat(cnt, (size_t) tmp);

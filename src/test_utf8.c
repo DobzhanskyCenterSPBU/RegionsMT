@@ -4,8 +4,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-DECLARE_PATH
-
 #define UTF8I(...) INIT(uint8_t, __VA_ARGS__)
 #define UTF16I(...) INIT(uint16_t, __VA_ARGS__)
 

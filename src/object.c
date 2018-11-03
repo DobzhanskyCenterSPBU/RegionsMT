@@ -14,8 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-DECLARE_PATH
-
 struct xml_object_node
 {
     void *context;

@@ -6,8 +6,6 @@
 
 #include <stdlib.h> 
 
-DECLARE_PATH
-
 bool test_np_generator_a(void *dst, size_t *p_context, struct log *log)
 {
     size_t context = *p_context, cnt = (size_t) 1 << context;

@@ -13,8 +13,6 @@
 #include <math.h>
 #include <float.h>
 
-DECLARE_PATH
-
 #include <gsl/gsl_sf.h>
 #include "gslsupp.h"
 
