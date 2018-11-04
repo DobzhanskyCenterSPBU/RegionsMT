@@ -35,8 +35,8 @@ bool module_root_prologue(void *In, void **p_Out, void *Context)
         if (!array_init(&out->thread_log, NULL, thread_cnt, sizeof(*out->thread_log), 0, ARRAY_STRICT | ARRAY_CLEAR)) log_message_crt(in->main_log, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
-            if (log_init(&out->log, context->base.log_path, BLOCK_WRITE, 0, in->main_log) &&
-                log_multiple_init(out->thread_log, thread_cnt, NULL, BLOCK_WRITE, in->main_log))
+            if (log_init(&out->log, context->base.log_path, BLOCK_WRITE, 0, (struct style) { 0 }, in->main_log) &&
+                log_multiple_init(out->thread_log, thread_cnt, NULL, BLOCK_WRITE, (struct style) { 0 }, in->main_log))
             {
 
             }

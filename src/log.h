@@ -2,6 +2,7 @@
 
 #include "np.h"
 #include "common.h"
+#include "utf8.h"
 
 #include <stdarg.h>
 
@@ -27,40 +28,48 @@
 #define FG_BR_CYAN 96
 #define FG_BR_WHITE 97
 
-#define TXT_RESET ANSI CSI SGR(TOSTRING(RESET))
-#define TXT_FG(COL, TXT) ANSI CSI SGR(TOSTRING(FG_ ## COL)) TXT TXT_RESET
+#define INIT_ENV_COL(COL) \
+    { ANSI CSI SGR(TOSTRING(COL)), ANSI CSI SGR(TOSTRING(RESET)) }
 
-#define STY_TTL0(S) TXT_FG(GREEN, S)
-#define STY_TTL1(S) TXT_FG(RED, S)
-#define STY_TTL2(S) TXT_FG(YELLOW, S)
-#define STY_TTL3(S) TXT_FG(BLUE, S)
-#define STY_TTL4(S) TXT_FG(CYAN, S)
-#define STY_TTL5(S) TXT_FG(BLACK, S)
-#define STY_TTL_TS(S) TXT_FG(BR_BLACK, S)
-#define STY_TTL_SRC(S) TXT_FG(BR_BLACK, S)
-#define STY_PATH(S) TXT_FG(BR_CYAN, S)
-#define STY_NUM(S) TXT_FG(BR_WHITE, S)
-#define STY_STR(S) TXT_FG(BR_WHITE, S)
-#define STY_CHR(S) TXT_FG(BR_WHITE, S)
-
-struct log {
-    FILE *file;
-    char *buff;
-    size_t cnt, cap, lim;
-    uint64_t tot; // File size is 64-bit always!
+struct env {
+    char *begin, *end;
 };
 
-enum message_type { 
+#define ENV_GUARD(S, D) ((S) ? (S) : D)
+#define ENV_GENERIC_BEGIN(E, DB) (ENV_GUARD((E).begin, (DB)))
+#define ENV_GENERIC_END(E, DE) (ENV_GUARD((E).end, (DE)))
+#define ENV_GENERIC(E, DB, DE, ...) ENV_GENERIC_BEGIN(E, DB), __VA_ARGS__, ENV_GENERIC_END(E, DE)
+#define ENV_BEGIN(E) ENV_GENERIC_BEGIN(E, "")
+#define ENV_END(E) ENV_GENERIC_END(E, "")
+#define ENV(E, ...) ENV_GENERIC(E, "", "", __VA_ARGS__)
+#define QUO(SQUO, DQUO, S, ...) ENV_GENERIC(((S) ? (SQUO) : (DQUO)), __VA_ARGS__, ((S) ? UTF8_LSQUO : UTF8_LDQUO), ((S) ? UTF8_RSQUO : UTF8_RDQUO))
+#define SQUO(SQUO, ...) ENV_GENERIC(SQUO, UTF8_LSQUO, UTF8_RSQUO, __VA_ARGS__)
+#define DQUO(DQUO, ...) ENV_GENERIC(DQUO, UTF8_LDQUO, UTF8_RDQUO, __VA_ARGS__)
+
+enum message_type {
     MESSAGE_DEFAULT = 0,
     MESSAGE_ERROR,
     MESSAGE_WARNING,
     MESSAGE_NOTE,
     MESSAGE_INFO,
-    MESSAGE_RESERVED
+    MESSAGE_RESERVED,
+    MESSAGE_CNT
 };
 
-typedef bool (*message_callback)(char *, size_t *, void *);
-typedef bool (*message_callback_var)(char *, size_t *, void *, va_list);
+struct style {
+    struct env ts, ttl[MESSAGE_CNT], src, dquo, squo, num, path, str;
+};
+
+struct log {
+    FILE *file;
+    char *buff;
+    struct style style;
+    size_t cnt, cap, lim;
+    uint64_t tot; // File size is 64-bit always!
+};
+
+typedef bool (*message_callback)(char *, size_t *, void *, struct style);
+typedef bool (*message_callback_var)(char *, size_t *, void *, struct style, va_list);
 
 struct code_metric {
     const char *path, *func;
@@ -71,24 +80,24 @@ struct time_diff {
     uint64_t start, stop;
 };
 
-bool message_crt(char *, size_t *, void *);
-bool message_var(char *, size_t *, void *, va_list);
+bool message_crt(char *, size_t *, void *, struct style);
+bool message_var(char *, size_t *, void *, struct style, va_list);
 
 struct message_thunk {
     message_callback handler;
     void *context;
 };
 
-bool message_var_two_stage(char *, size_t *, void *Thunk, va_list);
+bool message_var_two_stage(char *, size_t *, void *Thunk, struct style, va_list);
 
 #define CODE_METRIC \
     (struct code_metric) { .path = (__FILE__), .func = (__func__), .line = (__LINE__) }
 
 #define INTP(X) ((int) MIN((X), INT_MAX)) // Useful for the printf-like functions
 
-bool log_init(struct log *restrict, char *restrict, size_t, bool, struct log *restrict);
+bool log_init(struct log *restrict, char *restrict, size_t, bool, struct style, struct log *restrict);
 void log_close(struct log *restrict);
-bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, struct log *restrict);
+bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, struct style, struct log *restrict);
 void log_multiple_close(struct log *restrict, size_t);
 bool log_flush(struct log *restrict);
 bool log_message(struct log *restrict, struct code_metric, enum message_type, message_callback, void *);

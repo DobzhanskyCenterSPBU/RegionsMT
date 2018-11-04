@@ -36,6 +36,11 @@ Errno_t Localtime_s(struct tm *tm, const time_t *t)
     return localtime_s(tm, t);
 }
 
+bool file_is_tty(FILE *f)
+{
+    return !!_isatty(_fileno(f));
+}
+
 int Stricmp(const char *a, const char *b)
 {
     return _stricmp(a, b);
@@ -140,6 +145,11 @@ uint64_t get_time()
 
 #   include <sys/time.h>
 #   include <unistd.h>
+
+bool file_is_tty(FILE *f)
+{
+    return !isatty(fileno(f));
+}
 
 int64_t file_get_size(FILE *f)
 {

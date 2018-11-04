@@ -363,8 +363,15 @@ static int Main(int argc, char **argv)
     //for (size_t i = 0; i < (size_t) argc; i++) fprintf(stderr, "%s\n", argv[i]);
     //fclose(f);
 
+    struct style style = {
+        .ttl = { INIT_ENV_COL(FG_GREEN), INIT_ENV_COL(FG_RED), INIT_ENV_COL(FG_YELLOW), INIT_ENV_COL(FG_BLUE), INIT_ENV_COL(FG_CYAN) },
+        .ts = INIT_ENV_COL(FG_BR_BLACK),
+        .src = INIT_ENV_COL(FG_BR_BLACK),
+        .num = INIT_ENV_COL(FG_BR_WHITE)
+    };
+
     struct log log;
-    if (log_init(&log, NULL, 1, 0, NULL))
+    if (log_init(&log, NULL, 1, 0, style, NULL))
     {
         size_t pos_cnt;
         char **pos_arr;

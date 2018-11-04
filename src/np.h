@@ -61,6 +61,7 @@ int Strnicmp(const char *, const char *, size_t);
 size_t Strnlen(const char *, size_t);
 void *Memrchr(void const *, int, size_t);
 
+bool file_is_tty(FILE *);
 int64_t file_get_size(FILE *);
 size_t get_processor_count(void);
 size_t get_page_size(void);
