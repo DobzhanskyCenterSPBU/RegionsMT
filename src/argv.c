@@ -28,22 +28,22 @@ struct argv_context {
     enum argv_status status;
 };
 
-static bool message_argv(char *buff, size_t *p_cnt, void *Context)
+static bool message_argv(char *buff, size_t *p_cnt, void *Context, struct style style)
 {
     const char *fmt[] = {
         "Expected a value for",
-        "Unable to handle the value \"%.*s\" of",
+        "Unable to handle the value %s%s%.*s%s%s of",
         "Unable to handle",
         "Unused value of",
         "Invalid %s",
-        "Invalid UTF-8 byte sequence at the byte %zu of",
+        "Invalid UTF-8 byte sequence at the byte %s%zu%s of",
     };
     struct argv_context *context = Context;
     size_t cnt = 0, len = *p_cnt;
-    char quote = context->status & 1 ? '\'' : '\"';
+    bool squo = context->status & 1;
     for (unsigned i = 0;; i++)
     {
-        int tmp = -1;
+        size_t tmp = len;
         switch (i)
         {
         case 0:
@@ -51,19 +51,19 @@ static bool message_argv(char *buff, size_t *p_cnt, void *Context)
             {
             case ARGV_WARNING_UNHANDLED_PAR_LONG:
             case ARGV_WARNING_UNHANDLED_PAR_SHRT:
-                tmp = snprintf(buff + cnt, len, fmt[context->status / 2], INTP(context->val_len), context->val_str);
+                if (!print_fmt(buff + cnt, &tmp, fmt[context->status / 2], ENV(style.str, DQUO(style.dquo, INTP(context->val_len), context->val_str)))) return 0;
                 break;
             case ARGV_WARNING_INVALID_PAR_LONG:
-                tmp = snprintf(buff + cnt, len, fmt[context->status / 2], "name");
+                if (!print_fmt(buff + cnt, &tmp, fmt[context->status / 2], "name")) return 0;
                 break;
             case ARGV_WARNING_INVALID_PAR_SHRT:
-                tmp = snprintf(buff + cnt, len, fmt[context->status / 2], "character");
+                if (!print_fmt(buff + cnt, &tmp, fmt[context->status / 2], "character")) return 0;
                 break;
             case ARGV_WARNING_INVALID_UTF:
-                tmp = snprintf(buff + cnt, len, fmt[context->status / 2], context->name_len + 1);
+                if (!print_fmt(buff + cnt, &tmp, fmt[context->status / 2], context->name_len + 1)) return 0;
                 break;
             default:
-                tmp = snprintf(buff + cnt, len, "%s", fmt[context->status / 2]);
+                if (!print_fmt(buff + cnt, &tmp, "%s", fmt[context->status / 2])) return 0;
             }
             break;
         case 1:
@@ -71,34 +71,33 @@ static bool message_argv(char *buff, size_t *p_cnt, void *Context)
             {
             case ARGV_WARNING_INVALID_PAR_LONG:
             case ARGV_WARNING_INVALID_PAR_SHRT:
-                tmp = snprintf(buff + cnt, len, " %c%.*s%c in", quote, INTP(context->name_len), context->name_str, quote);
+                if (!print_fmt(buff + cnt, &tmp, " %s%s%.*s%s%s in", ENV(style.str, QUO(style.squo, style.dquo, squo, INTP(context->name_len), context->name_str)))) return 0;
                 break;
             default:
                 tmp = 0;
             }
             break;
         case 2:
-            tmp = snprintf(buff + cnt, len, " the command-line parameter");
+            if (!print_fmt(buff + cnt, &tmp, " the command-line parameter")) return 0;
             break;
         case 3:
             switch (context->status)
             {
+            default:
+                if (!print_fmt(buff + cnt, &tmp, " %s%s%.*s%s%s", ENV(style.str, QUO(style.squo, style.dquo, squo, INTP(context->name_len), context->name_str)))) return 0;
+                break;
             case ARGV_WARNING_INVALID_PAR_LONG:
             case ARGV_WARNING_INVALID_PAR_SHRT:
             case ARGV_WARNING_INVALID_UTF:
                 tmp = 0;
-                break;
-            default:
-                tmp = snprintf(buff + cnt, len, " %c%.*s%c", quote, INTP(context->name_len), context->name_str, quote);
             }
             break;
         case 4:
-            tmp = snprintf(buff + cnt, len, " no. %zu!\n", context->ind);
+            if (!print_fmt(buff + cnt, &tmp, " no. %s%zu%s!\n", ENV(style.num, context->ind))) return 0;
         }
-        if (tmp < 0) return 0;
-        cnt = size_add_sat(cnt, (size_t) tmp);
+        cnt = size_add_sat(cnt, tmp);
         if (i == 4) break;
-        len = size_sub_sat(len, (size_t) tmp);
+        len = size_sub_sat(len, tmp);
     }
     *p_cnt = cnt;
     return 1;

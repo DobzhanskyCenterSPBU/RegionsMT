@@ -6,6 +6,15 @@
 
 #include <stdarg.h>
 
+struct env {
+    char *begin, *end;
+};
+
+bool print_fmt_var(char *, size_t *, va_list);
+bool print_fmt(char *, size_t *, ...);
+bool print_time_diff(char *, size_t *, uint64_t, uint64_t, struct env);
+bool print_time_stamp(char *, size_t *);
+
 #define ANSI "\x1b"
 #define CSI "["
 #define SGR(C) C "m"
@@ -19,6 +28,7 @@
 #define FG_MAGENTA 35
 #define FG_CYAN 36
 #define FG_WHITE 37
+#define FG_RESET 39
 #define FG_BR_BLACK 90
 #define FG_BR_RED 91
 #define FG_BR_GREEN 92
@@ -29,11 +39,7 @@
 #define FG_BR_WHITE 97
 
 #define INIT_ENV_COL(COL) \
-    { ANSI CSI SGR(TOSTRING(COL)), ANSI CSI SGR(TOSTRING(RESET)) }
-
-struct env {
-    char *begin, *end;
-};
+    { ANSI CSI SGR(TOSTRING(COL)), ANSI CSI SGR(TOSTRING(FG_RESET)) }
 
 #define ENV_GUARD(S, D) ((S) ? (S) : D)
 #define ENV_GENERIC_BEGIN(E, DB) (ENV_GUARD((E).begin, (DB)))
@@ -42,7 +48,7 @@ struct env {
 #define ENV_BEGIN(E) ENV_GENERIC_BEGIN(E, "")
 #define ENV_END(E) ENV_GENERIC_END(E, "")
 #define ENV(E, ...) ENV_GENERIC(E, "", "", __VA_ARGS__)
-#define QUO(SQUO, DQUO, S, ...) ENV_GENERIC(((S) ? (SQUO) : (DQUO)), __VA_ARGS__, ((S) ? UTF8_LSQUO : UTF8_LDQUO), ((S) ? UTF8_RSQUO : UTF8_RDQUO))
+#define QUO(SQUO, DQUO, S, ...) ENV_GENERIC(((S) ? (SQUO) : (DQUO)), ((S) ? UTF8_LSQUO : UTF8_LDQUO), ((S) ? UTF8_RSQUO : UTF8_RDQUO), __VA_ARGS__)
 #define SQUO(SQUO, ...) ENV_GENERIC(SQUO, UTF8_LSQUO, UTF8_RSQUO, __VA_ARGS__)
 #define DQUO(DQUO, ...) ENV_GENERIC(DQUO, UTF8_LDQUO, UTF8_RDQUO, __VA_ARGS__)
 
@@ -57,7 +63,7 @@ enum message_type {
 };
 
 struct style {
-    struct env ts, ttl[MESSAGE_CNT], src, dquo, squo, num, path, str;
+    struct env ts, ttl[MESSAGE_CNT], src, dquo, squo, num, path, str, time;
 };
 
 struct log {
@@ -76,10 +82,14 @@ struct code_metric {
     size_t line;
 };
 
+#define CODE_METRIC \
+    (struct code_metric) { .path = (__FILE__), .func = (__func__), .line = (__LINE__) }
+
 struct time_diff {
     uint64_t start, stop;
 };
 
+bool message_time_diff(char *, size_t *, void *, struct style);
 bool message_crt(char *, size_t *, void *, struct style);
 bool message_var(char *, size_t *, void *, struct style, va_list);
 
@@ -89,9 +99,6 @@ struct message_thunk {
 };
 
 bool message_var_two_stage(char *, size_t *, void *Thunk, struct style, va_list);
-
-#define CODE_METRIC \
-    (struct code_metric) { .path = (__FILE__), .func = (__func__), .line = (__LINE__) }
 
 #define INTP(X) ((int) MIN((X), INT_MAX)) // Useful for the printf-like functions
 

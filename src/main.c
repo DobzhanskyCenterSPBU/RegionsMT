@@ -367,7 +367,9 @@ static int Main(int argc, char **argv)
         .ttl = { INIT_ENV_COL(FG_GREEN), INIT_ENV_COL(FG_RED), INIT_ENV_COL(FG_YELLOW), INIT_ENV_COL(FG_BLUE), INIT_ENV_COL(FG_CYAN) },
         .ts = INIT_ENV_COL(FG_BR_BLACK),
         .src = INIT_ENV_COL(FG_BR_BLACK),
-        .num = INIT_ENV_COL(FG_BR_WHITE)
+        .str = INIT_ENV_COL(FG_BR_MAGENTA),
+        .num = INIT_ENV_COL(FG_BR_CYAN),
+        .time = INIT_ENV_COL(FG_BR_YELLOW)
     };
 
     struct log log;

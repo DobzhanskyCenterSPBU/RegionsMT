@@ -61,7 +61,7 @@ bool print_time_stamp(char *buff, size_t *p_cnt)
     return 1;
 }
 
-static bool message_time_diff(char *buff, size_t *p_cnt, void *Context, struct style style)
+bool message_time_diff(char *buff, size_t *p_cnt, void *Context, struct style style)
 {
     struct time_diff *context = Context;
     size_t len = *p_cnt, cnt = 0;
@@ -71,7 +71,7 @@ static bool message_time_diff(char *buff, size_t *p_cnt, void *Context, struct s
         switch (i)
         {
         case 0:
-            if (!print_time_diff(buff + cnt, &tmp, context->start, context->stop, style.num)) return 0;
+            if (!print_time_diff(buff + cnt, &tmp, context->start, context->stop, style.time)) return 0;
             break;
         case 1:
             if (!print_fmt(buff + cnt, &tmp, ".\n")) return 0;
@@ -203,7 +203,7 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
             if (!print_time_stamp(buff + cnt, &tmp)) return 0;
             break;
         case 2:
-            if (!print_fmt(buff + cnt, &tmp, "]%s %s%s%s %s(%s%s%s @ %s%s%s:%zu):%s ", ENV_END(style.ts), ENV(style.ttl[type], ttl[type]), ENV(style.src, SQUO(style.squo, code_metric.func), DQUO(style.dquo, code_metric.path), code_metric.line))) return 0;
+            if (!print_fmt(buff + cnt, &tmp, "]%s %s%s%s %s(%s%s%s @ %s%s%s:%zu):%s ", ENV_END(style.ts), ENV(style.ttl[type], ttl[type]), ENV(style.src, DQUO(style.dquo, code_metric.func), DQUO(style.dquo, code_metric.path), code_metric.line))) return 0;
         }
         cnt = size_add_sat(cnt, tmp);
         if (i == 2) break;
