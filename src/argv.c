@@ -78,7 +78,7 @@ static bool message_argv(char *buff, size_t *p_cnt, void *Context, struct style 
             }
             break;
         case 2:
-            if (!print_fmt(buff + cnt, &tmp, " the command-line parameter")) return 0;
+            print(buff + cnt, &tmp, STRC(" the command-line parameter"));
             break;
         case 3:
             switch (context->status)
@@ -214,7 +214,7 @@ bool argv_parse(par_selector_callback selector, void *context, void *res, char *
         {
             (*p_arr)[cnt++] = argv[i]; // Storing positional parameters
             continue;
-        }       
+        }
         succ = 0;
         break;
     }

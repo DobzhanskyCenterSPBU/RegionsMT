@@ -47,7 +47,7 @@
     (sizeof(ARR) / sizeof((ARR)[0]))
 
 // Length of string literal (without null-terminator)
-#define strlenof(STR) \
+#define lengthof(STR) \
     (countof((STR)) - 1)
 
 // Helper macros evaluating and inserting the count of arguments
@@ -60,7 +60,7 @@
 #define TOSTRING_EXPAND(Z) #Z
 #define TOSTRING(Z) TOSTRING_EXPAND(Z)
 
-#define STRC(STR) (STR), strlenof(STR)
+#define STRC(STR) (STR), lengthof(STR)
 #define STRI(STR) { STRC(STR) }
 #define ARRC(ARR) (ARR), countof(ARR)
 #define ARRI(ARR) { ARRC(ARR) }

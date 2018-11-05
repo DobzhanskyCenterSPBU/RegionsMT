@@ -6,15 +6,6 @@
 
 #include <stdarg.h>
 
-struct env {
-    char *begin, *end;
-};
-
-bool print_fmt_var(char *, size_t *, va_list);
-bool print_fmt(char *, size_t *, ...);
-bool print_time_diff(char *, size_t *, uint64_t, uint64_t, struct env);
-bool print_time_stamp(char *, size_t *);
-
 #define ANSI "\x1b"
 #define CSI "["
 #define SGR(C) C "m"
@@ -51,6 +42,16 @@ bool print_time_stamp(char *, size_t *);
 #define QUO(SQUO, DQUO, S, ...) ENV_GENERIC(((S) ? (SQUO) : (DQUO)), ((S) ? UTF8_LSQUO : UTF8_LDQUO), ((S) ? UTF8_RSQUO : UTF8_RDQUO), __VA_ARGS__)
 #define SQUO(SQUO, ...) ENV_GENERIC(SQUO, UTF8_LSQUO, UTF8_RSQUO, __VA_ARGS__)
 #define DQUO(DQUO, ...) ENV_GENERIC(DQUO, UTF8_LDQUO, UTF8_RDQUO, __VA_ARGS__)
+
+struct env {
+    char *begin, *end;
+};
+
+bool print(char *, size_t *, char *, size_t);
+bool print_fmt_var(char *, size_t *, va_list);
+bool print_fmt(char *, size_t *, ...);
+bool print_time_diff(char *, size_t *, uint64_t, uint64_t, struct env);
+bool print_time_stamp(char *, size_t *);
 
 enum message_type {
     MESSAGE_DEFAULT = 0,
@@ -102,9 +103,14 @@ bool message_var_two_stage(char *, size_t *, void *Thunk, struct style, va_list)
 
 #define INTP(X) ((int) MIN((X), INT_MAX)) // Useful for the printf-like functions
 
-bool log_init(struct log *restrict, char *restrict, size_t, bool, struct style, struct log *restrict);
+enum log_flags {
+    LOG_APPEND = 1,
+    LOG_NO_BOM = 2
+};
+
+bool log_init(struct log *restrict, char *restrict, size_t, enum log_flags, struct style, struct log *restrict);
 void log_close(struct log *restrict);
-bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, struct style, struct log *restrict);
+bool log_multiple_init(struct log *restrict, size_t, char *restrict, size_t, enum log_flags, struct style, struct log *restrict);
 void log_multiple_close(struct log *restrict, size_t);
 bool log_flush(struct log *restrict);
 bool log_message(struct log *restrict, struct code_metric, enum message_type, message_callback, void *);

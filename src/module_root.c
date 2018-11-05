@@ -36,7 +36,7 @@ bool module_root_prologue(void *In, void **p_Out, void *Context)
         else
         {
             if (log_init(&out->log, context->base.log_path, BLOCK_WRITE, 0, (struct style) { 0 }, in->main_log) &&
-                log_multiple_init(out->thread_log, thread_cnt, NULL, BLOCK_WRITE, (struct style) { 0 }, in->main_log))
+                log_multiple_init(out->thread_log, thread_cnt, NULL, BLOCK_WRITE, 0, (struct style) { 0 }, in->main_log))
             {
 
             }

@@ -1066,7 +1066,7 @@ struct xml_object *xml_compile(const char *path, xml_node_selector_callback xml_
     struct xml_node xml_node = { 0 };
     
     size_t rd = fread(buff, 1, sizeof(buff), f), pos = 0;
-    if (rd >= strlenof(UTF8_BOM) && !strncmp(buff, UTF8_BOM, strlenof(UTF8_BOM))) pos += strlenof(UTF8_BOM), metric.byte += strlenof(UTF8_BOM);
+    if (rd >= lengthof(UTF8_BOM) && !strncmp(buff, UTF8_BOM, lengthof(UTF8_BOM))) pos += lengthof(UTF8_BOM), metric.byte += lengthof(UTF8_BOM);
         
     enum {
         ST_DECL = 0,

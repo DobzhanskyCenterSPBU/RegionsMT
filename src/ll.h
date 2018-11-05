@@ -77,8 +77,8 @@ size_t size_pop_cnt(size_t);
 size_t size_add_sat(size_t, size_t);
 size_t size_sub_sat(size_t, size_t);
 
-int size_cmp_stable_dsc(const void *, const void *, void *);
-int size_cmp_stable_asc(const void *, const void *, void *);
+int size_stable_cmp_dsc(const void *, const void *, void *);
+int size_stable_cmp_asc(const void *, const void *, void *);
 bool size_cmp_dsc(const void *, const void *, void *);
 bool size_cmp_asc(const void *, const void *, void *);
 
@@ -90,8 +90,11 @@ _Static_assert(sizeof(double) == sizeof(uint64_t), "The size of 'double' should 
 #define NaN (((union { double val; uint64_t bin; }) { .bin = UINT64_MAX }).val)
 
 int flt64_stable_cmp_dsc(const void *, const void *, void *);
+int flt64_stable_cmp_asc(const void *, const void *, void *);
 int flt64_stable_cmp_dsc_abs(const void *, const void *, void *);
+int flt64_stable_cmp_asc_abs(const void *, const void *, void *);
 int flt64_stable_cmp_dsc_nan(const void *, const void *, void *);
+int flt64_stable_cmp_asc_nan(const void *, const void *, void *);
 int flt64_sign(double x);
 
 uint32_t uint32_fused_mul_add(uint32_t *, uint32_t, uint32_t);

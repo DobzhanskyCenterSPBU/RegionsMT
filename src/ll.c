@@ -458,18 +458,26 @@ size_t size_sub_sat(size_t a, size_t b)
     return bor ? 0 : res;
 }
 
-int size_cmp_stable_dsc(const void *A, const void *B, void *thunk)
+#define DECLARE_STABLE_CMP_ASC(PREFIX, SUFFIX) \
+    int PREFIX ## _stable_cmp_asc ## SUFFIX (const void *A, const void *B, void *thunk) \
+    { \
+        return PREFIX ## _stable_cmp_dsc ## SUFFIX (B, A, thunk);\
+    }
+
+#define DECLARE_CMP_ASC(PREFIX, SUFFIX) \
+    bool PREFIX ## _cmp_asc ## SUFFIX (const void *A, const void *B, void *thunk) \
+    { \
+        return PREFIX ## _cmp_dsc ## SUFFIX (B, A, thunk);\
+    }
+
+int size_stable_cmp_dsc(const void *A, const void *B, void *thunk)
 {
     (void) thunk;
     size_t bor, diff = size_sub(&bor, *(size_t *) B, *(size_t *) A);
     return diff ? 1 - (int) (bor << 1) : 0;
 }
 
-int size_cmp_stable_asc(const void *A, const void *B, void *thunk)
-{
-    (void) thunk;
-    return -size_cmp_stable_dsc(A, B, thunk);
-}
+DECLARE_STABLE_CMP_ASC(size, )
 
 bool size_cmp_dsc(const void *A, const void *B, void *thunk)
 {
@@ -477,11 +485,7 @@ bool size_cmp_dsc(const void *A, const void *B, void *thunk)
     return *(size_t *) B > *(size_t *) A;
 }
 
-bool size_cmp_asc(const void *A, const void *B, void *thunk)
-{
-    (void) thunk;
-    return *(size_t *) A > *(size_t *) B;
-}
+DECLARE_CMP_ASC(size, )
 
 int flt64_stable_cmp_dsc(const void *a, const void *b, void *thunk)
 {
@@ -491,6 +495,8 @@ int flt64_stable_cmp_dsc(const void *a, const void *b, void *thunk)
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
 
+DECLARE_STABLE_CMP_ASC(flt64, )
+
 int flt64_stable_cmp_dsc_abs(const void *a, const void *b, void *thunk)
 {
     (void) thunk;
@@ -499,11 +505,22 @@ int flt64_stable_cmp_dsc_abs(const void *a, const void *b, void *thunk)
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
 
+DECLARE_STABLE_CMP_ASC(flt64, _abs)
+
 int flt64_stable_cmp_dsc_nan(const void *a, const void *b, void *thunk)
 {
     (void) thunk;
     __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b);
     __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), _CMP_NLE_UQ)));
+    return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
+}
+
+// Warning! The approach from above doesn't work there
+int flt64_stable_cmp_asc_nan(const void *a, const void *b, void *thunk)
+{
+    (void) thunk;
+    __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b);
+    __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), _CMP_NGE_UQ)));
     return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
 }
 

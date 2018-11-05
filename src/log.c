@@ -5,6 +5,15 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h>
+
+bool print(char *buff, size_t *p_cnt, char *str, size_t len)
+{
+    size_t cnt = *p_cnt;
+    if (cnt && cnt - 1 >= len) memcpy(buff, str, len + 1);
+    *p_cnt = len;
+    return 1;
+}
 
 bool print_fmt_var(char *buff, size_t *p_cnt, va_list arg)
 {
@@ -74,7 +83,7 @@ bool message_time_diff(char *buff, size_t *p_cnt, void *Context, struct style st
             if (!print_time_diff(buff + cnt, &tmp, context->start, context->stop, style.time)) return 0;
             break;
         case 1:
-            if (!print_fmt(buff + cnt, &tmp, ".\n")) return 0;
+            print(buff + cnt, &tmp, STRC(".\n"));
         }
         cnt = size_add_sat(cnt, tmp);
         if (i == 1) break;
@@ -132,21 +141,27 @@ bool message_var_two_stage(char *buff, size_t *p_cnt, void *Thunk, struct style 
 }
 
 // Last argument may be 'NULL'
-bool log_init(struct log *restrict log, char *restrict path, size_t cap, bool append, struct style style, struct log *restrict log_error)
+bool log_init(struct log *restrict log, char *restrict path, size_t lim, enum log_flags flags, struct style style, struct log *restrict log_error)
 {
-    if (!array_init(&log->buff, &log->cap, cap, sizeof(*log->buff), 0, 0)) log_message_crt(log_error, CODE_METRIC, MESSAGE_ERROR, errno);
+    FILE *f = path ? fopen(path, flags & LOG_APPEND ? "a" : "w") : stderr;
+    if (path && !f) log_message_fopen(log_error, CODE_METRIC, MESSAGE_ERROR, path, errno);
     else
     {
-        log->cnt = 0;
-        log->lim = cap;
-        log->file = path ? fopen(path, append ? "at" : "wt") : stderr;
-        if (path && !log->file) log_message_fopen(log_error, CODE_METRIC, MESSAGE_ERROR, path, errno);
+        bool tty = file_is_tty(f), bom = !(tty || (flags & (LOG_NO_BOM | LOG_APPEND)));
+        size_t cap = bom ? MAX(lim, lengthof(UTF8_BOM)) : lim;
+        if (!array_init(&log->buff, &log->cap, cap, sizeof(*log->buff), 0, 0)) log_message_crt(log_error, CODE_METRIC, MESSAGE_ERROR, errno);
         else
         {
-            log->style = file_is_tty(log->file) ? style : (struct style) { 0 };
-            return 1;
+            if (bom) strncpy(log->buff, UTF8_BOM, log->cnt = lengthof(UTF8_BOM));
+            else log->cnt = 0;
+            log->style = tty ? style : (struct style) { 0 };
+            log->lim = lim;
+            log->file = f;
+            log->tot = 0;
+            if (log->cnt < log->lim || log_flush(log)) return 1;
+            free(log->buff);
         }
-        free(log->buff);
+        Fclose(f);
     }
     return 0;
 }
@@ -173,10 +188,10 @@ void log_close(struct log *restrict log)
     free(log->buff);
 }
 
-bool log_multiple_init(struct log *restrict arr, size_t cnt, char *restrict path, size_t cap, struct style style, struct log *restrict log_error)
+bool log_multiple_init(struct log *restrict arr, size_t cnt, char *restrict path, size_t cap, enum log_flags flags, struct style style, struct log *restrict log_error)
 {
     size_t i = 0;
-    for (; i < cnt && log_init(arr + i, path, cap, 1, style, log_error); i++);
+    for (; i < cnt && log_init(arr + i, path, cap, flags | LOG_APPEND, style, log_error); i++);
     if (i == cnt) return 1;
     for (; --i; log_close(arr + i));
     return 0;
@@ -236,7 +251,7 @@ static bool log_message_impl(struct log *restrict log, struct code_metric code_m
             }
             else if (handler && !handler(log->buff + cnt, &tmp, context, log->style)) return 0;
         }
-        unsigned res = array_test(&log->buff, &log->cap, sizeof(*log->buff), 0, 0, cnt, tmp);
+        unsigned res = array_test(&log->buff, &log->cap, sizeof(*log->buff), 0, 0, cnt, tmp, 1); // All messages are NULL-terminated
         if (!res) return 0;
         if (!(res & ARRAY_UNTOUCHED)) continue;
         cnt += tmp;

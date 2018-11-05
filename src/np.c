@@ -148,7 +148,7 @@ uint64_t get_time()
 
 bool file_is_tty(FILE *f)
 {
-    return !isatty(fileno(f));
+    return !!isatty(fileno(f));
 }
 
 int64_t file_get_size(FILE *f)

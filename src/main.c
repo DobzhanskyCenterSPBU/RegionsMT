@@ -109,7 +109,7 @@ static bool test_main(struct log *log)
             })
         }
     };
-    log_message_generic(log, CODE_METRIC, MESSAGE_INFO, "Test mode triggered!\n");
+    log_message_generic(log, CODE_METRIC, MESSAGE_NOTE, "Test mode triggered!\n");
     return test(group_arr, countof(group_arr), log);
 }
 
@@ -364,7 +364,7 @@ static int Main(int argc, char **argv)
     //fclose(f);
 
     struct style style = {
-        .ttl = { INIT_ENV_COL(FG_GREEN), INIT_ENV_COL(FG_RED), INIT_ENV_COL(FG_YELLOW), INIT_ENV_COL(FG_BLUE), INIT_ENV_COL(FG_CYAN) },
+        .ttl = { INIT_ENV_COL(FG_GREEN), INIT_ENV_COL(FG_RED), INIT_ENV_COL(FG_YELLOW), INIT_ENV_COL(FG_MAGENTA), INIT_ENV_COL(FG_CYAN) },
         .ts = INIT_ENV_COL(FG_BR_BLACK),
         .src = INIT_ENV_COL(FG_BR_BLACK),
         .str = INIT_ENV_COL(FG_BR_MAGENTA),
