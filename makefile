@@ -2,13 +2,13 @@ CC = gcc
 CC_INC_Release = ../gsl-x86_64-Release
 CC_INC_Debug = ../gsl-x86_64-Debug
 CC_OPT_Release = -std=c11 -mavx -flto -O3 -Wall
-CC_OPT_Debug = -D_DEBUG -mavx -std=c11 -O0 -ggdb -Wall
+CC_OPT_Debug = -D_DEBUG -mavx -flto -std=c11 -O0 -ggdb -Wall
 
 CXX = g++
 CXX_INC_Release = 
 CXX_INC_Debug = $(CXX_INC_Release)
 CXX_OPT_Release = -std=c++0x -mavx -flto -O3 -Wall
-CXX_OPT_Debug = -D_DEBUG -mavx -std=c++0x -O0 -ggdb -Wall
+CXX_OPT_Debug = -D_DEBUG -mavx -flto -std=c++0x -O0 -ggdb -Wall
 
 ASM = yasm
 ASM_OPT_Release =
@@ -20,7 +20,7 @@ LD_INC_Debug = ../gsl-x86_64-Debug
 LD_LIB_Release = m pthread gsl gslcblas
 LD_LIB_Debug = $(LD_LIB_Release)
 LD_OPT_Release = -flto
-LD_OPT_Debug =
+LD_OPT_Debug = -flto
 
 OS = $(shell uname)
 
