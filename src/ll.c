@@ -509,7 +509,7 @@ DECLARE_STABLE_CMP_ASC(flt64, _abs)
 
 // Warning! The approach from above doesn't work there
 #define DECLARE_FLT64_STABLE_CMP_NAN(INFIX, DIR) \
-    int flt64_stable_cmp ## INFIX ## _nan_impl(const void *a, const void *b, void *thunk) \
+    int flt64_stable_cmp ## INFIX ## _nan(const void *a, const void *b, void *thunk) \
     { \
         (void) thunk; \
         __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b); \
