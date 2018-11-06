@@ -507,22 +507,18 @@ int flt64_stable_cmp_dsc_abs(const void *a, const void *b, void *thunk)
 
 DECLARE_STABLE_CMP_ASC(flt64, _abs)
 
-int flt64_stable_cmp_dsc_nan(const void *a, const void *b, void *thunk)
-{
-    (void) thunk;
-    __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b);
-    __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), _CMP_NLE_UQ)));
-    return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
-}
-
 // Warning! The approach from above doesn't work there
-int flt64_stable_cmp_asc_nan(const void *a, const void *b, void *thunk)
-{
-    (void) thunk;
-    __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b);
-    __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), _CMP_NGE_UQ)));
-    return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res);
-}
+#define DECLARE_FLT64_STABLE_CMP_NAN(INFIX, DIR) \
+    int flt64_stable_cmp ## INFIX ## _nan_impl(const void *a, const void *b, void *thunk) \
+    { \
+        (void) thunk; \
+        __m128d ab = _mm_loadh_pd(_mm_load_sd(a), b); \
+        __m128i res = _mm_sub_epi32(_mm_castpd_si128(_mm_cmpunord_pd(ab, ab)), _mm_castpd_si128(_mm_cmp_pd(ab, _mm_permute_pd(ab, 1), (DIR)))); \
+        return _mm_extract_epi32(res, 2) - _mm_cvtsi128_si32(res); \
+    }
+
+DECLARE_FLT64_STABLE_CMP_NAN(_dsc, _CMP_NLE_UQ)
+DECLARE_FLT64_STABLE_CMP_NAN(_asc, _CMP_NGE_UQ)
 
 int flt64_sign(double x)
 {
