@@ -33,12 +33,12 @@ struct queue {
     size_t cap, begin, cnt;
 };
 
-void queue_close(struct queue *restrict);
-bool queue_init(struct queue *restrict, size_t, size_t);
-unsigned queue_test(struct queue *restrict, size_t, size_t);
-void *queue_fetch(struct queue *restrict, size_t, size_t);
+void queue_close(struct queue *);
+bool queue_init(struct queue *, size_t, size_t);
+unsigned queue_test(struct queue *, size_t, size_t);
+void *queue_fetch(struct queue *, size_t, size_t);
 unsigned queue_enqueue(struct queue *restrict, bool, void *restrict, size_t, size_t);
-void queue_dequeue(struct queue *restrict, size_t, size_t);
+void queue_dequeue(struct queue *, size_t, size_t);
 
 struct persistent_array {
     size_t cap, cnt, off;

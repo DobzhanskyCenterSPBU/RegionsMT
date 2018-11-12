@@ -133,7 +133,8 @@ unsigned queue_test(struct queue *queue, size_t diff, size_t sz)
 
 void *queue_fetch(struct queue *queue, size_t offset, size_t sz)
 {
-    if (queue->begin >= queue->cap - offset) return (char *) queue->arr + (queue->begin + offset - queue->cap) * sz;
+    size_t bor, diff = size_sub(&bor, queue->begin, queue->cap - offset);
+    if (!bor) return (char *) queue->arr + diff * sz;
     return (char *) queue->arr + (queue->begin + offset) * sz;
 }
 
@@ -189,7 +190,6 @@ void queue_dequeue(struct queue *queue, size_t offset, size_t sz)
         if (bor) ind += queue->cap;
         memcpy((char *) queue->arr + ind * sz, (char *) queue->arr + queue->begin * sz, sz);
     }
-
     queue->cnt--;
     queue->begin++;
     if (queue->begin == queue->cap) queue->begin = 0;
@@ -201,11 +201,9 @@ struct persistent_array *persistent_array_create(size_t cnt, size_t sz)
     size_t off = size_bit_scan_reverse(cnt);
     if ((size_t) ~off)
     {
-        size_t cap = ((size_t) 2 << off) - 1;
         if (array_init(&res, NULL, SIZE_BIT - off, sizeof(*res->ptr), sizeof(*res), ARRAY_STRICT | ARRAY_CLEAR))
         {
-            res->off = off;
-            res->cap = cap;
+            size_t cap = res->cap = ((size_t) 2 << (res->off = off)) - 1;
             if (array_init(res->ptr, NULL, cap, sz, 0, ARRAY_STRICT)) return res;
             free(res);
         }        
