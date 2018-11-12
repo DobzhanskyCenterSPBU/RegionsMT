@@ -7,12 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-bool print(char *buff, size_t *p_cnt, char *str, size_t len)
+void print(char *buff, size_t *p_cnt, char *str, size_t len)
 {
     size_t cnt = *p_cnt;
     if (cnt && cnt - 1 >= len) memcpy(buff, str, len + 1);
     *p_cnt = len;
-    return 1;
 }
 
 bool print_fmt_var(char *buff, size_t *p_cnt, va_list arg)
@@ -21,14 +20,13 @@ bool print_fmt_var(char *buff, size_t *p_cnt, va_list arg)
     if (format)
     {
         size_t cnt = *p_cnt;
-        if (!cnt)
+        if (cnt)
         {
-            *p_cnt = 1; // Requesting string of non-zero length
-            return 1;
+            int tmp = vsnprintf(buff, cnt, format, arg);
+            if (tmp < 0) return 0;
+            *p_cnt = (size_t) tmp;
         }
-        int tmp = vsnprintf(buff, cnt, format, arg);
-        if (tmp < 0) return 0;
-        *p_cnt = (size_t) tmp;
+        else *p_cnt = 1; // Requesting string of non-zero length
     }
     return 1;
 }
@@ -53,21 +51,19 @@ bool print_time_diff(char *buff, size_t *p_cnt, uint64_t start, uint64_t stop, s
         print_fmt(buff, p_cnt, "less than %s%.6f%s sec", ENV(env, 1.e-6));
 }
 
-bool print_time_stamp(char *buff, size_t *p_cnt)
+void print_time_stamp(char *buff, size_t *p_cnt)
 {
     size_t cnt = *p_cnt;
-    if (!cnt)
+    if (cnt)
     {
-        *p_cnt = 1;
-        return 1;
+        time_t t;
+        time(&t);
+        struct tm ts;
+        Localtime_s(&ts, &t);
+        size_t len = strftime(buff, cnt, "%Y-%m-%d %H:%M:%S UTC%z", &ts);
+        *p_cnt = len ? len : size_add_sat(cnt, cnt);
     }
-    time_t t;
-    time(&t);
-    struct tm ts;
-    Localtime_s(&ts, &t);
-    size_t len = strftime(buff, cnt, "%Y-%m-%d %H:%M:%S UTC%z", &ts);
-    *p_cnt = len ? len : size_add_sat(cnt, cnt);
-    return 1;
+    else *p_cnt = 1;
 }
 
 bool message_time_diff(char *buff, size_t *p_cnt, void *Context, struct style style)
@@ -215,7 +211,7 @@ static bool log_prefix(char *buff, size_t *p_cnt, struct code_metric code_metric
             if (!print_fmt(buff + cnt, &tmp, "%s[", ENV_BEGIN(style.ts))) return 0;
             break;
         case 1:
-            if (!print_time_stamp(buff + cnt, &tmp)) return 0;
+            print_time_stamp(buff + cnt, &tmp);
             break;
         case 2:
             if (!print_fmt(buff + cnt, &tmp, "]%s %s%s%s %s(%s%s%s @ %s%s%s:%zu):%s ", ENV_END(style.ts), ENV(style.ttl[type], ttl[type]), ENV(style.src, DQUO(style.dquo, code_metric.func), DQUO(style.dquo, code_metric.path), code_metric.line))) return 0;

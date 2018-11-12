@@ -160,7 +160,7 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
     size_t cnt = 0, len = *p_buff_cnt;
     for (unsigned i = 0;; i++)
     {
-        int tmp = -1;
+        size_t tmp = len;
         switch (i)
         {
         case 0:
@@ -171,11 +171,11 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
             case XML_ERROR_DECL:
             case XML_ERROR_ROOT:
             case XML_ERROR_COMPILER:
-                tmp = snprintf(buff + cnt, len, "%s", str[context->status]);
+                if (!print_fmt(buff + cnt, &tmp, "%s", str[context->status])) return 0;
                 break;
             case XML_ERROR_CHAR_UNEXPECTED_EOF:
             case XML_ERROR_CHAR_UNEXPECTED_CHAR:
-                tmp = snprintf(buff + cnt, len, "%s \'%.*s\'", str[context->status], context->utf8_len, context->utf8_byte);
+                if (!print_fmt(buff + cnt, &tmp, "%s \'%.*s\'", str[context->status], (int) context->utf8_len, context->utf8_byte)) return 0;
                 break;
             case XML_ERROR_STR_UNEXPECTED_TAG:
             case XML_ERROR_STR_UNEXPECTED_ATTRIBUTE:
@@ -183,25 +183,25 @@ static bool message_xml(char *buff, size_t *p_buff_cnt, void *Context)
             case XML_ERROR_STR_ENDING:
             case XML_ERROR_STR_UNHANDLED_VALUE:
             case XML_ERROR_STR_CONTROL:
-                tmp = snprintf(buff + cnt, len, "%s \"%.*s\"", str[context->status], INTP(context->len), context->str);
+                if (!print_fmt(buff + cnt, &tmp, "%s \"%.*s\"", str[context->status], INTP(context->len), context->str)) return 0;
                 break;
             case XML_ERROR_VAL_RANGE:
             case XML_ERROR_VAL_REFERENCE:
-                tmp = snprintf(buff + cnt, len, "Numeric value %" PRIu32 " %s", context->val, str[context->status]);
+                if (!print_fmt(buff + cnt, &tmp, "Numeric value %" PRIu32 " %s", context->val, str[context->status])) return 0;
                 break;
             }
         case 1:
-            tmp = snprintf(buff + cnt, len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n",
+            if (!print_fmt(buff + cnt, len, " (file: \"%s\"; line: %zu; character: %zu; byte: %" PRIu64 ")!\n",
                 context->path,
                 context->metric.row + 1,
                 context->metric.col + 1,
                 context->metric.byte + 1
-            );
+            )) return 0;
         }
         if (tmp < 0) return 0;
-        cnt = size_add_sat(cnt, (size_t) tmp);
+        cnt = size_add_sat(cnt, tmp);
         if (i == 1) break;
-        len = size_sub_sat(len, (size_t) tmp);
+        len = size_sub_sat(len, tmp);
     }
     *p_buff_cnt = cnt;
     return 1;
@@ -239,6 +239,11 @@ enum xml_node_type {
     XML_NODE_TEXT,
     XML_NODE_ENTITY_REF,
     XML_NODE_PI,
+};
+
+struct xml_stk {
+    ptrdiff_t *off;
+    size_t cap, cnt;
 };
 
 struct xml_pool {
@@ -285,11 +290,11 @@ struct xml_node {
 };
 
 struct xml_context {
-    uint32_t st;
     size_t dep;
-    struct xml_node *cur;
     struct buff buff;
+    struct xml_stk stk;
     struct xml_pool pool;
+    unsigned st;
     bool header; // if 'false' header MAY NOT appear in the document
 };
 

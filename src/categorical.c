@@ -136,11 +136,12 @@ bool categorical_init(struct categorical_supp *supp, size_t phen_cnt, size_t phe
     supp->phen_bits = malloc(UINT8_CNT(phen_ucnt) * sizeof(*supp->phen_bits));
     supp->filter = malloc(phen_cnt * sizeof(*supp->filter));
 
-    if ((phen_ucnt && !supp->phen_mar && !supp->phen_bits) ||
-        (phen_cnt && !supp->filter) ||
-        !array_init(&supp->outer, NULL, phen_ucnt, GEN_CNT * sizeof(*supp->outer), 0, ARRAY_STRICT) ||
-        !array_init(&supp->table, NULL, phen_ucnt, 2 * GEN_CNT * sizeof(*supp->table), 0, ARRAY_STRICT)) return 0;
+    if ((!phen_ucnt || (supp->phen_mar && supp->phen_bits)) &&
+        (!phen_cnt || supp->filter) &&
+        array_init(&supp->outer, NULL, phen_ucnt, GEN_CNT * sizeof(*supp->outer), 0, ARRAY_STRICT) &&
+        array_init(&supp->table, NULL, phen_ucnt, 2 * GEN_CNT * sizeof(*supp->table), 0, ARRAY_STRICT)) return 1;
 
+    categorical_close(supp);
     return 1;
 }
 
@@ -160,14 +161,15 @@ bool maver_adj_init(struct maver_adj_supp *supp, size_t snp_cnt, size_t phen_cnt
     supp->phen_mar = malloc(phen_ucnt * sizeof(*supp->phen_mar));
     supp->phen_bits = malloc(UINT8_CNT(phen_ucnt) * sizeof(*supp->phen_bits));
 
-    if ((phen_ucnt && !supp->phen_mar && !supp->phen_bits) ||
-        (phen_cnt && !supp->phen_perm) ||
-        !array_init(&supp->snp_data, NULL, snp_cnt, sizeof(*supp->snp_data), 0, ARRAY_STRICT) ||
-        !array_init(&supp->filter, NULL, snp_cnt * phen_cnt, sizeof(*supp->filter), 0, ARRAY_STRICT) || // Result of 'snp_cnt * phen_cnt' is assumed not to be wrapped due to the validness of the 'gen' array
-        !array_init(&supp->outer, NULL, phen_ucnt, GEN_CNT * sizeof(*supp->outer), 0, ARRAY_STRICT) ||
-        !array_init(&supp->table, NULL, phen_ucnt, 2 * GEN_CNT * sizeof(*supp->table), 0, ARRAY_STRICT)) return 0;
-
-    return 1;
+    if ((!phen_ucnt || (supp->phen_mar && supp->phen_bits)) &&
+        (!phen_cnt || supp->phen_perm) &&
+        array_init(&supp->snp_data, NULL, snp_cnt, sizeof(*supp->snp_data), 0, ARRAY_STRICT) &&
+        array_init(&supp->filter, NULL, snp_cnt * phen_cnt, sizeof(*supp->filter), 0, ARRAY_STRICT) && // Result of 'snp_cnt * phen_cnt' is assumed not to be wrapped due to the validness of the 'gen' array
+        array_init(&supp->outer, NULL, phen_ucnt, GEN_CNT * sizeof(*supp->outer), 0, ARRAY_STRICT) &&
+        array_init(&supp->table, NULL, phen_ucnt, 2 * GEN_CNT * sizeof(*supp->table), 0, ARRAY_STRICT)) return 1;
+    
+    maver_adj_close(supp);
+    return 0;
 }
 
 void maver_adj_close(struct maver_adj_supp *supp)

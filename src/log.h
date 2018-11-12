@@ -47,11 +47,11 @@ struct env {
     char *begin, *end;
 };
 
-bool print(char *, size_t *, char *, size_t);
+void print(char *, size_t *, char *, size_t);
 bool print_fmt_var(char *, size_t *, va_list);
 bool print_fmt(char *, size_t *, ...);
 bool print_time_diff(char *, size_t *, uint64_t, uint64_t, struct env);
-bool print_time_stamp(char *, size_t *);
+void print_time_stamp(char *, size_t *);
 
 enum message_type {
     MESSAGE_DEFAULT = 0,

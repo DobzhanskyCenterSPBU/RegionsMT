@@ -313,17 +313,21 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
 {
     if (cnt < 2) return;
     void *restrict swp = Alloca(sz);
-    const size_t cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz;
-    if (tot > cutoff)
+    if (cnt > 2)
     {
+        const size_t cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz;
+        if (tot > cutoff)
+        {
 #       ifdef QUICK_SORT_CACHED
-        quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, insertion_sort_impl);
+            quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, insertion_sort_impl);
 #       else
-        quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, NULL);
-        insertion_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
+            quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, NULL);
+            insertion_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
 #       endif 
+        }
+        else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
     }
-    else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);
+    else if (cmp(arr, (char *) arr + sz, context)) swap(arr, (char *) arr + sz, swp, sz);
 }
 
 bool binary_search(size_t *p_ind, const void *key, const void *arr, size_t cnt, size_t sz, stable_cmp_callback cmp, void *context, enum binary_search_flags flags)
