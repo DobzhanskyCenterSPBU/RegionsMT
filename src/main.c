@@ -66,7 +66,8 @@ static bool test_main(struct log *log)
             sizeof(struct test_sort_a),
             CLII((test_generator_callback[]) {
                 test_sort_generator_a_1,
-                test_sort_generator_a_2
+                test_sort_generator_a_2,
+                test_sort_generator_a_3
             }),
             CLII((test_callback[]) {
                 test_sort_a,

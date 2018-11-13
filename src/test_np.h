@@ -7,7 +7,7 @@ struct test_np_a {
     size_t cnt;
 };
 
-#define TEST_NP_EXP 24
+#define TEST_NP_EXP 25
 
 bool test_np_generator_a(void *, size_t *, struct log *);
 void test_np_disposer_a(void *);

@@ -8,35 +8,93 @@
 #include <stdlib.h> 
 #include <math.h> 
 
+static void generator_impl(size_t *arr, size_t cnt)
+{
+    if (cnt & 1) arr[cnt - 1] = cnt, cnt--;
+    size_t hcnt = cnt >> 1;
+    for (size_t i = 0; i < hcnt; i++)
+    {
+        arr[i] = i & 1 ? hcnt + i + !!(hcnt & 1) : i + 1;
+        arr[hcnt + i] = (i + 1) << 1;
+    }
+}
+
+// General testing
 bool test_sort_generator_a_1(void *dst, size_t *p_context, struct log *log)
 {
-    size_t context = *p_context, cnt = ((size_t) 1 << context) - 1;
-    double *arr;
+    size_t context = *p_context, cnt = (size_t) 1 << context;
+    size_t *arr;
     if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
-        for (size_t i = 0; i < cnt; i++) arr[i] = (double) (QUICK_SORT_CUTOFF * (i / QUICK_SORT_CUTOFF)) - (double) (i % QUICK_SORT_CUTOFF);
+        generator_impl(arr, cnt);
         *(struct test_sort_a *) dst = (struct test_sort_a) { .arr = arr, .cnt = cnt, .sz = sizeof(*arr) };
-        if (context <= TEST_SORT_EXP) ++*p_context;
+        if (context < TEST_SORT_EXP) ++*p_context;
         else *p_context = 0;
         return 1;
-    }    
+    }
     return 0;
 }
 
+// Cutoff testing
 bool test_sort_generator_a_2(void *dst, size_t *p_context, struct log *log)
 {
     (void) p_context;
     size_t cnt = ((QUICK_SORT_CUTOFF + 1) << 1) + 1, hcnt = cnt >> 1;
-    double *arr;
+    size_t *arr;
     if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
-        for (size_t i = 0; i < hcnt; i++) arr[i] = -(double) (i + 1);
+        for (size_t i = 0; i < hcnt; i++) arr[i] = (SIZE_MAX >> 1) - i - 1;
         arr[hcnt] = 0;
-        for (size_t i = 0; i < hcnt; i++) arr[i + hcnt + 1] = (double) (hcnt - i + 1);
+        for (size_t i = 0; i < hcnt; i++) arr[i + hcnt + 1] = (SIZE_MAX >> 1) + hcnt - i + 1;
         *(struct test_sort_a *) dst = (struct test_sort_a) { .arr = arr, .cnt = cnt, .sz = sizeof(*arr) };
         return 1;
+    }
+    return 0;
+}
+
+struct sort_worst_case_context {
+    size_t *arr, cnt, ind, gas, can;
+};
+
+// This algorithm was suggested in www.cs.dartmouth.edu/~doug/mdmspe.pdf
+bool quick_sort_worst_case_cmp(const void *a, const void *b, void *Context)
+{
+    struct sort_worst_case_context *context = Context;
+    size_t x = *(size_t *) a, y = *(size_t *) b;
+    context->cnt++;
+    if (context->arr[x] == context->gas)
+    {
+        if (context->arr[y] == context->gas) context->arr[x == context->can ? x : y] = context->ind++;
+        context->can = x;
+    }
+    else if (context->arr[y] == context->gas) context->can = y;
+    return size_cmp_asc(a, b, context);
+}
+
+// Worst case testing
+bool test_sort_generator_a_3(void *dst, size_t *p_context, struct log *log)
+{
+    size_t context = *p_context, cnt = (size_t) 1 << context;
+    size_t *arr;
+    if (!array_init(&arr, NULL, cnt, sizeof(*arr), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+    else
+    {
+        size_t *tmp;
+        if (!array_init(&tmp, NULL, cnt, sizeof(*tmp), 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
+        else
+        {
+            for (size_t i = 0; i < cnt; i++) tmp[i] = i, arr[i] = cnt - 1;
+            struct sort_worst_case_context comtext_tmp = { .arr = arr, .gas = cnt - 1 };
+            quick_sort(tmp, cnt, sizeof(*tmp), quick_sort_worst_case_cmp, &comtext_tmp);
+            free(tmp);
+            *(struct test_sort_a *) dst = (struct test_sort_a) { .arr = arr, .cnt = cnt, .sz = sizeof(*arr) };
+            if (context < TEST_SORT_EXP) ++*p_context;
+            else *p_context = 0;
+            return 1;
+        }
+        free(arr);        
     }
     return 0;
 }
@@ -58,7 +116,7 @@ bool test_sort_generator_b_1(void *dst, size_t *p_context, struct log *log)
             arr[n] = swp;
         }
         *(struct test_sort_b *) dst = (struct test_sort_b) { .arr = arr, .cnt = cnt, .ucnt = ucnt };
-        if (context <= TEST_SORT_EXP) ++*p_context;
+        if (context < TEST_SORT_EXP) ++*p_context;
         else *p_context = 0;
         return 1;
     }
@@ -78,7 +136,7 @@ bool test_sort_generator_c_1(void *dst, size_t *p_context, struct log *log)
             if (i >= ((size_t) 1 << j)) j++;
         }
         *(struct test_sort_c *) dst = (struct test_sort_c) { .arr = arr, .cnt = cnt };
-        if (context <= TEST_SORT_EXP) ++*p_context;
+        if (context < TEST_SORT_EXP) ++*p_context;
         else *p_context = 0;
         return 1;
     }
@@ -104,28 +162,30 @@ void test_sort_disposer_c(void *In)
 }
 
 struct flt64_cmp_asc_test {
+    size_t cnt;
     void *a, *b;
     bool succ;
 };
 
-static bool flt64_cmp_asc_test(const void *a, const void *b, void *Context)
+static bool size_cmp_asc_test(const void *a, const void *b, void *Context)
 {
     struct flt64_cmp_asc_test *context = Context;
+    context->cnt++;
     if (a < context->a || b < context->a || context->b < a || context->b < b) context->succ = 0;
-    return *(double *) a > *(double *) b;
+    return size_cmp_asc(a, b, context);
 }
 
 bool test_sort_a(void *In, struct log *log)
 {
     bool succ = 0;
     struct test_sort_a *in = In;
-    double *arr;
+    size_t *arr;
     if (!array_init(&arr, NULL, in->cnt, in->sz, 0, ARRAY_STRICT)) log_message_crt(log, CODE_METRIC, MESSAGE_ERROR, errno);
     else
     {
         memcpy(arr, in->arr, in->cnt * in->sz);
         struct flt64_cmp_asc_test context = { .a = arr, .b = arr + in->cnt * in->sz - in->sz, .succ = 1 };
-        quick_sort(arr, in->cnt, in->sz, flt64_cmp_asc_test, &context);
+        quick_sort(arr, in->cnt, in->sz, size_cmp_asc_test, &context);
         size_t ind = 1;
         for (; ind < in->cnt; ind++) if (arr[ind - 1] > arr[ind]) break;
         succ = (!in->cnt || ind == in->cnt) && context.succ;

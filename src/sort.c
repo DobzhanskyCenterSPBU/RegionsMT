@@ -208,7 +208,7 @@ static void swap(void *restrict a, void *restrict b, void *restrict swp, size_t 
     memcpy(b, swp, sz);
 }
 
-static void cutoff_sort_stub(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff)
+static void lin_sort_stub(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff)
 {
     (void) arr, (void) tot, (void) sz, (void) cmp, (void) context, (void) swp, (void) cutoff;
 }
@@ -232,34 +232,33 @@ static void insertion_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_c
     }
 }
 
-typedef void(*cutoff_sort_callback)(void *restrict, size_t, size_t, cmp_callback, void *, void *restrict, size_t);
-typedef void(*sort_callback)(void *restrict, size_t, size_t, cmp_callback, void *, void *restrict, cutoff_sort_callback);
+typedef void (*lin_sort_callback)(void *restrict, size_t, size_t, cmp_callback, void *, void *restrict, size_t);
+typedef void (*sort_callback)(void *restrict, size_t, size_t, cmp_callback, void *, void *restrict, size_t, lin_sort_callback);
 
 static size_t comb_sort_gap_impl(size_t tot, size_t sz)
 {
-    const double shrink = 1.2473309501039786540366528676643; // Magic constant provided by 'ksort.h'
-    size_t gap = (size_t) ((double) (tot / sz) / shrink);
+    size_t gap = (size_t) (.8017118471377937539 * (tot / sz)); // Magic constant suggested by 'ksort.h'. Generally any positive value < 1.0 is acceptable 
     if (gap == 9 || gap == 10) gap = 11;
     return gap * sz;
 }
 
-static void comb_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, cutoff_sort_callback cutoff_sort)
+static void comb_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t lin_cutoff, lin_sort_callback lin_sort)
 {
     size_t gap = comb_sort_gap_impl(tot, sz);
-    for (bool flag = 0;; flag = 0, gap = comb_sort_gap_impl(gap, sz)) 
+    for (bool flag = 0;; flag = 0, gap = comb_sort_gap_impl(gap, sz))
     {
         for (size_t i = 0, j = gap; i < tot - gap; i += sz, j += sz)
             if (cmp((char *) arr + i, (char *) arr + j, context)) swap((char *) arr + i, (char *) arr + j, swp, sz), flag = 1;
-        if (!flag || gap == sz) break;
-    } 
-    if (gap != sz) cutoff_sort(arr, tot, sz, cmp, context, swp, tot - gap);
+        if (gap == sz) return;
+        if (!flag || gap <= lin_cutoff) break;
+    }
+    lin_sort(arr, tot, sz, cmp, context, swp, gap);
 }
 
-static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t cutoff, cutoff_sort_callback cutoff_sort, size_t log2, sort_callback log2_sort)
+static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callback cmp, void *context, void *restrict swp, size_t lin_cutoff, lin_sort_callback lin_sort, size_t log_cutoff, sort_callback log_sort)
 {
-    uint8_t frm = 0;
-    struct { size_t a, b; } *stk = Alloca(log2 * sizeof(*stk));
-    size_t a = 0, b = tot - sz;
+    struct frm { size_t a, b; } *stk = Alloca(log_cutoff * sizeof(*stk));
+    size_t frm = 0, a = 0, b = tot - sz;
     for (;;)
     {
         size_t left = a, right = b, pvt = a + ((b - a) / sz >> 1) * sz;
@@ -287,41 +286,40 @@ static void quick_sort_impl(void *restrict arr, size_t tot, size_t sz, cmp_callb
             left += sz;
             right -= sz;
         } while (left <= right);
-        if (right - a < cutoff)
+        if (right - a < lin_cutoff)
         {
-            size_t cutoff_tot = right - a + sz;
-            cutoff_sort((char *) arr + a, cutoff_tot, sz, cmp, context, swp, cutoff_tot);
-            if (b - left < cutoff)
+            size_t tmp = right - a + sz;
+            lin_sort((char *) arr + a, tmp, sz, cmp, context, swp, tmp);
+            if (b - left < lin_cutoff)
             {
-                cutoff_tot = b - left + sz;
-                cutoff_sort((char *) arr + left, cutoff_tot, sz, cmp, context, swp, cutoff_tot);
+                tmp = b - left + sz;
+                lin_sort((char *) arr + left, tmp, sz, cmp, context, swp, tmp);
                 if (!frm--) break;
                 a = stk[frm].a;
                 b = stk[frm].b;
             }
             else a = left;
         }
-        else if (b - left < cutoff)
+        else if (b - left < lin_cutoff)
         {
-            size_t cutoff_tot = b - left + sz;
-            cutoff_sort((char *) arr + left, cutoff_tot, sz, cmp, context, swp, cutoff_tot);
+            size_t tmp = b - left + sz;
+            lin_sort((char *) arr + left, tmp, sz, cmp, context, swp, tmp);
             b = right;
         }
         else
         {
             if (right - a > b - left)
             {
-                stk[frm].a = a;
-                stk[frm].b = right;
+                if (frm < log_cutoff) stk[frm++] = (struct frm) { .a = a, .b = right };
+                else log_sort((char *) arr + a, right - a + sz, sz, cmp, context, swp, lin_cutoff, lin_sort);
                 a = left;
             }
             else
             {
-                stk[frm].a = left;
-                stk[frm].b = b;
+                if (frm < log_cutoff) stk[frm++] = (struct frm) { .a = left, .b = b };
+                else log_sort((char *) arr + left, b - left + sz, sz, cmp, context, swp, lin_cutoff, lin_sort);
                 b = right;
             }
-            frm++;
         }
     }
 }
@@ -332,14 +330,15 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
     void *restrict swp = Alloca(sz);
     if (cnt > 2)
     {
-        const size_t cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz, log2 = size_bit_scan_reverse(cnt);
-        if (tot > cutoff)
+        const size_t lin_cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz;
+        if (tot > lin_cutoff)
         {
+            size_t log_cutoff = (size_log2_ceiling(cnt) - size_bit_scan_reverse(QUICK_SORT_CUTOFF)) >> 1;
 #       ifdef QUICK_SORT_CACHED
-            quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, insertion_sort_impl, log2, comb_sort_impl);
+            quick_sort_impl(arr, tot, sz, cmp, context, swp, lin_cutoff, insertion_sort_impl, log_cutoff, comb_sort_impl);
 #       else
-            quick_sort_impl(arr, tot, sz, cmp, context, swp, cutoff, no_sort_impl, log2, comb_sort_impl);
-            insertion_sort_impl(arr, tot, sz, cmp, context, swp, cutoff);
+            quick_sort_impl(arr, tot, sz, cmp, context, swp, lin_cutoff, lin_sort_stub, log_cutoff, comb_sort_impl);
+            insertion_sort_impl(arr, tot, sz, cmp, context, swp, lin_cutoff);
 #       endif 
         }
         else insertion_sort_impl(arr, tot, sz, cmp, context, swp, tot);

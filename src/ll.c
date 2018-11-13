@@ -446,6 +446,11 @@ uint8_t uint8_bit_scan_forward(uint8_t x)
     return (uint8_t) uint32_bit_scan_forward((uint8_t) x);
 }
 
+size_t size_log2_ceiling(size_t x)
+{
+    return size_bit_scan_reverse(x) + !!(x && (x & (x - 1)));
+}
+
 size_t size_add_sat(size_t a, size_t b)
 {
     size_t car, res = size_add(&car, a, b);

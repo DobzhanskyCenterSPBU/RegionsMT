@@ -68,6 +68,7 @@ size_t size_sum(size_t *, size_t *, size_t);
 size_t size_mul(size_t *, size_t, size_t);
 uint8_t uint8_bit_scan_reverse(uint8_t);
 uint8_t uint8_bit_scan_forward(uint8_t);
+size_t size_log2_ceiling(size_t);
 uint32_t uint32_bit_scan_reverse(uint32_t);
 uint32_t uint32_bit_scan_forward(uint32_t);
 uint32_t uint32_pop_cnt(uint32_t);
