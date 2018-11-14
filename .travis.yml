@@ -10,6 +10,6 @@ install:
 
 script: 
   - make
-  - RegionsMT-Release -T
-  - RegionsMT-Debug -T
+  - ./RegionsMT-Release -T
+  - ./RegionsMT-Debug -T
 
