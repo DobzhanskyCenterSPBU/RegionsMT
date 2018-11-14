@@ -1,16 +1,22 @@
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install make
-  - make -v
-
+os: linux
+dist: xenial
 language: c
 
-compiler:
-  - clang
-  - gcc
+before_install:
+#  - sudo apt-get update -qq
+#  - sudo apt-get install make
 
-os:
-  - linux
-  - osx
+compiler: gcc
+#  - clang
+#  - gcc
+
+#os:
+#  - linux
+#  - osx
+
+install:
+  - cd ..
+  - makedir gsl
+  - cd gsl
 
 script: make # ./configure && make && make test
