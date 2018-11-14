@@ -1,7 +1,6 @@
 image: ubuntu
 
 install:
-    - cd ..
     - git clone https://github.com/ampl/gsl
     - bash RegionsMT/.install/gsl.sh
     - cd RegionsMT
