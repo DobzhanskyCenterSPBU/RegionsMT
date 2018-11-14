@@ -1,1 +1,15 @@
+image: ubuntu
+
+install:
+    - cd ..
+    - git clone https://github.com/ampl/gsl
+    - bash RegionsMT/.install/gsl.sh
+    - cd RegionsMT
+
+test_script:
+    - make
+    - ./RegionsMT-Release -T
+    - ./RegionsMT-Debug -T
+    - make clean
+
 

@@ -54,7 +54,9 @@ release: Release;
 debug: Debug;
 
 .PHONY: clean
-clean:; $(foreach cfg, $(CONFIG), $(shell rm -rf $($(addprefix OBJ_DIR_,$(cfg)))) $(shell rm -f $($(addprefix TARGET_,$(cfg)))))
+clean-obj:; rm -rf $(foreach cfg,$(CONFIG),$($(addprefix OBJ_DIR_,$(cfg))))
+clean-target:; rm -f $(foreach cfg,$(CONFIG),$($(addprefix TARGET_,$(cfg))))
+clean: clean-obj clean-target;
 
 define build =
 .PHONY: $1

@@ -1,15 +1,15 @@
 os: linux
 dist: xenial
-language: c
 
 install:
-  - cd ..
-  - git clone https://github.com/ampl/gsl
-  - bash RegionsMT/.install/gsl.sh
-  - cd RegionsMT
+    - cd ..
+    - git clone https://github.com/ampl/gsl
+    - bash RegionsMT/.install/gsl.sh
+    - cd RegionsMT
 
 script: 
-  - make
-  - ./RegionsMT-Release -T
-  - ./RegionsMT-Debug -T
+    - make
+    - ./RegionsMT-Release -T
+    - ./RegionsMT-Debug -T
+    - make clean
 
