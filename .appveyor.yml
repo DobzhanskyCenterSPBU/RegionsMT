@@ -1,9 +1,10 @@
 image: ubuntu
 
 install:
+    - cd /home/appveyor/projects
     - git clone https://github.com/ampl/gsl
-    - bash RegionsMT/.install/gsl.sh
-    - cd RegionsMT
+    - bash regionsmt/.install/gsl.sh
+    - cd regionsmt
 
 test_script:
     - make
