@@ -6,10 +6,14 @@ install:
     - bash regionsmt/.install/gsl.sh
     - cd regionsmt
 
-test_script:
+build_script:
     - make
+
+test_script:
     - ./RegionsMT-Release -T
     - ./RegionsMT-Debug -T
+
+after_test:
     - make clean
 
 
