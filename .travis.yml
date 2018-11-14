@@ -2,21 +2,14 @@ os: linux
 dist: xenial
 language: c
 
-before_install:
-#  - sudo apt-get update -qq
-#  - sudo apt-get install make
-
-compiler: gcc
-#  - clang
-#  - gcc
-
-#os:
-#  - linux
-#  - osx
-
 install:
   - cd ..
   - git clone https://github.com/ampl/gsl
-  - bash RegionsMT/.travis/gsl.sh
+  - bash RegionsMT/.install/gsl.sh
+  - cd RegionsMT
 
-script: make # ./configure && make && make test
+script: 
+  - make
+  - RegionsMT-Release -T
+  - RegionsMT-Debug -T
+
