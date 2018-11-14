@@ -55,7 +55,7 @@ bool test_sort_generator_a_2(void *dst, size_t *p_context, struct log *log)
 }
 
 struct sort_worst_case_context {
-    size_t *arr, cnt, ind, gas, can;
+    size_t *arr, cnt, ind, gas, piv;
 };
 
 // This algorithm was suggested in www.cs.dartmouth.edu/~doug/mdmspe.pdf
@@ -66,10 +66,10 @@ bool quick_sort_worst_case_cmp(const void *a, const void *b, void *Context)
     context->cnt++;
     if (context->arr[x] == context->gas)
     {
-        if (context->arr[y] == context->gas) context->arr[x == context->can ? x : y] = context->ind++;
-        context->can = x;
+        if (context->arr[y] == context->gas) context->arr[x == context->piv ? x : y] = context->ind++;
+        context->piv = x;
     }
-    else if (context->arr[y] == context->gas) context->can = y;
+    else if (context->arr[y] == context->gas) context->piv = y;
     return size_cmp_asc(a, b, context);
 }
 
@@ -86,8 +86,8 @@ bool test_sort_generator_a_3(void *dst, size_t *p_context, struct log *log)
         else
         {
             for (size_t i = 0; i < cnt; i++) tmp[i] = i, arr[i] = cnt - 1;
-            struct sort_worst_case_context comtext_tmp = { .arr = arr, .gas = cnt - 1 };
-            quick_sort(tmp, cnt, sizeof(*tmp), quick_sort_worst_case_cmp, &comtext_tmp);
+            struct sort_worst_case_context context_tmp = { .arr = arr, .gas = cnt - 1 };
+            quick_sort(tmp, cnt, sizeof(*tmp), quick_sort_worst_case_cmp, &context_tmp);
             free(tmp);
             *(struct test_sort_a *) dst = (struct test_sort_a) { .arr = arr, .cnt = cnt, .sz = sizeof(*arr) };
             if (context < TEST_SORT_EXP) ++*p_context;
