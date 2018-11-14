@@ -1,6 +1,6 @@
 CC = gcc
-CC_INC_Release = ../gsl-x86_64-Release
-CC_INC_Debug = ../gsl-x86_64-Debug
+CC_INC_Release = ../gsl-Release
+CC_INC_Debug = ../gsl-Debug
 CC_OPT_Release = -std=c11 -mavx -flto -O3 -Wall
 CC_OPT_Debug = -D_DEBUG -mavx -flto -std=c11 -O0 -ggdb -Wall
 
@@ -15,8 +15,8 @@ ASM_OPT_Release =
 ASM_OPT_Debug = -D_DEBUG
 
 LD = $(CC)
-LD_INC_Release = ../gsl-x86_64-Release
-LD_INC_Debug = ../gsl-x86_64-Debug
+LD_INC_Release = ../gsl-Release
+LD_INC_Debug = ../gsl-Debug
 LD_LIB_Release = m pthread gsl gslcblas
 LD_LIB_Debug = $(LD_LIB_Release)
 LD_OPT_Release = -flto
@@ -38,8 +38,8 @@ endif
 TARGET_Release = RegionsMT-Release
 TARGET_Debug = RegionsMT-Debug
 
-OBJ_DIR_Release = ./obj-release
-OBJ_DIR_Debug = ./obj-debug
+OBJ_DIR_Release = ./obj-Release
+OBJ_DIR_Debug = ./obj-Debug
 SRC_DIR = ./src
 
 CONFIG = Release Debug

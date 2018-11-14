@@ -333,7 +333,7 @@ void quick_sort(void *restrict arr, size_t cnt, size_t sz, cmp_callback cmp, voi
         const size_t lin_cutoff = QUICK_SORT_CUTOFF * sz, tot = cnt * sz;
         if (tot > lin_cutoff)
         {
-            size_t log_cutoff = (size_log2_ceiling(cnt) - size_bit_scan_reverse(QUICK_SORT_CUTOFF)) >> 1;
+            size_t log_cutoff = size_sub_sat(size_log2_ceiling(cnt), size_bit_scan_reverse(QUICK_SORT_CUTOFF) << 1);
 #       ifdef QUICK_SORT_CACHED
             quick_sort_impl(arr, tot, sz, cmp, context, swp, lin_cutoff, insertion_sort_impl, log_cutoff, comb_sort_impl);
 #       else
