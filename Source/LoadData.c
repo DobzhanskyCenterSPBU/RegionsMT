@@ -603,11 +603,11 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
         arrayInit((void **) &res->pos, snpcnt, sizeof *res->pos) &&
         arrayInit((void **) &res->snpnamestr, snpstrsz, sizeof *res->snpnamestr) &&
         arrayInitClear((void **) &res->genenamestr, 1, sizeof *res->genenamestr) && // 'genestr' array is initialized as zero-string
-        arrayInit((void **) &res->tmaf, snpcnt, sizeof *res->tmaf)
+        //arrayInit((void **) &res->tmaf, snpcnt, sizeof *res->tmaf)
         //arrayInit((void **) &res->allelenamestr, allelestrsz, sizeof *res->allelenamestr)
         )) goto ERR();
 
-    MEMORY_SET(res->tmaf, snpcnt);
+    //MEMORY_SET(res->tmaf, snpcnt);
     
     for (size_t i = 0, offsnp = 0/*, offallele = 0*/; i < args->cnt; i++)
     {
@@ -618,7 +618,7 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
             size_t ind = res->chroff[chr - 1] + row - 1;
 
             res->snpname[ind] = ((ptrdiff_t *) args->args[i].res[COL_SNP])[j] + offsnp;
-            res->tmaf[ind] = ((double *) args->args[i].res[COL_TMAF])[j];
+            //res->tmaf[ind] = ((double *) args->args[i].res[COL_TMAF])[j];
             //res->allelename[ind] = ((ptrdiff_t *) args->args[i].res[COL_ALLELE])[j] + offallele;
             res->pos[ind] = ((uint32_t *) args->args[i].res[COL_POS])[j];
         }
