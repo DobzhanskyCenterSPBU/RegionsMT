@@ -99,7 +99,7 @@ static bool mysqlFetchThreadProc(mysqlFetchThreadProcArgs *args, mysqlFetchThrea
 
                     ///////////////////////////////////////////////////////
 
-                    res->tmaf[off] = strtod(mysqlrow[COL0_TMAF], &test);
+                    //res->tmaf[off] = strtod(mysqlrow[COL0_TMAF], &test);
                     if (*test) { errm = ERR_VAL; break; }
 
                     ///////////////////////////////////////////////////////
