@@ -70,7 +70,7 @@ DEFINE_WRITEPROC(Alias, "\"%.31s\"", res->snpnamestr + res->snpname[_index])
 
 DEFINE_WRITEPROC_V(Lpv, "%.16e", isnan((res->nlpv)[_index]) ? -1. : pow(10, -res->nlpv[_index]))
 DEFINE_WRITEPROC_V(Qas, "%.16e", isnan((res->qas)[_index]) ? -1. : res->qas[_index] == HUGE_VAL ? DBL_MAX : res->qas[_index])
-DEFINE_WRITEPROC_V(Maf, "%.16e", isnan((res->maf)[_index]) ? -1. : res->maf[_index])
+//DEFINE_WRITEPROC_V(Maf, "%.16e", isnan((res->maf)[_index]) ? -1. : res->maf[_index])
 DEFINE_WRITEPROC_V(Rlpv, "%" PRIuPTR, res->rnlpv[_index] + 1)
 DEFINE_WRITEPROC_V(Rqas, "%" PRIuPTR, res->rqas[_index] + 1)
 
@@ -89,7 +89,7 @@ static const mysqlDispatchThreadInfo schemaInfo[] =
     { .table = "`v_ind`", .primkey = "`ind`,`col`", .key = "`v_ind`", .writeProc = writeProcVind },
     { .table = "`pval`", .primkey = "`v_ind`", .key = "`pval`", .writeProc = writeProcLpv },
     { .table = "`ratio`", .primkey = "`v_ind`", .key = "`ratio`", .writeProc = writeProcQas },
-    { .table = "`maf`", .primkey = "`v_ind`", .key = "`maf`", .writeProc = writeProcMaf },
+    //{ .table = "`maf`", .primkey = "`v_ind`", .key = "`maf`", .writeProc = writeProcMaf },
     { .table = "`r_pval`", .primkey = "`v_ind`", .key = "`r_pval`", .writeProc = writeProcRlpv },
     { .table = "`r_ratio`", .primkey = "`v_ind`", .key = "`r_ratio`", .writeProc = writeProcRqas }
 };
@@ -128,7 +128,7 @@ static bool mysqlInitSchema(mysqlDispatchOut *args, mysqlDispatchContext *contex
         "create table `v_ind` (`ind` int(8) unsigned not null, `col` int(4) unsigned not null, `v_ind` int(8) unsigned not null) engine = innodb",
         "create table `pval` (`v_ind` int(8) unsigned not null, `pval` double not null) engine = innodb",
         "create table `ratio` (`v_ind` int(8) unsigned not null, `ratio` double not null) engine = innodb",
-        "create table `maf` (`v_ind` int(8) unsigned not null, `maf` double not null) engine = innodb",
+        //"create table `maf` (`v_ind` int(8) unsigned not null, `maf` double not null) engine = innodb",
         "create table `r_pval` (`v_ind` int(8) unsigned not null, `r_pval` int(8) unsigned not null) engine = innodb",
         "create table `r_ratio` (`v_ind` int(8) unsigned not null, `r_ratio` int(8) unsigned not null) engine = innodb"
     };
