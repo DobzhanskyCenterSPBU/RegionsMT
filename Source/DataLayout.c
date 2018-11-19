@@ -22,11 +22,11 @@ void testDataClose(testData *data)
     free(data->snpnamestr);
     free(data->genenamestr);
     
-    free(data->tmaf);
+    //free(data->tmaf);
 
     free(data->nlpv);
     free(data->qas);
-    free(data->maf);
+    //free(data->maf);
     free(data->allele);
     free(data->rnlpv);
     free(data->rqas);
