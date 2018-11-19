@@ -377,7 +377,7 @@ bool mysqlDispatchThreadPrologue(mysqlDispatchOut *args, mysqlDispatchContext *c
         { offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_VIND_COMP) },
         { offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_LPV_COMP) },
         { offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_QAS_COMP) },
-        { offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_MAF_COMP) },
+        //{ offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_MAF_COMP) },
         { offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_RLPV_COMP) },
         { offsetof(loadDataRes, pvcnt), pnumGet(FRAMEWORK_META(args)->pnum, MYSQLDISPATCHSUPP_STAT_BIT_POS_RQAS_COMP) }
     };
