@@ -351,6 +351,7 @@ static bool loadDataColumnHandlerLpv(const char *str, size_t len, void *ptr, loa
     return 1;
 }
 
+/*
 static bool loadDataColumnHandlerMaf(const char *str, size_t len, void *ptr, loadDataValContext *context)
 {
     (void) len; (void) ptr;
@@ -362,6 +363,7 @@ static bool loadDataColumnHandlerMaf(const char *str, size_t len, void *ptr, loa
 
     return 1;
 }
+*/
 
 // Highly simplified version of 'loadDataThreadRead'
 static bool loadDataThreadReadVal(loadDataThreadReadValArgs *args, loadDataThreadContext *context)
@@ -645,14 +647,14 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
     if (!(
         arrayInit((void **) &res->nlpv, lpvcnt, sizeof *res->nlpv) &&
         arrayInit((void **) &res->qas, lpvcnt, sizeof *res->qas) &&
-        arrayInit((void **) &res->maf, lpvcnt, sizeof *res->maf) &&
+        //arrayInit((void **) &res->maf, lpvcnt, sizeof *res->maf) &&
         arrayInitClear((void **) &res->rqas, lpvcnt, sizeof *res->rqas) &&
         arrayInitClear((void **) &res->rnlpv, lpvcnt, sizeof *res->rnlpv)
         )) goto ERR();
 
     MEMORY_SET(res->qas, lpvcnt);
     MEMORY_SET(res->nlpv, lpvcnt);
-    MEMORY_SET(res->maf, lpvcnt);
+    //MEMORY_SET(res->maf, lpvcnt);
         
     return 1;
     
@@ -770,7 +772,7 @@ static const tblsch statSchVal = CLII((tblcolsch[]) // Each field have dedicated
     { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerTest } },
     { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerLpv } },
     { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerQas } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerMaf } },
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerMaf } },
 });
 
 static const tblsch statSchValLog = CLII((tblcolsch[])
@@ -780,7 +782,7 @@ static const tblsch statSchValLog = CLII((tblcolsch[])
     { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerTest } },
     { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerLpvLog } },
     { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerQas } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerMaf } },
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerMaf } },
 });
 
 ///////////////////////////////////////////////////////////////////////////////
