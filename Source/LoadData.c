@@ -602,7 +602,7 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
         //arrayInit((void **) &res->allelename, snpcnt, sizeof *res->allelename) &&
         arrayInit((void **) &res->pos, snpcnt, sizeof *res->pos) &&
         arrayInit((void **) &res->snpnamestr, snpstrsz, sizeof *res->snpnamestr) &&
-        arrayInitClear((void **) &res->genenamestr, 1, sizeof *res->genenamestr) && // 'genestr' array is initialized as zero-string
+        arrayInitClear((void **) &res->genenamestr, 1, sizeof *res->genenamestr) // && 'genestr' array is initialized as zero-string
         //arrayInit((void **) &res->tmaf, snpcnt, sizeof *res->tmaf)
         //arrayInit((void **) &res->allelenamestr, allelestrsz, sizeof *res->allelenamestr)
         )) goto ERR();
