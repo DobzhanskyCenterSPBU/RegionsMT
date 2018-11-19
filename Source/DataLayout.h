@@ -41,7 +41,7 @@ typedef struct {
         size_t *pos;
 
         // 'tmaf' -- total maf
-        double *tmaf;
+        //double *tmaf;
                         
         // 'snpcnt' -- equal to the sum of elements in 'chrom'
         size_t snpcnt; 
@@ -60,7 +60,7 @@ typedef struct {
         // 'nlpv' -- array of negated logarithms of P-values
         // 'qas' -- array of quantitative association statistics (QAS)
         // 'maf' -- array of minor allele frequencies (MAF)
-        double *nlpv, *qas, *maf;
+        double *nlpv, *qas;//, *maf;
 
         // 'allele' -- allele configuration: first four bits -- common allele, last four bits -- minor allele 
         uint8_t *allele;
