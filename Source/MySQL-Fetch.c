@@ -314,12 +314,12 @@ static bool mysqlFetchThreadPrologue(mysqlFetchOut *args, mysqlFetchContext *con
                                 if (!(
                                     arrayInitClear((void **) &res->genename, res->snpcnt, sizeof *res->genename) &&
                                     arrayInitClear((void **) &res->snpname, res->snpcnt, sizeof *res->snpname) &&
-                                    arrayInitClear((void **) &res->pos, res->snpcnt, sizeof *res->pos) &&
+                                    arrayInitClear((void **) &res->pos, res->snpcnt, sizeof *res->pos) // &&
                                     //arrayInitClear((void **) &res->allelename, res->snpcnt, sizeof *res->allelename) &&
-                                    arrayInitClear((void **) &res->tmaf, res->snpcnt, sizeof *res->tmaf)
+                                    //arrayInitClear((void **) &res->tmaf, res->snpcnt, sizeof *res->tmaf)
                                     )) { errm = ERR_MEM; break; }
                                 
-                                MEMORY_SET(res->tmaf, res->snpcnt); // All floats are set to some quite NaN
+                                //MEMORY_SET(res->tmaf, res->snpcnt); // All floats are set to some quite NaN
                             }
 
                             // Convert lengths to offsets
