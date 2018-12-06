@@ -1,5 +1,9 @@
 image: ubuntu
 
+branches:
+    only:
+      - master
+
 install:
     - cd /home/appveyor/projects
     - git clone https://github.com/ampl/gsl
