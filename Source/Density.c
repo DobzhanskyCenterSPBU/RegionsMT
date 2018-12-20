@@ -93,7 +93,8 @@ static bool densityThreadAverage(densityCallbackArgs *args, densityCallbackConte
             if (l + r)
             {
                 dns[i] = sum / (l + r);
-                lpv[i] = -log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
+                lpv[i] = gsl_sf_gamma_inc_Q((double) (l + r), sum);
+                    //-log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
             }
             else dns[i] = lpv[i] = NaN;
             
@@ -154,7 +155,8 @@ static bool densityThreadAveragePos(densityCallbackArgs *args, densityCallbackCo
             if (l + r)
             {
                 dns[i] = sum / (l + r);
-                lpv[i] = -log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
+                lpv[i] = gsl_sf_gamma_inc_Q((double) (l + r), sum);
+                    //-log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
             }
             else dns[i] = lpv[i] = NaN;
 
