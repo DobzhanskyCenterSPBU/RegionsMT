@@ -119,8 +119,8 @@ static bool dfReportThreadProc(dfReportOut *args, dfReportContext *context)
     })[semi];
 
     const char *form = ((const char *[]) {
-        "%zu, %zu, %.16e, %zu, %zu, %zu, %zu\n",
-        "%zu; %zu; %.16e; %zu; %zu; %zu; %zu\n"
+        "%zu, %zu, %.16e, %zu, %zu, %zu, %zu, %.16e\n",
+        "%zu; %zu; %.16e; %zu; %zu; %zu; %zu; %.16e\n"
     //    "%zu," "%zu," "\"%s\"," "%" PRIu32 "," "%f," "\"%s\"," "%" PRIuPTR "," "%f," "\"%s\"," "%" PRIuPTR "," "%f," "%" PRIuPTR "," "%f\n",
     //    "%zu;" "%zu;" "%s;" "%" PRIu32 ";" "%f;" "%s;" "%" PRIuPTR ";" "%f;" "%s;" "%" PRIuPTR ";" "%f;" "%" PRIuPTR ";" "%f\n"
     })[semi];
@@ -140,7 +140,8 @@ static bool dfReportThreadProc(dfReportOut *args, dfReportContext *context)
                 densityres->li[lpvind] + 1, \
                 densityres->ri[lpvind] + 1, \
                 densityres->lc[lpvind], \
-                densityres->rc[lpvind] \
+                densityres->rc[lpvind], \
+                densityres->lpv[lpvind] \
                 /*chr + 1, \
                 j - ldres->chroff[chr] + 1, \
                 ldres->snpnamestr + ldres->snpname[j], \
