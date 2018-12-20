@@ -86,8 +86,8 @@ static bool dfReportThreadProc(dfReportOut *args, dfReportContext *context)
 
     const char *head = ((const char *[])
     {
-        "'v_ind', 'r_density', 'density', 'left_ind', 'right_ind', 'left_count', 'right_count'\n",
-        "'v_ind'; 'r_density'; 'density'; 'left_ind'; 'right_ind'; 'left_count'; 'right_count'\n"
+        "'v_ind', 'r_density', 'density', 'left_ind', 'right_ind', 'left_count', 'right_count', 'naive_p'\n",
+        "'v_ind'; 'r_density'; 'density'; 'left_ind'; 'right_ind'; 'left_count'; 'right_count'; 'naive_p'\n"
         
         /*    "\"Chromosome index\","
         "\"SNP index\","
