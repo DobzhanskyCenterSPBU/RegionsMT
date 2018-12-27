@@ -333,8 +333,8 @@ static bool loadDataColumnHandlerQas(const char *str, size_t len, void *ptr, loa
     char *test;
     double res = (double) strtod(str, &test);
     if (*test) return 0;
-    if (res >= 0)
-        context->res->qas[context->ind] = res; // Quite NaN otherwise
+    //if (res >= 0)
+    context->res->qas[context->ind] = res; // Quite NaN otherwise
     
     return 1;
 }
