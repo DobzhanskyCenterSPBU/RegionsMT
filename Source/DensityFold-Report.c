@@ -141,7 +141,7 @@ static bool dfReportThreadProc(dfReportOut *args, dfReportContext *context)
                 densityres->ri[lpvind] + 1, \
                 densityres->lc[lpvind], \
                 densityres->rc[lpvind], \
-                densityres->lpv[lpvind] \
+                isfinite(densityres->lpv[lpvind]) ? densityres->lpv[lpvind] : -1. \
                 /*chr + 1, \
                 j - ldres->chroff[chr] + 1, \
                 ldres->snpnamestr + ldres->snpname[j], \
