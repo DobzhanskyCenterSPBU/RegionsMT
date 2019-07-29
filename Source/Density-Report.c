@@ -12,6 +12,19 @@
 #include <math.h>
 #include <stdio.h>
 
+bool dReportHandler(const char *str, size_t len, dReportType *ptr, void *context)
+{
+    (void) context;
+    (void) len;
+
+    if (!strcmpci(str, "density")) *ptr = DREPORT_TYPE_DENSITY;
+    else if (!strcmpci(str, "nlpv")) *ptr = DREPORT_TYPE_NLPV;
+    else if (!strcmpci(str, "qas")) *ptr = DREPORT_TYPE_QAS;
+    else return 0;
+
+    return 1;
+}
+
 double **selectByThreshold(double *arr, size_t *pcount, double thresh)
 {
     size_t cap = 0, cnt = 0;
@@ -127,8 +140,9 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
 
     struct tableline
     {
-        size_t rank, test, chr, li, ci, ri, lp, cp, rp, cnt;
-        double lpv, pv, dns;
+        // <-
+        size_t v_ind, rank, li, ci, ri, lp, cp, rp, cnt;
+        double lpv, pv, dns, ;
     } tln, tl = { 0 };
     
     size_t limit = bitTest(context->bits, DREPORTCONTEXT_BIT_POS_LIMIT) ? cnt > context->limit ? context->limit : cnt : cnt;

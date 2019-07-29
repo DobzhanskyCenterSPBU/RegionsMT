@@ -2,6 +2,13 @@
 
 #include "Density.h"
 
+typedef enum {
+    DREPORT_TYPE_UNKNOWN = 0,
+    DREPORT_TYPE_DENSITY,
+    DREPORT_TYPE_NLPV,
+    DREPORT_TYPE_QAS
+} dReportType;
+
 enum {
     DREPORTCONTEXT_BIT_POS_THRESHOLD = 0,
     DREPORTCONTEXT_BIT_POS_LIMIT,
@@ -21,6 +28,7 @@ typedef struct {
 } dReportSupp;
 
 typedef struct {
+    dReportType type;
     char *path;
     double threshold;
     uint32_t limit;
@@ -41,6 +49,7 @@ typedef struct {
     dReportSupp supp;
 } dReportOut;
 
+bool dReportHandler(const char *, size_t, dReportType *, void *);
 void dReportContextDispose(dReportContext *);
 bool dReportPrologue(dReportIn *, dReportOut **, dReportContext *);
 bool dReportEpilogue(dReportIn *, dReportOut *, void *);
