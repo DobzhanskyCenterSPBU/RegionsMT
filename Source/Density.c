@@ -76,7 +76,7 @@ ERR() :
 
 void densityRanksSchedule(densityThreadRanksArgs *rarg, densityMetadata *meta, size_t lbit, task *rtask, ptrdiff_t val, ptrdiff_t rval, size_t sbit, size_t rbit, size_t *pcnt)
 {
-    *rarg = (loadDataThreadRanksArgs) { .val = val, .rval = rval, .sortbit = sbit, .rankbit = rbit, .loadbit = lbit };
+    *rarg = (densityThreadRanksArgs) { .val = val, .rval = rval, .sortbit = sbit, .rankbit = rbit, .loadbit = lbit };
 
     rtask[(*pcnt)++] = (task) // Warning: non-usual task initialization!
     {
