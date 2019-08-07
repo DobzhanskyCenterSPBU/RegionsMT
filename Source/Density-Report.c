@@ -250,7 +250,10 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
     {
         succ = 1;
         break;
-        
+    
+    ERR() :
+            break;
+
     ERR(Index) :
         logMsg(FRAMEWORK_META(args)->log, strings[STR_FR_EG], strings[STR_FN], strings[STR_M_UNA], strings[STR_M_MEM]);
         break;
