@@ -18,22 +18,40 @@ enum {
 enum {
     DENSITYSUPP_STAT_BIT_POS_INIT_COMP = 0,
     DENSITYSUPP_STAT_BIT_POS_INIT_SUCC,
+    DENSITYSUPP_STAT_BIT_POS_DENSITY_COMP,
+    DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC,
+    DENSITYSUPP_STAT_BIT_POS_SORTDNS_COMP,
+    DENSITYSUPP_STAT_BIT_POS_SORTDNS_SUCC,
+    DENSITYSUPP_STAT_BIT_POS_RANKDNS_COMP,
+    DENSITYSUPP_STAT_BIT_POS_RANKDNS_SUCC,
+    DENSITYSUPP_STAT_BIT_POS_SORTLPV_COMP,
+    DENSITYSUPP_STAT_BIT_POS_SORTLPV_SUCC,
+    DENSITYSUPP_STAT_BIT_POS_RANKLPV_COMP,
+    DENSITYSUPP_STAT_BIT_POS_RANKLPV_SUCC,
     DENSITYSUPP_STAT_BIT_POS_TASK_COMP,
     DENSITYSUPP_STAT_BIT_POS_TASK_SUCC,
     DENSITYSUPP_STAT_BIT_CNT,
 };
 
+typedef struct {
+    ptrdiff_t val, rval;
+    size_t sortbit, rankbit, loadbit;
+    sortMT *smt;
+    uint64_t initime;
+} densityThreadRanksArgs;
+
 typedef struct densityCallbackArgs densityCallbackArgs;
 typedef struct densityCallbackContext densityCallbackContext;
 
 typedef struct {
-    size_t *li, *ri, *lc, *rc; // Left and right index, Left and right count
+    size_t *li, *ri, *lc, *rc, *rdns, *rlpv; // Left and right index, Left and right count
     double *dns, *lpv;
 } densityRes, *densityResPtr;
 
 typedef struct {
     volatile uint8_t *ldstat;
     volatile uint8_t stat[BYTE_CNT(DENSITYSUPP_STAT_BIT_CNT)];
+    densityThreadRanksArgs rargs[2];
     volatile size_t succ, fail, hold;
     size_t thresh;
 

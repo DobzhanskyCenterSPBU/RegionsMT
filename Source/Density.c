@@ -23,8 +23,78 @@ int func()
 
     mpfr_init2(mpa, 10);
 }
-
 */
+
+static bool ranksComp(const double **a, const double **b, void *context)
+{
+    int8_t res = float64CompDscNaNStable(*a, *b, context);
+    if (res > 0 || (!res && *a > * b)) return 1;
+    return 0;
+}
+
+bool densityThreadRanksPrologue(densityThreadRanksArgs *args, densityMetadata *meta)
+{
+    densityRes *restrict res = meta->res;
+    double *restrict arr = *( double **) memberof(res, args->val);
+    uintptr_t *restrict rarr = *(uintptr_t **) memberof(res, args->rval);
+
+    args->initime = getTime(); // Setting timer
+
+    for (size_t i = 0; i < res->pvcnt; rarr[i] = (uintptr_t) &arr[i], i++);
+
+    sortMTSync sync =
+    {
+        .asucc = ( aggregatorCallback) bitSet2InterlockedMem,
+        .asuccmem = meta->stat,
+        .asuccarg = &args->sortbit
+    };
+
+    args->smt = sortMTCreate(rarr, LOADDATA_META(meta)->res->pvcnt, sizeof * rarr, (compareCallback) ranksComp, NULL, FRAMEWORK_META(meta)->pool, &sync);
+    if (args->smt) return 1;
+
+    logMsg(FRAMEWORK_META(meta)->log, "ERROR (%s): Unable to compute ranks!\n", __FUNCTION__);
+    return 0;
+}
+
+bool densityThreadRanksEpilogue(densityThreadRanksArgs *args, densityMetadata *meta)
+{
+    sortMTDispose(args->smt);
+
+    densityRes *restrict res = meta->res;
+    double *restrict arr = *(double **) memberof(res, args->val);
+    uintptr_t *restrict rarr = *(uintptr_t **) memberof(res, args->rval);
+
+    if (!createRanks(rarr, (uintptr_t) arr, LOADDATA_META(meta)->res->pvcnt, sizeof * arr)) goto ERR();
+
+    logTime(FRAMEWORK_META(meta)->log, args->initime, __FUNCTION__, "Ranks computation of density/naive_p");
+    return 1;
+
+ERR() :
+    logMsg(FRAMEWORK_META(meta)->log, "ERROR (%s): Unable to compute ranks!\n", __FUNCTION__);
+    return 0;
+}
+
+void densityRanksSchedule(densityThreadRanksArgs *rarg, densityMetadata *meta, size_t lbit, task *rtask, ptrdiff_t val, ptrdiff_t rval, size_t sbit, size_t rbit, size_t *pcnt)
+{
+    *rarg = (loadDataThreadRanksArgs) { .val = val, .rval = rval, .sortbit = sbit, .rankbit = rbit, .loadbit = lbit };
+
+    rtask[(*pcnt)++] = (task) // Warning: non-usual task initialization!
+    {
+        .callback = (taskCallback) densityThreadRanksPrologue,
+        .cond = (conditionCallback) bitTestMem,
+        .afail = (aggregatorCallback) bitSetInterlockedMem,
+        .arg = rarg,
+        .context = meta,
+        .condmem = meta->stat,
+        .afailmem = meta->stat,
+        .condarg = &rarg->loadbit,
+        .afailarg = &rarg->sortbit
+    };
+
+    rtask[(*pcnt)++] = TASK_BIT_2_INIT(densityThreadRanksEpilogue, bitTest2Mem, rarg, meta, meta->stat, meta->stat, &rarg->sortbit, &rarg->rankbit);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 //double gsl_sf_gamma_inc_Q(double a, double x) { return NaN; }
 
@@ -93,8 +163,8 @@ static bool densityThreadAverage(densityCallbackArgs *args, densityCallbackConte
             if (l + r)
             {
                 dns[i] = sum / (l + r);
-                lpv[i] = gsl_sf_gamma_inc_Q((double) (l + r), sum);
-                    //-log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
+                lpv[i] = //gsl_sf_gamma_inc_Q((double) (l + r), sum);
+                    -log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
             }
             else dns[i] = lpv[i] = NaN;
             
@@ -155,8 +225,8 @@ static bool densityThreadAveragePos(densityCallbackArgs *args, densityCallbackCo
             if (l + r)
             {
                 dns[i] = sum / (l + r);
-                lpv[i] = gsl_sf_gamma_inc_Q((double) (l + r), sum);
-                    //-log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
+                lpv[i] = //gsl_sf_gamma_inc_Q((double) (l + r), sum);
+                    -log10(gsl_sf_gamma_inc_Q((double) (l + r), sum)); // Upper incomplete normalized gamma function
             }
             else dns[i] = lpv[i] = NaN;
 
@@ -395,6 +465,18 @@ static bool densityThreadEpilogue(densityOut *args, densityContext *context)
     return !args->supp.fail;
 }
 
+static bool densityThreadEpilogueCondition2(densitySupp *supp, void *arg)
+{
+    ( void) arg;
+    return bitTest(supp->stat, DENSITYSUPP_STAT_BIT_POS_SORTDNS_SUCC) && bitTest(supp->stat, DENSITYSUPP_STAT_BIT_POS_SORTDNS_SUCC);
+}
+
+static bool densityThreadEpilogue2(densityOut *args, densityContext *context)
+{
+    ( void) context;
+    return 1;
+}
+
 #define DEFRADIUS 10
 
 static bool densityThreadPrologue(densityOut *args, densityContext *context)
@@ -471,7 +553,7 @@ static bool densityThreadPrologue(densityOut *args, densityContext *context)
 
     *supp->context = (densityCallbackContext) { .out = args, .context = context };
 
-    supp->tasks = malloc((dtaskscnt + 1) * sizeof *supp->tasks);
+    supp->tasks = malloc((dtaskscnt + 6) * sizeof *supp->tasks);
     if (!supp->tasks) goto ERR();
 
     for (size_t i = 0; i < chrcnt; i++)
@@ -496,8 +578,11 @@ static bool densityThreadPrologue(densityOut *args, densityContext *context)
         }
     }
    
-    supp->tasks[supp->taskscnt++] = TASK_BIT_2_INIT(densityThreadEpilogue, densityThreadEpilogueCondition, args, NULL, supp, supp->stat, NULL, pnumGet(FRAMEWORK_META(args)->pnum, DENSITYSUPP_STAT_BIT_POS_TASK_COMP));
-   
+    supp->tasks[supp->taskscnt++] = TASK_BIT_2_INIT(densityThreadEpilogue, densityThreadEpilogueCondition, args, NULL, supp, supp->stat, NULL, pnumGet(FRAMEWORK_META(args)->pnum, DENSITYSUPP_STAT_BIT_POS_DENSITY_COMP));
+    densityRanksSchedule(supp->rargs, LOADDATA_META(args), DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC, supp->tasks, offsetof(densityRes, dns), offsetof(densityRes, rdns), DENSITYSUPP_STAT_BIT_POS_SORTDNS_COMP, DENSITYSUPP_STAT_BIT_POS_RANKDNS_COMP, &supp->taskscnt);
+    densityRanksSchedule(supp->rargs + 1, LOADDATA_META(args), DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC, supp->tasks, offsetof(densityRes, lpv), offsetof(densityRes, rlpv), DENSITYSUPP_STAT_BIT_POS_SORTLPV_COMP, DENSITYSUPP_STAT_BIT_POS_RANKLPV_COMP, &supp->taskscnt);
+    supp->tasks[supp->taskscnt++] = TASK_BIT_2_INIT(densityThreadEpilogue2, densityThreadEpilogueCondition2, args, NULL, supp, supp->stat, NULL, pnumGet(FRAMEWORK_META(args)->pnum, DENSITYSUPP_STAT_BIT_POS_TASK_COMP));
+
     if (!threadPoolEnqueueTasks(FRAMEWORK_META(args)->pool, supp->tasks, supp->taskscnt, 1)) goto ERR(Pool);
     return 1;
 
@@ -551,6 +636,8 @@ static bool densityThreadClose(densityOut *args, void *context)
     free(res->ri);
     free(res->lc);
     free(res->rc);
+    free(res->rdns);
+    free(res->rlpv);
 
     densitySupp *supp = &args->supp;
 
@@ -576,10 +663,35 @@ static bool densityCloseCondition(densitySupp *supp, void *arg)
     case 3: break;
     }
         
-    switch (bitGet2((void *) supp->stat, DENSITYSUPP_STAT_BIT_POS_TASK_COMP))
+    switch (bitGet2((void *) supp->stat, DENSITYSUPP_STAT_BIT_POS_DENSITY_COMP))
     {
     case 0: return 0;
     case 1: return 1;
+    case 3: break;
+    }
+
+    size_t ind = 0;
+
+    switch (bitGet2(( void *) supp->stat, DENSITYSUPP_STAT_BIT_POS_RANKDNS_COMP))
+    {
+    case 0: return 0;
+    case 1: ind++;
+    case 3: break;
+    }
+
+    switch (bitGet2(( void *) supp->stat, DENSITYSUPP_STAT_BIT_POS_RANKLPV_COMP))
+    {
+    case 0: return 0;
+    case 1: ind++;
+    case 3: break;
+    }
+
+    if (ind) return 1;
+
+    switch (bitGet2(( void *) supp->stat, DENSITYSUPP_STAT_BIT_POS_TASK_COMP))
+    {
+    case 0: return 0;
+    case 1: return 1; // Never happens
     case 3: break;
     }
 

@@ -18,6 +18,7 @@ bool dReportHandler(const char *str, size_t len, dReportType *ptr, void *context
     (void) len;
 
     if (!strcmpci(str, "density")) *ptr = DREPORT_TYPE_DENSITY;
+    else if (!strcmpci(str, "naive")) *ptr = DREPORT_TYPE_NAIVE;
     else if (!strcmpci(str, "nlpv")) *ptr = DREPORT_TYPE_NLPV;
     else if (!strcmpci(str, "qas")) *ptr = DREPORT_TYPE_QAS;
     else return 0;
@@ -88,19 +89,56 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
     loadDataRes *ldres = LOADDATA_META(args)->res;
     densityRes *densityres = DENSITY_META(args)->res;
     
+    uint8_t *bits = NULL;
+    size_t *idx = NULL;
+
     if (!bitTest(context->bits, DREPORTCONTEXT_BIT_POS_THRESHOLD)) context->threshold = -DBL_MAX;
     
     size_t cnt = ldres->pvcnt;
-    double **index = selectByThreshold(densityres->lpv, &cnt, context->threshold);
+    //double **index = NULL;
+    /*switch (context->type)
+    {
+    case DREPORT_TYPE_DENSITY:
+        index = ordersInvert(densityfoldres->rdns, ldres->snpcnt); // selectByThreshold(densityres->lpv, &cnt, context->threshold);
+        break;
+    case DREPORT_TYPE_NAIVE:
+        break;
+    }*/
 
-    if (!index && cnt) goto ERR(Index);
-    quickSort(index, cnt, sizeof *index, (compareCallback) densityComp, NULL);
+    //if (!index && cnt) goto ERR(Index);
+    //quickSort(index, cnt, sizeof *index, (compareCallback) densityComp, NULL);
 
     f = fopen(context->path, "w");
     if (!f) goto ERR(File);
 
     uint8_t semi = (uint8_t) bitTest(context->bits, DREPORTCONTEXT_BIT_POS_SEMICOLON);
 
+    const char *head = ((const char *[])
+    {
+        "bits,"
+        "v_ind,"
+        "r_density,"
+        "r_naive_p,"
+        "left_ind,"
+        "right_ind,"
+        "left_cnt,"
+        "right_cnt,"
+        "density,"
+        "naive_p",
+
+        "bits;"
+        "v_ind;"
+        "r_density;"
+        "r_naive_p;"
+        "left_ind;"
+        "right_ind;"
+        "left_cnt;"
+        "right_cnt;"
+        "density;"
+        "naive_p",
+    })[semi];
+    
+    /*
     const char *head = ((const char *[])
     {
         "\"Rank of Density's P-value\","
@@ -131,45 +169,81 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
         "Density's P-value;"
         "Density\n",
     })[semi];
+    */
 
+    const char *form = ((const char *[]) 
+    { 
+        "%" PRIu8 "," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%.16e," "%.16e\n",
+        "%" PRIu8 ";" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%.16e;" "%.16e\n",
+    })[semi];
+
+    /*
     const char *form = ((const char *[]) 
     { 
         "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%.16e," "%.16e," "%.16e\n",
         "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%zu;" "%.16e;" "%.16e;" "%.16e\n",
     })[semi];
+    */
+
+    size_t limit = bitTest(context->bits, DREPORTCONTEXT_BIT_POS_LIMIT) ? cnt > context->limit ? context->limit : cnt : cnt;
+    if (bitTest(context->bits, DREPORTCONTEXT_BIT_POS_HEADER)) fprintf(f, "%s", head);
+    
+    size_t idx_cnt = 0, idx_cap = 0, bits_cap = 0;
+    for (size_t i = 0; i < cnt; i++)
+    {
+        uint8_t set = 0;
+        if (densityres->rlpv[i] < limit) set |= 1;
+        if (densityres->rdns[i] < limit) set |= 2;
+        if (ldres->rnlpv[i] < limit) set |= 4;
+        if (ldres->rqas[i] < limit) set |= 8;        
+        if (!set) continue;
+        if (!dynamicArrayTest((void **) &idx, &idx_cap, sizeof *idx, idx_cnt + 1) ||
+            !dynamicArrayTest((void **) &bits, &bits_cap, sizeof *bits, idx_cnt + 1)) goto ERR();
+        idx[idx_cnt] = i;
+        bits[idx_cnt] = set;
+        idx_cnt++;
+    }
 
     struct tableline
     {
-        // <-
-        size_t v_ind, rank, li, ci, ri, lp, cp, rp, cnt;
-        double lpv, pv, dns, ;
-    } tln, tl = { 0 };
-    
-    size_t limit = bitTest(context->bits, DREPORTCONTEXT_BIT_POS_LIMIT) ? cnt > context->limit ? context->limit : cnt : cnt;
-    if (bitTest(context->bits, DREPORTCONTEXT_BIT_POS_HEADER)) fprintf(f, "%s", head);
-        
-    for (size_t i = 0, rank = 0; i < cnt && limit; i++)
-    {
-        size_t ind = index[i] - densityres->lpv;
-        size_t test = ind / ldres->snpcnt, row = ind % ldres->snpcnt;
-        size_t chr = findBound(row, ldres->chroff, ldres->chrcnt);
+        uint8_t bits;
+        size_t v_ind, r_density, r_naive_p, li, ri, lc, rc;
+        double dns, pv;
+    };
 
-        tln = (struct tableline)
+    for (size_t i = 0; i < idx_cnt; i++)
+    {
+        size_t ind = idx[i];
+        size_t test = ind / ldres->snpcnt, row = ind % ldres->snpcnt;
+        //size_t chr = findBound(row, ldres->chroff, ldres->chrcnt);
+
+        struct tableline tln = (struct tableline)
         {
-            rank + 1, test + 1, chr + 1,
-            densityres->li[ind] + 1, row + 1, densityres->ri[ind] + 1,
-            ldres->pos[densityres->li[ind]], ldres->pos[row], ldres->pos[densityres->ri[ind]],
-            densityres->lc[ind] + densityres->rc[ind] + 1,
-            densityres->lpv[ind], pow(10, -densityres->lpv[ind]), densityres->dns[ind]
+            .bits = bits[i],
+            .v_ind = row * ldres->testcnt + test + 1,
+            .r_density = densityres->rdns[ind] + 1,
+            .r_naive_p = densityres->rlpv[ind] + 1,
+            .li = densityres->li[ind] + 1,
+            .ri = densityres->ri[ind] + 1,
+            .lc = densityres->lc[ind],
+            .rc = densityres->rc[ind],
+            .dns = densityres->dns[ind],
+            .pv = pow(10, -densityres->lpv[ind])
+            //rank + 1, test + 1, chr + 1,
+            //densityres->li[ind] + 1, row + 1, densityres->ri[ind] + 1,
+            //ldres->pos[densityres->li[ind]], ldres->pos[row], ldres->pos[densityres->ri[ind]],
+            //densityres->lc[ind] + densityres->rc[ind] + 1,
+            //densityres->lpv[ind], pow(10, -densityres->lpv[ind]), densityres->dns[ind]
         };
 
-        if (tl.test != tln.test || tl.chr != tln.chr || tl.li != tln.li || tl.ri != tln.ri || tl.lpv != tln.lpv)
-        {
-            fprintf(f, form, tln.rank, tln.test, tln.chr, tln.li, tln.ci, tln.ri, tln.lp, tln.cp, tln.rp, tln.cnt, tln.lpv, tln.pv, tln.dns);
-            tl = tln;
-            rank++;
-            limit--;
-        }
+        //if (tl.v_ind != tln.v_ind || tl.li != tln.li || tl.ri != tln.ri)
+        //{
+        fprintf(f, form, tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc, tln.dns, tln.pv);
+        //fprintf(f, form, tln.rank, tln.test, tln.chr, tln.li, tln.ci, tln.ri, tln.lp, tln.cp, tln.rp, tln.cnt, tln.lpv, tln.pv, tln.dns);
+        //tl = tln;
+        //rank++;
+        limit--;
+        //}
     }
 
     for (;;)
@@ -187,7 +261,9 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
         break;
     }
 
-    free(index);
+    free(idx);
+    free(bits);
+
     if (f) fclose(f);
 
     return succ;

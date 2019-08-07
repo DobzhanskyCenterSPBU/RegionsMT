@@ -5,6 +5,7 @@
 typedef enum {
     DREPORT_TYPE_UNKNOWN = 0,
     DREPORT_TYPE_DENSITY,
+    DREPORT_TYPE_NAIVE,
     DREPORT_TYPE_NLPV,
     DREPORT_TYPE_QAS
 } dReportType;
