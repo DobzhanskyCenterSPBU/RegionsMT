@@ -40,7 +40,7 @@ bool densityThreadRanksPrologue(densityThreadRanksArgs *args, densityMetadata *m
 
     args->initime = getTime(); // Setting timer
 
-    for (size_t i = 0; i < res->pvcnt; rarr[i] = (uintptr_t) &arr[i], i++);
+    for (size_t i = 0; i < LOADDATA_META(meta)->res->pvcnt; rarr[i] = (uintptr_t) &arr[i], i++);
 
     sortMTSync sync =
     {
