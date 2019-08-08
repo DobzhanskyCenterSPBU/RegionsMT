@@ -186,8 +186,10 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
     */
 
     size_t limit = bitTest(context->bits, DREPORTCONTEXT_BIT_POS_LIMIT) ? cnt > context->limit ? context->limit : cnt : cnt;
-    if (bitTest(context->bits, DREPORTCONTEXT_BIT_POS_HEADER)) fprintf(f, "%s", head);
+    if (bitTest(context->bits, DREPORTCONTEXT_BIT_POS_HEADER)) fprintf(f, "%s\n", head);
     
+    printf("Limit is %zu!\n", limit);
+
     size_t idx_cnt = 0, idx_cap = 0, bits_cap = 0;
     for (size_t i = 0; i < cnt; i++)
     {
