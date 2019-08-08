@@ -538,7 +538,10 @@ static bool densityThreadPrologue(densityOut *args, densityContext *context)
         arrayInit((void **) &res->li, lpvcnt, sizeof *res->li) &&
         arrayInit((void **) &res->ri, lpvcnt, sizeof *res->ri) &&
         arrayInit((void **) &res->lc, lpvcnt, sizeof *res->lc) &&
-        arrayInit((void **) &res->rc, lpvcnt, sizeof *res->rc))) goto ERR();
+        arrayInit((void **) &res->rc, lpvcnt, sizeof *res->rc) &&
+        arrayInitClear((void **) &res->rdns, lpvcnt, sizeof *res->rdns) &&
+        arrayInitClear((void **) &res->rlpv, lpvcnt, sizeof *res->rlpv)        
+        )) goto ERR();
     
     size_t dtaskscnt = supp->thresh = chrcnt * testcnt;
     
