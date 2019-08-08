@@ -582,8 +582,8 @@ static bool densityThreadPrologue(densityOut *args, densityContext *context)
     }
    
     supp->tasks[supp->taskscnt++] = TASK_BIT_2_INIT(densityThreadEpilogue, densityThreadEpilogueCondition, args, NULL, supp, supp->stat, NULL, pnumGet(FRAMEWORK_META(args)->pnum, DENSITYSUPP_STAT_BIT_POS_DENSITY_COMP));
-    densityRanksSchedule(supp->rargs, LOADDATA_META(args), DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC, supp->tasks, offsetof(densityRes, dns), offsetof(densityRes, rdns), DENSITYSUPP_STAT_BIT_POS_SORTDNS_COMP, DENSITYSUPP_STAT_BIT_POS_RANKDNS_COMP, &supp->taskscnt);
-    densityRanksSchedule(supp->rargs + 1, LOADDATA_META(args), DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC, supp->tasks, offsetof(densityRes, lpv), offsetof(densityRes, rlpv), DENSITYSUPP_STAT_BIT_POS_SORTLPV_COMP, DENSITYSUPP_STAT_BIT_POS_RANKLPV_COMP, &supp->taskscnt);
+    densityRanksSchedule(supp->rargs, DENSITY_META(args), DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC, supp->tasks, offsetof(densityRes, dns), offsetof(densityRes, rdns), DENSITYSUPP_STAT_BIT_POS_SORTDNS_COMP, DENSITYSUPP_STAT_BIT_POS_RANKDNS_COMP, &supp->taskscnt);
+    densityRanksSchedule(supp->rargs + 1, DENSITY_META(args), DENSITYSUPP_STAT_BIT_POS_DENSITY_SUCC, supp->tasks, offsetof(densityRes, lpv), offsetof(densityRes, rlpv), DENSITYSUPP_STAT_BIT_POS_SORTLPV_COMP, DENSITYSUPP_STAT_BIT_POS_RANKLPV_COMP, &supp->taskscnt);
     supp->tasks[supp->taskscnt++] = TASK_BIT_2_INIT(densityThreadEpilogue2, densityThreadEpilogueCondition2, args, NULL, supp, supp->stat, NULL, pnumGet(FRAMEWORK_META(args)->pnum, DENSITYSUPP_STAT_BIT_POS_TASK_COMP));
 
     if (!threadPoolEnqueueTasks(FRAMEWORK_META(args)->pool, supp->tasks, supp->taskscnt, 1)) goto ERR(Pool);

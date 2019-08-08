@@ -89,12 +89,11 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
     loadDataRes *ldres = LOADDATA_META(args)->res;
     densityRes *densityres = DENSITY_META(args)->res;
     
-    uint8_t *bits = NULL;
-    size_t *idx = NULL;
+    //uint8_t *bits = NULL;
+    //size_t *idx = NULL;
 
     if (!bitTest(context->bits, DREPORTCONTEXT_BIT_POS_THRESHOLD)) context->threshold = -DBL_MAX;
     
-    size_t cnt = ldres->pvcnt;
     //double **index = NULL;
     /*switch (context->type)
     {
@@ -185,26 +184,11 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
     })[semi];
     */
 
+    size_t cnt = ldres->pvcnt;
     size_t limit = bitTest(context->bits, DREPORTCONTEXT_BIT_POS_LIMIT) ? cnt > context->limit ? context->limit : cnt : cnt;
     if (bitTest(context->bits, DREPORTCONTEXT_BIT_POS_HEADER)) fprintf(f, "%s\n", head);
     
-    printf("Limit is %zu!\n", limit);
-
-    size_t idx_cnt = 0, idx_cap = 0, bits_cap = 0;
-    for (size_t i = 0; i < cnt; i++)
-    {
-        uint8_t set = 0;
-        if (densityres->rlpv[i] < limit) set |= 1;
-        if (densityres->rdns[i] < limit) set |= 2;
-        if (ldres->rnlpv[i] < limit) set |= 4;
-        if (ldres->rqas[i] < limit) set |= 8;        
-        if (!set) continue;
-        if (!dynamicArrayTest((void **) &idx, &idx_cap, sizeof *idx, idx_cnt + 1) ||
-            !dynamicArrayTest((void **) &bits, &bits_cap, sizeof *bits, idx_cnt + 1)) goto ERR();
-        idx[idx_cnt] = i;
-        bits[idx_cnt] = set;
-        idx_cnt++;
-    }
+    //printf("Limit is %zu!\n", limit);
 
     struct tableline
     {
@@ -213,6 +197,43 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
         double dns, pv;
     };
 
+    //size_t idx_cnt = 0, idx_cap = 0, bits_cap = 0;
+    for (size_t i = 0; i < cnt; i++)
+    {
+        uint8_t set = 0;
+        if (densityres->rlpv[i] < limit) set |= 1;
+        if (densityres->rdns[i] < limit) set |= 2;
+        if (ldres->rnlpv[i] < limit) set |= 4;
+        if (ldres->rqas[i] < limit) set |= 8;        
+        if (!set) continue;
+        //if (!dynamicArrayTest((void **) &idx, &idx_cap, sizeof *idx, idx_cnt + 1) ||
+        //    !dynamicArrayTest((void **) &bits, &bits_cap, sizeof *bits, idx_cnt + 1)) goto ERR();
+        //idx[idx_cnt] = i;
+        //bits[idx_cnt] = set;
+        
+        size_t test = i / ldres->snpcnt, row = i % ldres->snpcnt;
+        struct tableline tln = (struct tableline)
+        {
+            .bits = set,
+            .v_ind = row * ldres->testcnt + test + 1,
+            .r_density = densityres->rdns[i] + 1,
+            .r_naive_p = densityres->rlpv[i] + 1,
+            .li = densityres->li[i] + 1,
+            .ri = densityres->ri[i] + 1,
+            .lc = densityres->lc[i],
+            .rc = densityres->rc[i],
+            .dns = densityres->dns[i],
+            .pv = pow(10, -densityres->lpv[i])
+            //rank + 1, test + 1, chr + 1,
+            //densityres->li[ind] + 1, row + 1, densityres->ri[ind] + 1,
+            //ldres->pos[densityres->li[ind]], ldres->pos[row], ldres->pos[densityres->ri[ind]],
+            //densityres->lc[ind] + densityres->rc[ind] + 1,
+            //densityres->lpv[ind], pow(10, -densityres->lpv[ind]), densityres->dns[ind]
+        };
+        fprintf(f, form, tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc, tln.dns, tln.pv);
+    }
+        
+    /*
     for (size_t i = 0; i < idx_cnt; i++)
     {
         size_t ind = idx[i];
@@ -247,6 +268,7 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
         limit--;
         //}
     }
+    */
 
     for (;;)
     {
@@ -266,8 +288,8 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
         break;
     }
 
-    free(idx);
-    free(bits);
+    //free(idx);
+    //free(bits);
 
     if (f) fclose(f);
 

@@ -44,7 +44,8 @@ typedef struct densityCallbackArgs densityCallbackArgs;
 typedef struct densityCallbackContext densityCallbackContext;
 
 typedef struct {
-    size_t *li, *ri, *lc, *rc, *rdns, *rlpv; // Left and right index, Left and right count
+    size_t *li, *ri, *lc, *rc; // Left and right index, Left and right count
+    uintptr_t *rdns, *rlpv;
     double *dns, *lpv;
 } densityRes, *densityResPtr;
 
