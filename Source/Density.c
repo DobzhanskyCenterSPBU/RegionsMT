@@ -49,7 +49,7 @@ bool densityThreadRanksPrologue(densityThreadRanksArgs *args, densityMetadata *m
         .asuccarg = &args->sortbit
     };
 
-    args->smt = sortMTCreate(rarr, LOADDATA_META(meta)->res->pvcnt, sizeof * rarr, (compareCallback) ranksComp, NULL, FRAMEWORK_META(meta)->pool, &sync);
+    args->smt = sortMTCreate(rarr, LOADDATA_META(meta)->res->pvcnt, sizeof *rarr, (compareCallback) ranksComp, NULL, FRAMEWORK_META(meta)->pool, &sync);
     if (args->smt) return 1;
 
     logMsg(FRAMEWORK_META(meta)->log, "ERROR (%s): Unable to compute ranks!\n", __FUNCTION__);
@@ -468,7 +468,7 @@ static bool densityThreadEpilogue(densityOut *args, densityContext *context)
 static bool densityThreadEpilogueCondition2(densitySupp *supp, void *arg)
 {
     ( void) arg;
-    return bitTest(supp->stat, DENSITYSUPP_STAT_BIT_POS_SORTDNS_SUCC) && bitTest(supp->stat, DENSITYSUPP_STAT_BIT_POS_SORTDNS_SUCC);
+    return bitTest(supp->stat, DENSITYSUPP_STAT_BIT_POS_RANKDNS_SUCC) && bitTest(supp->stat, DENSITYSUPP_STAT_BIT_POS_RANKLPV_SUCC);
 }
 
 static bool densityThreadEpilogue2(densityOut *args, densityContext *context)
