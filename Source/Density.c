@@ -614,8 +614,9 @@ bool densityPrologue(densityIn *in, densityOut **pout, densityContext *context)
     task *tsk = tasksInfoNextTask(FRAMEWORK_META(in)->tasks);
     if (!tsk) goto ERR();
    
+    // TODO: TASK_SUCC -> LOAD_SUCC
     if (!pnumTest(FRAMEWORK_META(out)->pnum, DENSITYSUPP_STAT_BIT_CNT)) goto ERR();
-    *tsk = TASK_BIT_2_INIT(densityThreadPrologue, bitTestMem, out, context, LOADDATA_META(in)->stat, out->supp.stat, pnumGet(FRAMEWORK_META(out)->pnum, LOADDATASUPP_STAT_BIT_POS_LOAD_SUCC), pnumGet(FRAMEWORK_META(out)->pnum, DENSITYSUPP_STAT_BIT_POS_INIT_COMP));
+    *tsk = TASK_BIT_2_INIT(densityThreadPrologue, bitTestMem, out, context, LOADDATA_META(in)->stat, out->supp.stat, pnumGet(FRAMEWORK_META(out)->pnum, LOADDATASUPP_STAT_BIT_POS_TASK_SUCC), pnumGet(FRAMEWORK_META(out)->pnum, DENSITYSUPP_STAT_BIT_POS_INIT_COMP));
     
     sizeIncInterlocked(LOADDATA_META(in)->holdload, NULL); // Increase the chromosome data hold counter
     return  1;
