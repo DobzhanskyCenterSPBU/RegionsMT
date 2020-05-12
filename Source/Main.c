@@ -433,7 +433,8 @@ int main(int argc, char **argv)
     cmdArgs args = { { .logDef = &loginfo } };
     
     cmdArgsParse(&argsch, &args, argv, argc, input, &inputcnt, &loginfo);
-    
+
+    bool succ = 1;
     if (bitTest(args.bits, CMDARGS_BIT_POS_HELP))
     {
         logMsg(&loginfo, strings[STR_FR_IH], strings[STR_FN]);
@@ -450,12 +451,12 @@ int main(int argc, char **argv)
 
             if (obj)
             {
-                if (!programObjectExecute(obj, &args.in)) logMsg(&loginfo, strings[STR_FR_WE], strings[STR_FN], input[i]);
+                if (!programObjectExecute(obj, &args.in)) logMsg(&loginfo, strings[STR_FR_WE], strings[STR_FN], input[i]), succ = 0;
                 programObjectDispose(obj);
             }
             else logMsg(&loginfo, strings[STR_FR_WC], strings[STR_FN], input[i]);
         }
     }
    
-    exit(EXIT_SUCCESS);
+    exit(succ ? EXIT_SUCCESS : EXIT_FAILURE);
 }

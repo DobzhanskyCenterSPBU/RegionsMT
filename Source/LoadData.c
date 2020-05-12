@@ -614,7 +614,7 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
         }
         
         snpstrsz += args->args[i].strtblcnt[TEXT_SNP];
-        allelestrsz += args->args[i].strtblcnt[TEXT_ALLELE];
+        //allelestrsz += args->args[i].strtblcnt[TEXT_ALLELE];
     }
 
     res->snpnamestrsz = snpstrsz;
