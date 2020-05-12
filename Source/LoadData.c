@@ -268,7 +268,7 @@ static bool loadDataThreadRead(loadDataThreadReadArgs *args, loadDataThreadConte
 
 typedef struct
 {
-    size_t chr, row, ind;
+    size_t ind;
     loadDataRes *res;
 } loadDataValContext;
 
@@ -278,6 +278,22 @@ typedef struct loadDataThreadReadValArgs
     loadDataValContext context;
 } loadDataThreadReadValArgs;
 
+static bool loadDataColumnHandlerVind(const char *str, size_t len, void *ptr, loadDataValContext *context)
+{
+    (void) len; (void) ptr;
+
+    char *test;
+    size_t res = (size_t) strtoull(str, &test, 10);
+    if (*test || !res) return 0;
+    res--;
+    size_t ind = res / context->res->testcnt, col = res % context->res->testcnt;
+    if (ind > context->res->snpcnt) return 0;
+    context->ind = context->res->snpcnt * col + ind;
+
+    return 1;
+}
+
+/*
 static bool loadDataColumnHandlerChr(const char *str, size_t len, void *ptr, loadDataValContext *context)
 {
     (void) len; (void) ptr;
@@ -313,6 +329,7 @@ static bool loadDataColumnHandlerTest(const char *str, size_t len, void *ptr, lo
     
     return 1;
 }
+*/
 
 static bool loadDataColumnHandlerLpvLog(const char *str, size_t len, void *ptr, loadDataValContext *context)
 {
@@ -465,10 +482,10 @@ typedef struct
         return 0; \
     } while (0)
 
-// Specialized combine routine for chromosome table
+// Specialized combine routine for the chromosome table
 bool loadDataThreadProcCombineChr(loadDataThreadCombineArgs *args, loadDataThreadContext *context)
 {
-    enum { COL_CHR = 0, COL_CHRSTR };
+    enum { COL_CHR = 0, COL_CHRSTR, COL_CHRLEN };
     enum { TEXT_CHRSTR = 0 };
 
     size_t chromcnt = 0, chrnamestrsz = 0;
@@ -492,7 +509,7 @@ bool loadDataThreadProcCombineChr(loadDataThreadCombineArgs *args, loadDataThrea
     res->chrnamestrsz = chrnamestrsz;
 
     if (!(
-        arrayInitClear((void **) &res->chrlen, chromcnt, sizeof *res->chrlen) &&
+        arrayInit((void **) &res->chrlen, chromcnt, sizeof *res->chrlen) &&
         arrayInit((void **) &res->chrname, chromcnt, sizeof *res->chrname) &&
         arrayInit((void **) &res->chroff, chromcnt, sizeof *res->chroff) &&
         arrayInit((void **) &res->chrnamestr, chrnamestrsz, sizeof *res->chrnamestr))) goto ERR();
@@ -500,13 +517,20 @@ bool loadDataThreadProcCombineChr(loadDataThreadCombineArgs *args, loadDataThrea
     for (size_t i = 0, off = 0; i < args->cnt; i++)
     {
         for (size_t j = 0; j < args->args[i].rowcnt; j++)
-            res->chrname[((uint16_t *) args->args[i].res[COL_CHR])[j] - 1] = ((ptrdiff_t *) args->args[i].res[COL_CHRSTR])[j] + off;
-
+        {
+            size_t ind = ((uint16_t *) args->args[i].res[COL_CHR])[j] - 1;
+            res->chrname[ind] = ((ptrdiff_t *) args->args[i].res[COL_CHRSTR])[j] + off;
+            res->chrlen[ind] = ((uint32_t *) args->args[i].res[COL_CHRLEN])[j];
+        }
         memcpy(res->chrnamestr + off, args->args[i].strtbl[TEXT_CHRSTR], args->args[i].strtblcnt[TEXT_CHRSTR]);
         off += args->args[i].strtblcnt[TEXT_CHRSTR];
 
         loadDataThreadReadArgsCloseTest(&args->args[i]);
     }
+
+    size_t snpcnt = 0;
+    for (size_t i = 0; i < res->chrcnt; res->chroff[i] = snpcnt, snpcnt += res->chrlen[i], i++);
+    res->snpcnt = snpcnt;
 
     return 1;
 
@@ -515,7 +539,7 @@ ERR():
     return 0;
 }
 
-// Specialized combine routines for test table
+// Specialized combine routine for the test table
 bool loadDataThreadProcCombineTest(loadDataThreadCombineArgs *args, loadDataThreadContext *context)
 {
     enum { COL_TEST = 0, COL_TESTSTR };
@@ -563,42 +587,42 @@ ERR():
     return 0;
 }
 
-// Specialized combine routines for test table
+// Specialized combine routine for the row table
 bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThreadContext *context)
 {
-    enum { COL_CHR = 0, COL_ROW, COL_SNP, COL_POS, COL_ALLELE, COL_TMAF };
+    enum { COL_IND = 0, COL_SNP, COL_POS, COL_ALLELE, COL_TMAF };
     enum { TEXT_SNP = 0, TEXT_ALLELE };
     
     size_t snpstrsz = 0, allelestrsz = 0;
     loadDataRes *res = &context->out->res;
-    
+    size_t snpcnt = res->snpcnt;
+
     for (size_t i = 0, tot = 0; i < args->cnt; i++, tot += args->args[i].rowcnt)
     {
         for (size_t j = 0; j < args->args[i].rowcnt; j++)
         {
-            uint16_t chr = ((uint16_t *) args->args[i].res[COL_CHR])[j];
-            uint32_t row = ((uint32_t *) args->args[i].res[COL_ROW])[j];
+            //uint16_t chr = ((uint16_t *) args->args[i].res[COL_CHR])[j];
+            //uint32_t row = ((uint32_t *) args->args[i].res[COL_ROW])[j];
+            size_t ind = ((uint32_t *) args->args[i].res[COL_IND])[j] - 1;
             
-            if (!chr) ERROR_ZER(COL_CHR, tot + j + 1);
-            if (!row) ERROR_ZER(COL_ROW, tot + j + 1);
+            //if (!chr) ERROR_ZER(COL_CHR, tot + j + 1);
+            //if (!row) ERROR_ZER(COL_ROW, tot + j + 1);
+            if (!ind) ERROR_ZER(COL_IND, tot + j + 1);
+            if (ind >= snpcnt) ERROR_RAN(COL_IND, tot + j + 1);
             
-            if (row > res->chrlen[chr - 1]) res->chrlen[chr - 1] = row;
+            //if (row > res->chrlen[chr - 1]) res->chrlen[chr - 1] = row;
         }
         
         snpstrsz += args->args[i].strtblcnt[TEXT_SNP];
         allelestrsz += args->args[i].strtblcnt[TEXT_ALLELE];
     }
-    
-    size_t snpcnt = 0;
-    for (size_t i = 0; i < res->chrcnt; res->chroff[i] = snpcnt, snpcnt += res->chrlen[i], i++);
-    
-    res->snpcnt = snpcnt;
+
     res->snpnamestrsz = snpstrsz;
     //res->allelenamestrsz = allelestrsz;
     
     if (!(
         arrayInit((void **) &res->snpname, snpcnt, sizeof *res->snpname) &&
-        arrayInitClear((void **) &res->genename, snpcnt, sizeof *res->genename) && // for the sake of consistency all elements of 'gene' array points to zero
+        arrayInitClear((void **) &res->genename, snpcnt, sizeof *res->genename) && // for the sake of consistency all elements of 'gene' array point to zero
         //arrayInit((void **) &res->allelename, snpcnt, sizeof *res->allelename) &&
         arrayInit((void **) &res->pos, snpcnt, sizeof *res->pos) &&
         arrayInit((void **) &res->snpnamestr, snpstrsz, sizeof *res->snpnamestr) &&
@@ -613,9 +637,10 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
     {
         for (size_t j = 0; j < args->args[i].rowcnt; j++)
         {
-            uint16_t chr = ((uint16_t *) args->args[i].res[COL_CHR])[j];
-            uint32_t row = ((uint32_t *) args->args[i].res[COL_ROW])[j];
-            size_t ind = res->chroff[chr - 1] + row - 1;
+            //uint16_t chr = ((uint16_t *) args->args[i].res[COL_CHR])[j];
+            //uint32_t row = ((uint32_t *) args->args[i].res[COL_ROW])[j];
+            //size_t ind = res->chroff[chr - 1] + row - 1;
+            size_t ind = ((uint32_t *) args->args[i].res[COL_IND])[j] - 1;
 
             res->snpname[ind] = ((ptrdiff_t *) args->args[i].res[COL_SNP])[j] + offsnp;
             //res->tmaf[ind] = ((double *) args->args[i].res[COL_TMAF])[j];
@@ -637,8 +662,8 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
     {
         for (size_t j = res->chroff[i] + 1; j < res->chroff[i] + res->chrlen[i]; j++) if (res->pos[j - 1] > res->pos[j])
         {
-            logMsg(FRAMEWORK_META(context->out)->log,"ERROR (%s): Discordant genome positions provided (first occurrence on chr %zu, nrow %zu)!\n", __FUNCTION__, i + 1, j - res->chroff[i]);
-            return 0;
+            logMsg(FRAMEWORK_META(context->out)->log,"WARNING (%s): Discordant genome positions provided (first occurrence on chr %zu, nrow %zu)!\n", __FUNCTION__, i + 1, j - res->chroff[i]);
+            //return 0;
         }
     }
     
@@ -745,43 +770,45 @@ ERR():
 
 static const tblsch statSchChr = CLII((tblcolsch[])
 {
-    { .handler = { .read = (readHandlerCallback) uint16Handler }, .ind = 0, .size = sizeof(uint16_t) },
-    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 1, .size = sizeof(ptrdiff_t) },
+    { .handler = { .read = (readHandlerCallback) uint16Handler }, .ind = 0, .size = sizeof(uint16_t) }, // chr
+    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 1, .size = sizeof(ptrdiff_t) }, // chr_name
+    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 2, .size = sizeof(uint32_t) } // chr_len
 });
 
 static const tblsch statSchTest= CLII((tblcolsch[])
 {
-    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 0, .size = sizeof(uint32_t) },
-    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 1, .size = sizeof(ptrdiff_t) },
+    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 0, .size = sizeof(uint32_t) }, // col
+    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 1, .size = sizeof(ptrdiff_t) }, // col_name
 });
 
 static const tblsch statSchRow = CLII((tblcolsch[])
 {
-    { .handler = { .read = (readHandlerCallback) uint16Handler }, .ind = 0, .size = sizeof(uint16_t) },
-    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 1, .size = sizeof(uint32_t) },
-    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 2, .size = sizeof(ptrdiff_t) },
-    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 3, .size = sizeof(uint32_t) },
-    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 4, .size = sizeof(ptrdiff_t) },
-    { .handler = { .read = (readHandlerCallback) float64Handler }, .ind = 5, .size = sizeof(double) },
+    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 0, .size = sizeof(uint32_t) }, // ind
+    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 1, .size = sizeof(ptrdiff_t) }, // alias
+    { .handler = { .read = (readHandlerCallback) uint32Handler }, .ind = 2, .size = sizeof(uint32_t) }, // pos
+    { .handler = { .read = (readHandlerCallback) strTableHandler }, .ind = 3, .size = sizeof(ptrdiff_t) }, // allele
+    { .handler = { .read = (readHandlerCallback) float64Handler }, .ind = 4, .size = sizeof(double) }, // maf
 });
 
 static const tblsch statSchVal = CLII((tblcolsch[]) // Each field have dedicated handler for this time...
 {
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerChr } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerRow } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerTest } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerLpv } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerQas } },
+    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerVind } }, // v_ind
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerChr } },
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerRow } },
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerTest } },
+    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerLpv } }, // -log10(pv)
+    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerQas } }, // qas
     //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerMaf } },
 });
 
 static const tblsch statSchValLog = CLII((tblcolsch[])
 {
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerChr } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerRow } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerTest } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerLpvLog } },
-    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerQas } },
+    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerVind } }, // v_ind
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerChr } },
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerRow } },
+    //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerTest } },
+    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerLpvLog } }, // pv
+    { .handler = { .read = (readHandlerCallback) loadDataColumnHandlerQas } }, // qas
     //{ .handler = { .read = (readHandlerCallback) loadDataColumnHandlerMaf } },
 });
 
