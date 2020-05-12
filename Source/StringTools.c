@@ -133,7 +133,11 @@ bool float64Handler(const char *str, size_t len, double *ptr, handlerContext *co
     char *test;
     *ptr = strtod(str, &test);
 
-    if (*test) return 0;
+    if (*test)
+    {
+        if (!strcmp(str, "NA")) *ptr = NaN;
+        else return 0;
+    }
     if (context) bitSet((unsigned char *) ptr + context->set, context->pos);
     return 1;
 }

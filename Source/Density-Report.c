@@ -230,7 +230,28 @@ static bool dReportThreadProc(dReportOut *args, dReportContext *context)
             //densityres->lc[ind] + densityres->rc[ind] + 1,
             //densityres->lpv[ind], pow(10, -densityres->lpv[ind]), densityres->dns[ind]
         };
-        fprintf(f, form, tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc, tln.dns, tln.pv);
+        if (isinf(tln.dns)) tln.dns = tln.dns > 0 ? DBL_MAX : -DBL_MAX;
+        if (isinf(tln.pv)) tln.pv = tln.pv > 0 ? DBL_MAX : -DBL_MAX;
+        if (!isnan(tln.dns) && !isnan(tln.pv))
+        {
+            fprintf(f, "%" PRIu8 "," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%.16e," "%.16e\n",
+                tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc, tln.dns, tln.pv);
+        }
+        else if (!isnan(tln.dns))
+        {
+            fprintf(f, "%" PRIu8 "," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "NA," "%.16e\n",
+                tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc, tln.pv);
+        }
+        else if (!isnan(tln.pv))
+        {
+            fprintf(f, "%" PRIu8 "," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%.16e," "NA\n",
+                tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc, tln.dns);
+        }
+        else
+        {
+            fprintf(f, "%" PRIu8 "," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "%zu," "NA," "NA\n",
+                tln.bits, tln.v_ind, tln.r_density, tln.r_naive_p, tln.li, tln.ri, tln.lc, tln.rc);
+        }
     }
         
     /*
