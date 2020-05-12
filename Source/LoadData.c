@@ -608,7 +608,7 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
             //if (!chr) ERROR_ZER(COL_CHR, tot + j + 1);
             //if (!row) ERROR_ZER(COL_ROW, tot + j + 1);
             if (!ind) ERROR_ZER(COL_IND, tot + j + 1);
-            if (ind >= snpcnt) ERROR_RAN(COL_IND, tot + j + 1);
+            if (ind > snpcnt) ERROR_RAN(COL_IND, tot + j + 1);
             
             //if (row > res->chrlen[chr - 1]) res->chrlen[chr - 1] = row;
         }
