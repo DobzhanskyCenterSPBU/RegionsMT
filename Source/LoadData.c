@@ -472,13 +472,13 @@ typedef struct
 
 #define ERROR_ZER(NO, ROW) \
     do { \
-        logMsg(FRAMEWORK_META(context->out)->log, "ERROR (%s): Zero value is not permitted for the field no. %u (row %zu)!\n", __FUNCTION__, (unsigned) (NO), (ROW)); \
+        logMsg(FRAMEWORK_META(context->out)->log, "ERROR (%s): Zero value is not permitted for the field no. %u (row %zu)!\n", __FUNCTION__, (unsigned) (NO) + 1, (ROW)); \
         return 0; \
     } while (0)
 
 #define ERROR_RAN(NO, ROW) \
     do { \
-        logMsg(FRAMEWORK_META(context->out)->log, "ERROR (%s): Value in the field no. %u (row %zu) is out of range!\n", __FUNCTION__, (unsigned) (NO), (ROW)); \
+        logMsg(FRAMEWORK_META(context->out)->log, "ERROR (%s): Value in the field no. %u (row %zu) is out of range!\n", __FUNCTION__, (unsigned) (NO) + 1, (ROW)); \
         return 0; \
     } while (0)
 
@@ -603,7 +603,7 @@ bool loadDataThreadProcCombineRow(loadDataThreadCombineArgs *args, loadDataThrea
         {
             //uint16_t chr = ((uint16_t *) args->args[i].res[COL_CHR])[j];
             //uint32_t row = ((uint32_t *) args->args[i].res[COL_ROW])[j];
-            size_t ind = ((uint32_t *) args->args[i].res[COL_IND])[j] - 1;
+            size_t ind = ((uint32_t *) args->args[i].res[COL_IND])[j];
             
             //if (!chr) ERROR_ZER(COL_CHR, tot + j + 1);
             //if (!row) ERROR_ZER(COL_ROW, tot + j + 1);
