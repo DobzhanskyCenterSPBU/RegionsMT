@@ -337,8 +337,7 @@ static bool loadDataColumnHandlerLpvLog(const char *str, size_t len, void *ptr, 
     
     char *test;
     double res = (double) strtod(str, &test);
-    if (*test) return 0;
-    if (res > 0 && res < 1) context->res->nlpv[context->ind] = -log10(res); // Quite NaN otherwise
+    if (!*test &&  res > 0 && res < 1) context->res->nlpv[context->ind] = -log10(res); // Quite NaN otherwise
     
     return 1;
 }
@@ -349,9 +348,7 @@ static bool loadDataColumnHandlerQas(const char *str, size_t len, void *ptr, loa
     
     char *test;
     double res = (double) strtod(str, &test);
-    if (*test) return 0;
-    //if (res >= 0)
-    context->res->qas[context->ind] = res; // Quite NaN otherwise
+    if (!*test) context->res->qas[context->ind] = res;
     
     return 1;
 }
