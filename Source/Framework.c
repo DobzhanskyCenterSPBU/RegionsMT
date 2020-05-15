@@ -181,7 +181,8 @@ bool frameworkEpilogue(frameworkIn *in, frameworkOut *out, frameworkContext *con
     
     (void) in;
     (void) context;
-        
+    
+    size_t fail = 0, pend = 0;    
     if (out)
     {
         if (FRAMEWORK_META(out)->pool)
@@ -189,7 +190,7 @@ bool frameworkEpilogue(frameworkIn *in, frameworkOut *out, frameworkContext *con
             if (!threadPoolEnqueueTasks(FRAMEWORK_META(out)->pool, FRAMEWORK_META(out)->tasks->tasks, FRAMEWORK_META(out)->tasks->taskscnt, 0))
                 logMsg(FRAMEWORK_META(out)->log, strings[STR_FR_WE], strings[STR_FN]);
             
-            size_t fail = threadPoolGetCount(FRAMEWORK_META(out)->pool), pend;
+            fail = threadPoolGetCount(FRAMEWORK_META(out)->pool);
             fail -= threadPoolDispose(FRAMEWORK_META(out)->pool, &pend);
 
             if (fail) logMsg(FRAMEWORK_META(out)->log, strings[STR_FR_WY], strings[STR_FN], fail);
@@ -210,5 +211,5 @@ bool frameworkEpilogue(frameworkIn *in, frameworkOut *out, frameworkContext *con
         free(out);
     }
 
-    return 1;
+    return !fail && !pend;
 }
